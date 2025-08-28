@@ -10961,15 +10961,18 @@ console.log(data);
                 className={`h-1.5 rounded-full transition-all duration-500 ease-in-out ${
                   (aiMessageUsage || 0) > (quotaData?.limit || currentPlanLimits.aiMessages || 0)
                     ? "bg-gradient-to-r from-red-600 to-red-800"
-                    : (aiMessageUsage || 0) > (quotaData?.limit || currentPlanLimits.aiMessages || 0) * 0.9
+                    : (quotaData?.limit || currentPlanLimits.aiMessages || 0) - (aiMessageUsage || 0) < (quotaData?.limit || currentPlanLimits.aiMessages || 0) * 0.1
                     ? "bg-gradient-to-r from-red-500 to-red-700"
-                    : (aiMessageUsage || 0) > (quotaData?.limit || currentPlanLimits.aiMessages || 0) * 0.7
+                    : (quotaData?.limit || currentPlanLimits.aiMessages || 0) - (aiMessageUsage || 0) < (quotaData?.limit || currentPlanLimits.aiMessages || 0) * 0.3
                     ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
                     : "bg-gradient-to-r from-green-500 to-green-700"
                 }`}
                 style={{
                   width: `${Math.min(
-                    ((aiMessageUsage || 0) / (quotaData?.limit || currentPlanLimits.aiMessages || 1)) * 100,
+                    Math.max(
+                      ((quotaData?.limit || currentPlanLimits.aiMessages || 1) - (aiMessageUsage || 0)) / (quotaData?.limit || currentPlanLimits.aiMessages || 1) * 100,
+                      0
+                    ),
                     100
                   )}%`,
                 }}
@@ -11001,16 +11004,19 @@ console.log(data);
                 className={`h-1.5 rounded-full transition-all duration-500 ease-in-out ${
                   contacts.length > (currentPlanLimits.contacts || 0)
                     ? "bg-gradient-to-r from-red-600 to-red-800"
-                    : contacts.length > (currentPlanLimits.contacts || 0) * 0.9
+                    : (currentPlanLimits.contacts || 0) - contacts.length < (currentPlanLimits.contacts || 0) * 0.1
                     ? "bg-gradient-to-r from-red-500 to-red-700"
-                    : contacts.length > (currentPlanLimits.contacts || 0) * 0.7
+                    : (currentPlanLimits.contacts || 0) - contacts.length < (currentPlanLimits.contacts || 0) * 0.3
                     ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
                     : "bg-gradient-to-r from-emerald-500 to-emerald-700"
                 }`}
                 style={{
                   width: `${Math.min(
-                    (contacts.length / (currentPlanLimits.contacts || 1)) * 100,
-                    120
+                    Math.max(
+                      ((currentPlanLimits.contacts || 1) - contacts.length) / (currentPlanLimits.contacts || 1) * 100,
+                      0
+                    ),
+                    100
                   )}%`,
                 }}
               ></div>
@@ -15568,8 +15574,11 @@ console.log(data);
                                 className="absolute inset-0 bg-gradient-to-r from-blue-500 via-blue-600 to-blue-500 rounded-full transition-all duration-700 ease-out shadow-sm"
                                 style={{
                                   width: `${Math.min(
-                                    ((aiMessageUsage || 0) / (quotaData?.limit || currentPlanLimits.aiMessages || 500)) *
-                                      100,
+                                    Math.max(
+                                      ((quotaData?.limit || currentPlanLimits.aiMessages || 500) - (aiMessageUsage || 0)) / (quotaData?.limit || currentPlanLimits.aiMessages || 500) *
+                                        100,
+                                      0
+                                    ),
                                     100
                                   )}%`,
                                 }}
@@ -15579,10 +15588,13 @@ console.log(data);
                             </div>
                             <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
                               {(
-                                ((aiMessageUsage || 0) / (quotaData?.limit || currentPlanLimits.aiMessages || 500)) *
-                                100
+                                Math.max(
+                                  ((quotaData?.limit || currentPlanLimits.aiMessages || 500) - (aiMessageUsage || 0)) / (quotaData?.limit || currentPlanLimits.aiMessages || 500) *
+                                    100,
+                                  0
+                                )
                               ).toFixed(1)}
-                              % quota utilized this month
+                              % quota remaining this month
                             </p>
                           </div>
                         </div>
@@ -15613,7 +15625,10 @@ console.log(data);
                                 className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-500 rounded-full transition-all duration-700 ease-out shadow-sm"
                                 style={{
                                   width: `${Math.min(
-                                    (contacts.length / (currentPlanLimits.contacts || 1)) * 100,
+                                    Math.max(
+                                      ((currentPlanLimits.contacts || 1) - contacts.length) / (currentPlanLimits.contacts || 1) * 100,
+                                      0
+                                    ),
                                     100
                                   )}%`,
                                 }}
@@ -15623,8 +15638,11 @@ console.log(data);
                             </div>
                             <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
                               {(
-                                (contacts.length / (currentPlanLimits.contacts || 1)) * 100
-                              ).toFixed(1)}% quota utilized for this account
+                                Math.max(
+                                  ((currentPlanLimits.contacts || 1) - contacts.length) / (currentPlanLimits.contacts || 1) * 100,
+                                  0
+                                )
+                              ).toFixed(1)}% quota remaining for this account
                             </p>
                             {contacts.length > currentPlanLimits.contacts && (
                               <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg border border-orange-200 dark:border-orange-700/50">
@@ -16396,7 +16414,7 @@ console.log(data);
                       </div>
                       <div className="mt-4 space-y-2">
                         {[
-                          "100 AI Responses Monthly",
+                          "100 AI Responses",
                           "100 Contacts",
                           "AI Follow-Up System",
                           "AI Booking System",

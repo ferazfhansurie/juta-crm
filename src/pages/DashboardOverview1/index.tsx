@@ -4018,17 +4018,17 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
                           className={`h-2 rounded-full transition-all duration-500 bg-gradient-to-r ${
                             totalAIResponses > aiMessageQuota
                               ? "from-red-500 to-red-600"
-                              : totalAIResponses > aiMessageQuota * 0.7
+                              : aiMessageQuota - totalAIResponses < aiMessageQuota * 0.3
                               ? "from-yellow-400 to-yellow-500"
                               : "from-green-500 to-emerald-600"
                           }`}
                           style={{ 
-                            width: `${Math.min((totalAIResponses / aiMessageQuota) * 100, 100)}%`
+                            width: `${Math.min(Math.max((aiMessageQuota - totalAIResponses) / aiMessageQuota * 100, 0), 100)}%`
                           }}
                         ></div>
                       </div>
                       <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mt-2">
-                        <span className="font-medium">Used: {totalAIResponses}</span>
+                        <span className="font-medium">Remaining: {Math.max(aiMessageQuota - totalAIResponses, 0)}</span>
                         <span className="font-medium">Limit: {aiMessageQuota}</span>
                       </div>
                     </div>
