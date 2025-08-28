@@ -684,7 +684,7 @@ function Main() {
   const [companyId, setCompanyId] = useState<string>("");
   const [currentUserRole, setCurrentUserRole] = useState<string>("");
   const [phoneOptions, setPhoneOptions] = useState<number[]>([]);
-  const [baseUrl] = useState<string>("https://juta.ngrok.app");
+  const [baseUrl] = useState<string>("https://juta-dev.ngrok.dev");
 
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [whapiToken, setToken] = useState<string | null>(null);
@@ -6893,7 +6893,7 @@ console.log(data);
 
       if (!companyResponse.ok) throw new Error("Failed to fetch company data");
       const companyData = await companyResponse.json();
-      const apiUrl = companyData.api_url || "https://juta.ngrok.app";
+      const apiUrl = companyData.api_url || "https://juta-dev.ngrok.dev";
 
       if (messageMode === "privateNote") {
         handleAddPrivateNote(messageText);
@@ -6999,7 +6999,7 @@ console.log(data);
       }
 
       // Fetch updated messages in the background to ensure consistency
-      fetchMessages(selectedChatId, companyData.api_token);
+      fetchMessagesBackground(selectedChatId, companyData.api_token);
 
       // Update the temporary message with the actual server response
       if (data && data.message_id) {
@@ -8967,7 +8967,10 @@ console.log(data);
 
       const data = await response.json();
 
-      fetchMessages(chatId, whapiToken || "");
+      // Only fetch messages if the API response was successful
+      if (data && response.ok) {
+        fetchMessagesBackground(chatId, '');
+      }
     } catch (error) {
       console.error("Error sending image message:", error);
       //  toast.error(`Failed to send image: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -9022,8 +9025,11 @@ console.log(data);
       }
 
       const data = await response.json();
-      
-      fetchMessages(chatId, whapiToken || "");
+
+      // Only fetch messages if the API response was successful
+      if (data && response.ok) {
+        fetchMessages(chatId, whapiToken || "");
+      }
     } catch (error) {
       console.error("Error sending document message:", error);
       // toast.error(`Failed to send document: ${error instanceof Error ? error.message : 'Unknown error'}`);
