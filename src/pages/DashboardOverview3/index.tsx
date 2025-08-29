@@ -2969,23 +2969,50 @@ if (selectedProgram !== -1 && selectedProgramData) {
   });
 }
   // Calculate RSVP count (participants with "Accepted" RSVP status)
-  // Debug the original CSV data to see what's happening
-  console.log("🔍 === CSV DATA DEBUG ===");
-  console.log(`📊 normalizedMtdc length: ${normalizedMtdc.length}`);
-  console.log(`📊 normalizedAihorizon length: ${normalizedAihorizon.length}`);
+  // Use program-specific data to get the correct count for the selected program
+  // Check for multiple possible RSVP status values that indicate acceptance
+  const rsvpCount = selectedProgramFilteredParticipants.filter(
+    (r: any) => {
+      const status = r["RSVP status"] || "";
+      return status === "Accepted" || status === "Yes" || status === "Confirmed" || status === "1";
+    }
+  ).length;
   
-  // Check RSVP status in each dataset
-  const mtdcRsvpCount = normalizedMtdc.filter((r: any) => r["RSVP status"] === "Accepted").length;
-  const aihorizonRsvpCount = normalizedAihorizon.filter((r: any) => r["RSVP status"] === "Accepted").length;
+  // Debug: Log RSVP calculation details
+  console.log("🔍 === RSVP CALCULATION DEBUG ===");
+  console.log(`📊 Selected Program: ${selectedProgramData?.name || "Unknown"}`);
+  console.log(`📊 Total selectedProgramFilteredParticipants: ${selectedProgramFilteredParticipants.length}`);
+  console.log(`📊 Program-specific RSVP count: ${rsvpCount}`);
   
-  console.log(`📊 MTDC RSVP Accepted: ${mtdcRsvpCount}`);
-  console.log(`📊 AI Horizon RSVP Accepted: ${aihorizonRsvpCount}`);
+  // Show detailed RSVP status breakdown for the selected program
+  const programRsvpStatusBreakdown = selectedProgramFilteredParticipants.reduce((acc: any, r) => {
+    const status = r["RSVP status"] || "Unknown";
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, {});
+  console.log(`📊 Program RSVP Status Breakdown:`, programRsvpStatusBreakdown);
   
-  const originalCsvRsvpCount = mtdcRsvpCount + aihorizonRsvpCount;
-  console.log(`📊 Combined CSV RSVP Accepted: ${originalCsvRsvpCount}`);
+  // Also show the global CSV counts for comparison
+  const globalMtdcRsvpCount = normalizedMtdc.filter((r: any) => r["RSVP status"] === "Accepted").length;
+  const globalAihorizonRsvpCount = normalizedAihorizon.filter((r: any) => r["RSVP status"] === "Accepted").length;
+  console.log(`📊 Global MTDC RSVP Accepted: ${globalMtdcRsvpCount}`);
+  console.log(`📊 Global AI Horizon RSVP Accepted: ${globalAihorizonRsvpCount}`);
+  console.log(`📊 Global Combined CSV RSVP Accepted: ${globalMtdcRsvpCount + globalAihorizonRsvpCount}`);
   
-  // Use the original CSV count instead of the potentially corrupted merged data
-  const rsvpCount = originalCsvRsvpCount;
+  // Show what RSVP statuses exist in the global data
+  const globalMtdcRsvpStatuses = normalizedMtdc.reduce((acc: any, r) => {
+    const status = r["RSVP status"] || "Unknown";
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, {});
+  const globalAihorizonRsvpStatuses = normalizedAihorizon.reduce((acc: any, r) => {
+    const status = r["RSVP status"] || "Unknown";
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, {});
+  console.log(`📊 Global MTDC RSVP Statuses:`, globalMtdcRsvpStatuses);
+  console.log(`📊 Global AI Horizon RSVP Statuses:`, globalAihorizonRsvpStatuses);
+  console.log("🔍 === END RSVP DEBUG ===");
   
   // Debug: Log RSVP calculation details
   console.log("🔍 === RSVP CALCULATION DEBUG ===");
@@ -3014,9 +3041,8 @@ if (selectedProgram !== -1 && selectedProgramData) {
     console.log(`📊 First few duplicates:`, duplicateEmails.slice(0, 5));
   }
   
-  console.log(`📊 Original CSV RSVP count: ${originalCsvRsvpCount}`);
   console.log(`📊 Merged data RSVP count: ${mergedRSVP.filter((r: any) => r["RSVP status"] === "Accepted").length}`);
-  console.log(`📊 Final RSVP count (using original CSV): ${rsvpCount}`);
+  console.log(`📊 Final RSVP count (program-specific): ${rsvpCount}`);
   console.log("🔍 === END RSVP DEBUG ===");
   
   // Calculate CSV attended count (for reference only, not used in display)
