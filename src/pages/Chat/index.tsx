@@ -1292,7 +1292,7 @@ console.log(data);
   const [messagePage, setMessagePage] = useState(0);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
-  const MESSAGES_PER_PAGE = 15;
+  const MESSAGES_PER_PAGE = 30;
 // Add these functions after the fetchMessages function (around line 6171)
 
 // Replace the existing loadMoreMessages function (around line 1298) with this corrected version:
@@ -1333,15 +1333,39 @@ const loadMoreMessages = useCallback(() => {
   }, 300);
 }, [messagePage, allMessages.length, isLoadingMoreMessages, hasMoreMessages]);
 
-const handleMessageListScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-  const target = e.target as HTMLDivElement;
-  const scrollTop = target.scrollTop;
+// Replace the handleMessageListScroll function (around line 1315) with this button approach:
+const handleLoadMoreMessages = useCallback(() => {
+  if (isLoadingMoreMessages || !hasMoreMessages) return;
   
-  // Load more messages when user scrolls to top (or near top)
-  if (scrollTop < 100 && hasMoreMessages && !isLoadingMoreMessages) {
-    loadMoreMessages();
-  }
-}, [hasMoreMessages, isLoadingMoreMessages, loadMoreMessages]);
+  setIsLoadingMoreMessages(true);
+  
+  // Simulate loading delay for better UX
+  setTimeout(() => {
+    const nextPage = messagePage + 1;
+    const startIndex = nextPage * MESSAGES_PER_PAGE;
+    const endIndex = startIndex + MESSAGES_PER_PAGE;
+    
+    console.log(`�� Debug: page ${nextPage}, start: ${startIndex}, end: ${endIndex}, total: ${allMessages.length}`);
+    
+    if (startIndex < allMessages.length) {
+      const newMessages = allMessages.slice(startIndex, endIndex);
+      setDisplayedMessages(prev => [...newMessages, ...prev]);
+      setMessagePage(nextPage);
+      setHasMoreMessages(endIndex < allMessages.length);
+      console.log(`✅ Loaded ${newMessages.length} more messages`);
+    } else {
+      console.log(`🔍 No more messages to load - reached end`);
+      setHasMoreMessages(false);
+    }
+    
+    setIsLoadingMoreMessages(false);
+  }, 500);
+}, [messagePage, allMessages.length, isLoadingMoreMessages, hasMoreMessages]);
+
+// Remove the handleMessageListScroll function entirely
+// Remove the onScroll={handleMessageListScroll} from the message list div
+// Remove the useEffect that was calling handleMessageListScroll
+
 
   // Add this useEffect to initialize displayed messages when allMessages changes
 // Fix the useEffect around line 1347:
@@ -12270,33 +12294,33 @@ useEffect(() => {
                 backgroundRepeat: "no-repeat",
               }}
               ref={messageListRef}
-              onScroll={handleMessageListScroll}
+       
             >
 
               {selectedChatId && (
                 <>
                  {/* Lazy loading indicator */}
-      {hasMoreMessages && (
-        <div className="flex justify-center my-4">
-          <button
-            onClick={loadMoreMessages}
-            disabled={isLoadingMoreMessages}
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 dark:from-blue-600/30 dark:via-purple-600/30 dark:to-pink-600/30 text-blue-900 dark:text-blue-100 font-semibold py-2 px-4 rounded-xl shadow-lg backdrop-blur-xl border border-blue-300/40 dark:border-blue-400/40 text-sm hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isLoadingMoreMessages ? (
-              <>
-                <LoadingIcon icon="tail-spin" className="w-4 h-4" />
-                Loading more messages...
-              </>
-            ) : (
-              <>
-                <Lucide icon="ArrowUp" className="w-4 h-4" />
-                Load more messages
-              </>
-            )}
-          </button>
-        </div>
+{hasMoreMessages && (
+  <div className="flex justify-center py-4">
+    <button
+      onClick={handleLoadMoreMessages}
+      disabled={isLoadingMoreMessages}
+      className="relative overflow-hidden px-6 py-3 rounded-xl bg-white/10 dark:bg-gray-800/20 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 text-gray-700 dark:text-gray-200 font-medium text-sm transition-all duration-300 hover:bg-white/20 dark:hover:bg-gray-800/30 hover:border-white/30 dark:hover:border-gray-600/40 hover:shadow-lg hover:shadow-black/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white/10 disabled:hover:border-white/20"
+    >
+      {isLoadingMoreMessages ? (
+        <>
+          <LoadingIcon icon="rings" className="w-4 h-4 mr-2 inline-block" />
+          Loading...
+        </>
+      ) : (
+        <>
+          <span className="relative z-10">Load More Messages</span>
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent transform -skew-x-12 -translate-x-full animate-shimmer"></div>
+        </>
       )}
+    </button>
+  </div>
+)}
                   {displayedMessages
                     .filter(
                       (message) =>
