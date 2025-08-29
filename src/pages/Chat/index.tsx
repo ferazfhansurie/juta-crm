@@ -1288,7 +1288,80 @@ console.log(data);
   };
 
   const currentPlanLimits = getCurrentPlanLimits();
+  const [displayedMessages, setDisplayedMessages] = useState<Message[]>([]);
+  const [messagePage, setMessagePage] = useState(0);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
+  const MESSAGES_PER_PAGE = 15;
+// Add these functions after the fetchMessages function (around line 6171)
 
+// Replace the existing loadMoreMessages function (around line 1298) with this corrected version:
+// Replace the loadMoreMessages function (around line 1299) with this corrected version:
+const loadMoreMessages = useCallback(() => {
+  if (isLoadingMoreMessages || !hasMoreMessages) return;
+  
+  setIsLoadingMoreMessages(true);
+  
+  // Simulate loading delay for better UX
+  setTimeout(() => {
+    const nextPage = messagePage + 1;
+    const startIndex = nextPage * MESSAGES_PER_PAGE;
+    const endIndex = startIndex + MESSAGES_PER_PAGE;
+    
+    console.log(`�� Debug: page ${nextPage}, start: ${startIndex}, end: ${endIndex}, total: ${allMessages.length}`);
+    
+    if (startIndex < allMessages.length) {
+      const newMessages = allMessages.slice(startIndex, endIndex);
+      console.log(`🔍 New messages to add: ${newMessages.length}`);
+      
+      setDisplayedMessages(prev => {
+        const updated = [...newMessages, ...prev];
+        console.log(`🔍 Updated displayed messages: ${updated.length}`);
+        return updated;
+      });
+      
+      setMessagePage(nextPage);
+      setHasMoreMessages(endIndex < allMessages.length);
+      
+      console.log(`🔍 Successfully loaded more messages. Next page: ${nextPage + 1}, hasMore: ${endIndex < allMessages.length}`);
+    } else {
+      setHasMoreMessages(false);
+      console.log('🔍 No more messages to load - reached end');
+    }
+    
+    setIsLoadingMoreMessages(false);
+  }, 300);
+}, [messagePage, allMessages.length, isLoadingMoreMessages, hasMoreMessages]);
+
+const handleMessageListScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+  const target = e.target as HTMLDivElement;
+  const scrollTop = target.scrollTop;
+  
+  // Load more messages when user scrolls to top (or near top)
+  if (scrollTop < 100 && hasMoreMessages && !isLoadingMoreMessages) {
+    loadMoreMessages();
+  }
+}, [hasMoreMessages, isLoadingMoreMessages, loadMoreMessages]);
+
+  // Add this useEffect to initialize displayed messages when allMessages changes
+// Fix the useEffect around line 1347:
+useEffect(() => {
+  if (allMessages.length > 0) {
+    // Show the most recent messages first (last MESSAGES_PER_PAGE messages)
+    const recentMessages = allMessages.slice(-MESSAGES_PER_PAGE);
+    setDisplayedMessages(recentMessages);
+    
+    // Fix: Calculate the correct starting page (should be 0, not the last page)
+    setMessagePage(0); // Start from page 0, not the last page
+    setHasMoreMessages(allMessages.length > MESSAGES_PER_PAGE);
+    
+    console.log(`🔍 Initialized lazy loading: ${recentMessages.length} messages shown, ${allMessages.length} total, page: 0, hasMore: ${allMessages.length > MESSAGES_PER_PAGE}`);
+  } else {
+    setDisplayedMessages([]);
+    setMessagePage(0);
+    setHasMoreMessages(false);
+  }
+}, [allMessages]);
   // PayEx payment handler
   const handlePayExPayment = async (planType: string, amount: number) => {
     try {
@@ -6096,7 +6169,10 @@ console.log(data);
 
       console.log("formattedMessages:", mergedMessages);
       setAllMessages(mergedMessages); // Store all messages for filtering
-      setMessages(mergedMessages); // Update the main messages state
+      const recentMessages = mergedMessages.slice(-MESSAGES_PER_PAGE);
+      setDisplayedMessages(recentMessages);
+      setMessagePage(Math.floor((mergedMessages.length - 1) / MESSAGES_PER_PAGE));
+      setHasMoreMessages(mergedMessages.length > MESSAGES_PER_PAGE);
 
       // Update last message timestamp for polling
       if (mergedMessages.length > 0) {
@@ -12194,11 +12270,34 @@ console.log(data);
                 backgroundRepeat: "no-repeat",
               }}
               ref={messageListRef}
+              onScroll={handleMessageListScroll}
             >
 
               {selectedChatId && (
                 <>
-                  {messages
+                 {/* Lazy loading indicator */}
+      {hasMoreMessages && (
+        <div className="flex justify-center my-4">
+          <button
+            onClick={loadMoreMessages}
+            disabled={isLoadingMoreMessages}
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 dark:from-blue-600/30 dark:via-purple-600/30 dark:to-pink-600/30 text-blue-900 dark:text-blue-100 font-semibold py-2 px-4 rounded-xl shadow-lg backdrop-blur-xl border border-blue-300/40 dark:border-blue-400/40 text-sm hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoadingMoreMessages ? (
+              <>
+                <LoadingIcon icon="tail-spin" className="w-4 h-4" />
+                Loading more messages...
+              </>
+            ) : (
+              <>
+                <Lucide icon="ArrowUp" className="w-4 h-4" />
+                Load more messages
+              </>
+            )}
+          </button>
+        </div>
+      )}
+                  {displayedMessages
                     .filter(
                       (message) =>
                         message.type !== "action" &&

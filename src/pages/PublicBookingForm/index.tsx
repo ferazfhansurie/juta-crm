@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Button from "@/components/Base/Button";
+import alistLogo from '@/assets/images/alist-logo.png';
 import LoadingIcon from '@/components/Base/LoadingIcon';
 import { Dialog } from '@headlessui/react';
 import axios from 'axios';
@@ -2032,7 +2033,7 @@ function PublicBookingForm() {
             <div className="flex items-center justify-center gap-3 mb-6">
               <div className="w-16 h-16  rounded-2xl flex items-center justify-center shadow-lg">
                 <img 
-                  src="/src/assets/images/alist-logo.png" 
+                  src={alistLogo}
                   alt="THE A-LIST" 
                   className="w-24 h-24 object-contain"
                 />
