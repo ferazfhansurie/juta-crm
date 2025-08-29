@@ -91,7 +91,7 @@ interface ReminderData {
 }
 
 function PublicBookingForm() {
-  const { slotTitle, staffName, phone } = useParams<{ slotTitle: string; staffName: string; phone: string }>();
+  const { slug, phone } = useParams<{ slug: string; phone?: string }>();
   const navigate = useNavigate();
   const [slot, setSlot] = useState<BookingSlot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -101,32 +101,59 @@ function PublicBookingForm() {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [companyName, setCompanyName] = useState('');
-  const [isBooked, setIsBooked] = useState(false);
-  const [baseUrl] = useState<string>('https://juta-dev.ngrok.dev');
-  const [selectedDate, setSelectedDate] = useState<string>('');
-  const [selectedTime, setSelectedTime] = useState<string>('');
-  const [selectedStaff, setSelectedStaff] = useState<string>(staffName || '');
-  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(new Date());
-  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
-  const [availableSlots, setAvailableSlots] = useState<Record<string, TimeSlot[]>>({});
-  const [isLoadingSlots, setIsLoadingSlots] = useState(false);
-  const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{date: string, time: string} | null>(null);
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedTime, setSelectedTime] = useState('');
+  const [availableSlots, setAvailableSlots] = useState<Record<string, TimeSlot[]>>({});
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
+    monday.setHours(0, 0, 0, 0);
+    return monday;
+  });
+  const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
+  const [isLoadingSlots, setIsLoadingSlots] = useState(false);
   const [employees, setEmployees] = useState<any[]>([]);
+  const [baseUrl] = useState(() => {
+    // Use environment variable or fallback to development URL
+    return import.meta.env.VITE_API_BASE_URL || 'https://juta-dev.ngrok.dev';
+  });
+  const [isBooked, setIsBooked] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState<string>('');
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  // Debug logging
+  console.log('🔍 PublicBookingForm rendered with:', { slug, phone });
 
   useEffect(() => {
-    console.log('🚀 useEffect triggered with slotTitle:', slotTitle);
-    if (slotTitle) {
-      console.log('📞 Calling fetchSlot for:', slotTitle);
-      fetchSlot(slotTitle).catch(error => {
+    if (slug) {
+      console.log('🚀 useEffect triggered with slug:', slug);
+      console.log('📞 Calling fetchSlot for:', slug);
+      
+      // slug already contains the full slug (e.g., "introduction-thera-a-list")
+      // No need to combine with staffName again
+      console.log('🔗 Using slug as slug:', slug);
+      
+      fetchSlot(slug);
+    }
+  }, [slug]);
+
+  useEffect(() => {
+    console.log('🚀 useEffect triggered with slug:', slug);
+    if (slug) {
+      console.log('📞 Calling fetchSlot for:', slug);
+      fetchSlot(slug).catch(error => {
         console.error('🚨 fetchSlot failed completely:', error);
         // Emergency fallback
   
         setIsLoading(false);
       });
     } else {
-      console.log('🎭 No slotTitle, using mock data');
+      console.log('🎭 No slug, using mock data');
       // For testing purposes, set mock data
 
       setSelectedStaff('Tika'); // Pre-select the staff member
@@ -137,13 +164,15 @@ function PublicBookingForm() {
     const timeoutId = setTimeout(() => {
       console.log('⏰ Ultra-fast fallback triggered - preventing "Not Found" message');
       if (!slot) {
- 
         setIsLoading(false);
       }
     }, 1000);
 
     return () => clearTimeout(timeoutId);
-    // Initialize current week to start from Monday
+  }, [slug]);
+
+  // Initialize current week to start from Monday
+  useEffect(() => {
     const today = new Date();
     console.log('🗓️ Initializing with today:', today.toISOString());
     const monday = new Date(today);
@@ -166,7 +195,7 @@ function PublicBookingForm() {
     
     // Fetch Google Calendar availability
     fetchGoogleCalendarAvailability(monday);
-  }, [slotTitle]);
+  }, []);
 
   // Watch for week changes to fetch new availability
   useEffect(() => {
@@ -403,15 +432,16 @@ function PublicBookingForm() {
       console.log('🗓️ fetchGoogleCalendarAvailability called with weekStart:', weekStart);
       console.log('👤 Using email:', userEmail);
       
-      // Get the whole month instead of just one week
-      const monthStart = new Date(weekStart.getFullYear(), weekStart.getMonth(), 1);
-      const monthEnd = new Date(weekStart.getFullYear(), weekStart.getMonth() + 1, 0);
+      // Get events for current week plus next week to ensure we cover all relevant dates
+      const weekStartDate = new Date(weekStart);
+      const weekEndDate = new Date(weekStart);
+      weekEndDate.setDate(weekStart.getDate() + 13); // Current week + next week (14 days total)
       
-      console.log('📅 Fetching for entire month:', formatDate(monthStart), 'to', formatDate(monthEnd));
+      console.log('📅 Fetching for date range:', formatDate(weekStartDate), 'to', formatDate(weekEndDate));
       
-      // Fetch all events for the entire month in one API call
-      const monthEvents = await fetchMonthEvents(monthStart, monthEnd, userEmail);
-      console.log(`📅 Got ${monthEvents.length} events for the entire month`);
+      // Fetch all events for the date range in one API call
+      const dateRangeEvents = await fetchEventsByDateRange(weekStartDate, weekEndDate, userEmail);
+      console.log(`📅 Got ${dateRangeEvents.length} events for the date range`);
 
       // Generate dates for current week display
       const weekDates: Date[] = [];
@@ -429,77 +459,58 @@ function PublicBookingForm() {
       for (const date of weekDates) {
         // Skip weekends (Sunday = 0, Saturday = 6)
         if (date.getDay() === 0 || date.getDay() === 6) {
-          console.log('⏭️ Skipping weekend:', formatDate(date), `(day ${date.getDay()})`);
           continue;
         }
         
-        console.log('🔍 Processing availability for:', formatDate(date));
         const dateStr = formatDate(date);
         
         // Filter events for this specific date
-        console.log(`🔍 Filtering events for ${dateStr} from ${monthEvents.length} total events`);
-        
-        const dayEvents = monthEvents.filter(event => {
+        const dayEvents = dateRangeEvents.filter(event => {
           let eventDate = '';
-          let eventType = '';
           
           // Handle different event types
           if (event.start.dateTime) {
-            const originalDateTime = event.start.dateTime;
             const parsedDate = new Date(event.start.dateTime);
             eventDate = formatDate(parsedDate);
-            eventType = 'timed';
-            
-            // Debug timezone issues
-            console.log(`🕐 DateTime parsing for "${event.summary}":`, {
-              original: originalDateTime,
-              parsed: parsedDate.toISOString(),
-              localString: parsedDate.toLocaleString(),
-              formatDate_local: eventDate,
-              formatDate_UTC: formatDateUTC(parsedDate),
-              timezone: parsedDate.getTimezoneOffset(),
-              targetDate: dateStr
-            });
           } else if (event.start.date) {
             eventDate = event.start.date;
-            eventType = 'all-day';
-            console.log(`📅 Pure all-day event "${event.summary}": ${eventDate}`);
           } else {
-            console.warn(`⚠️ Event has no date or dateTime:`, event);
             return false;
           }
           
-          const matches = eventDate === dateStr;
-          
-          if (matches) {
-            console.log(`  ✅ Event matches ${dateStr}: "${event.summary}" (${eventType}, date: ${eventDate})`);
-          } else {
-            console.log(`  ❌ Event doesn't match ${dateStr}: "${event.summary}" (${eventType}, date: ${eventDate})`);
-          }
-          
-          return matches;
+          return eventDate === dateStr;
         });
         
-        console.log(`�� Found ${dayEvents.length} events for ${dateStr}:`);
         if (dayEvents.length > 0) {
+          console.log(`📅 ${dateStr}: ${dayEvents.length} events found`);
           dayEvents.forEach((event, i) => {
-            console.log(`  ${i + 1}. ${event.summary}`);
             if (event.start.dateTime && event.end.dateTime) {
-              console.log(`     Time: ${new Date(event.start.dateTime).toLocaleString()} - ${new Date(event.end.dateTime).toLocaleString()}`);
+              const duration = Math.round((new Date(event.end.dateTime).getTime() - new Date(event.start.dateTime).getTime()) / 60000);
+              console.log(`   ${i + 1}. ${event.summary} (${duration}min)`);
+              
+              // Special debugging for MEETING SALES
+              if (event.summary === 'MEETING SALES') {
+                console.log(`🔍 DEBUG MEETING SALES:`);
+                console.log(`   Raw start: ${event.start.dateTime}`);
+                console.log(`   Raw end: ${event.end.dateTime}`);
+                console.log(`   Parsed start: ${new Date(event.start.dateTime).toLocaleString()}`);
+                console.log(`   Parsed end: ${new Date(event.end.dateTime).toLocaleString()}`);
+                console.log(`   Duration: ${duration} minutes`);
+              }
             } else {
-              console.log(`     All-day: ${event.start.date || 'N/A'} - ${event.end.date || 'N/A'}`);
+              console.log(`   ${i + 1}. ${event.summary} (all-day)`);
             }
           });
         }
         
         const daySlots = processDayAvailability(date, dayEvents);
         availability[dateStr] = daySlots;
-        console.log(`✅ Got ${daySlots.length} available slots for ${dateStr}`);
+        console.log(`✅ ${dateStr}: ${daySlots.length} available slots`);
       }
 
       // Log events that didn't match any week day (for debugging)
       console.log('🔍 Checking for events that didn\'t match any week day...');
-      const unmatchedEvents = monthEvents.filter(event => {
+      const unmatchedEvents = dateRangeEvents.filter(event => {
         const eventDate = event.start.dateTime ? 
           formatDate(new Date(event.start.dateTime)) : 
           (event.start.date || '');
@@ -534,81 +545,7 @@ function PublicBookingForm() {
     }
   };
 
-  const fetchMonthEvents = async (monthStart: Date, monthEnd: Date, userEmail: string): Promise<GoogleCalendarEvent[]> => {
-    try {
-      // Format dates for Google Calendar API - get entire month
-      const startOfMonth = new Date(monthStart);
-      startOfMonth.setHours(0, 0, 0, 0);
-      const endOfMonth = new Date(monthEnd);
-      endOfMonth.setHours(23, 59, 59, 999);
 
-      const apiUrl = `${baseUrl}/api/google-calendar/events`;
-      const apiParams = {
-        email: userEmail,
-        timeMin: startOfMonth.toISOString(),
-        timeMax: endOfMonth.toISOString(),
-        calendarId: 'thealistmalaysia@gmail.com'
-      };
-
-      console.log('🌐 Making MONTH API call to:', apiUrl);
-      console.log('📋 Month API Parameters:', apiParams);
-      console.log('🔗 Month Full URL:', `${apiUrl}?${new URLSearchParams(apiParams).toString()}`);
-
-      const response = await axios.get(apiUrl, {
-        params: apiParams
-      });
-
-      console.log('📡 Month API Response status:', response.status);
-      console.log('📊 Month API Response data:', response.data);
-
-      const events: GoogleCalendarEvent[] = response.data.events || [];
-      console.log(`📅 Found ${events.length} events for entire month`);
-      
-      // Log all events with detailed information
-      if (events.length > 0) {
-        console.log('🎯 ALL MONTH EVENTS DETAILS:');
-        
-        // Categorize events
-        const timedEvents = events.filter(e => e.start.dateTime);
-        const allDayEvents = events.filter(e => e.start.date && !e.start.dateTime);
-        const invalidEvents = events.filter(e => !e.start.dateTime && !e.start.date);
-        
-        console.log(`📊 Event Summary: ${events.length} total (${timedEvents.length} timed, ${allDayEvents.length} all-day, ${invalidEvents.length} invalid)`);
-        
-        events.forEach((event, index) => {
-         
-          // Show parsed dates for easier reading
-          if (event.start.dateTime && event.end.dateTime) {
-            const eventStart = new Date(event.start.dateTime);
-            const eventEnd = new Date(event.end.dateTime);
-            const duration = eventEnd.getTime() - eventStart.getTime();
-            const isAllDay = (duration >= 24 * 60 * 60 * 1000) && 
-                            (eventStart.getHours() === 0 && eventStart.getMinutes() === 0);
-            
-            
-            console.log(`     Date: ${formatDate(eventStart)}`);
-          } else if (event.start.date) {
-            console.log(`  📅 All-day Event (date): ${event.summary}`);
-            console.log(`     Start Date: ${event.start.date}`);
-            console.log(`     End Date: ${event.end.date || 'N/A'}`);
-          }
-          console.log('  ---');
-        });
-      } else {
-        console.log('❌ No events found for the month');
-      }
-      
-      return events;
-    } catch (error) {
-      console.error('❌ Error fetching month events:', error);
-      if (error instanceof Error && 'response' in error) {
-        const axiosError = error as any;
-        console.error('📡 Response status:', axiosError.response?.status);
-        console.error('📡 Response data:', axiosError.response?.data);
-      }
-      return [];
-    }
-  };
 
   const processDayAvailability = (date: Date, dayEvents: GoogleCalendarEvent[]): TimeSlot[] => {
     // Generate all possible time slots for the day (9 AM to 5 PM)
@@ -617,24 +554,33 @@ function PublicBookingForm() {
 
     console.log(`⏰ Processing ${allSlots.length} time slots for ${formatDate(date)} with ${dayEvents.length} events`);
 
+    // Debug: Show all events being processed
+    if (dayEvents.length > 0) {
+      console.log(`🔍 Events to process for ${formatDate(date)}:`);
+      dayEvents.forEach((event, i) => {
+        console.log(`   ${i + 1}. ${event.summary} - ${event.start.dateTime || event.start.date}`);
+      });
+    }
+
     for (const slot of allSlots) {
       const slotStart = parseTimeSlot(date, slot.time);
       const slotEnd = new Date(slotStart.getTime() + (slot.duration || 30) * 60000);
 
       // Check if this slot conflicts with any existing events
       const conflictingEvents = dayEvents.filter(event => {
+        // Special debugging for MEETING SALES
+        if (event.summary === 'MEETING SALES') {
+          console.log(`🔍 DEBUG: Processing MEETING SALES event in overlap check`);
+        }
+        
         // Handle all-day events (date field - no time specified)
         if (event.start.date && !event.start.dateTime) {
-          console.log(`🔍 Checking all-day event: "${event.summary}" (${event.start.date})`);
-          
-          // All-day events block the entire day
-          // If the event start date matches the slot date, it's blocked
           const eventDate = event.start.date;
           const slotDateStr = formatDate(date);
           const isBlocked = eventDate === slotDateStr;
           
           if (isBlocked) {
-            console.log(`🚫 Slot ${slot.time} blocked by all-day event: "${event.summary}" (${eventDate})`);
+            console.log(`🚫 ${slot.time} blocked by all-day event: "${event.summary}"`);
           }
           return isBlocked;
         }
@@ -655,16 +601,33 @@ function PublicBookingForm() {
             const isBlocked = eventDateStr === slotDateStr;
             
             if (isBlocked) {
-              console.log(`🚫 Slot ${slot.time} blocked by all-day dateTime event: "${event.summary}" (detected as 24h+ event)`);
+              console.log(`🚫 ${slot.time} blocked by all-day event: "${event.summary}"`);
             }
             return isBlocked;
           }
           
           // Regular timed event - check for overlap
-          const hasOverlap = (slotStart < eventEnd && slotEnd > eventStart);
+          // The event times are already in the correct timezone, no need to convert
+          const eventStartLocal = new Date(eventStart);
+          const eventEndLocal = new Date(eventEnd);
+          
+          const hasOverlap = (slotStart < eventEndLocal && slotEnd > eventStartLocal);
+          
           if (hasOverlap) {
-            console.log(`⚠️ Slot ${slot.time} (${slotStart.toISOString()} - ${slotEnd.toISOString()}) conflicts with: "${event.summary}" (${eventStart.toISOString()} - ${eventEnd.toISOString()})`);
+            console.log(`⚠️ ${slot.time} conflicts with: "${event.summary}" (${eventStartLocal.toLocaleTimeString()}-${eventEndLocal.toLocaleTimeString()})`);
           }
+          
+          // Special debugging for MEETING SALES
+          if (event.summary === 'MEETING SALES') {
+            console.log(`🔍 DEBUG MEETING SALES OVERLAP CHECK:`);
+            console.log(`   Slot: ${slot.time} (${slotStart.toLocaleString()} - ${slotEnd.toLocaleString()})`);
+            console.log(`   Event: "${event.summary}" (${eventStartLocal.toLocaleString()} - ${eventEndLocal.toLocaleString()})`);
+            console.log(`   Overlap calculation: slotStart < eventEndLocal && slotEnd > eventStartLocal`);
+            console.log(`   ${slotStart.toLocaleString()} < ${eventEndLocal.toLocaleString()} = ${slotStart < eventEndLocal}`);
+            console.log(`   ${slotEnd.toLocaleString()} > ${eventStartLocal.toLocaleString()} = ${slotEnd > eventStartLocal}`);
+            console.log(`   Has overlap: ${hasOverlap}`);
+          }
+          
           return hasOverlap;
         }
         
@@ -674,10 +637,7 @@ function PublicBookingForm() {
       const hasConflict = conflictingEvents.length > 0;
 
       // Only add if no conflict and not in the past
-      // Compare in local timezone - current time in Malaysia
       const nowInMalaysia = new Date();
-      // For booking slots, only consider today's slots that have already passed as "past"
-      // Allow future dates and future times on today
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const slotDate = new Date(date);
@@ -691,14 +651,12 @@ function PublicBookingForm() {
         // Past date
         isPast = true;
       }
-      // Future dates are always available (isPast = false)
       
       if (isPast) {
-        console.log(`⏳ Slot ${slot.time} is in the past (slot: ${slotStart.toLocaleString()}, now: ${nowInMalaysia.toLocaleString()}), skipping`);
+        console.log(`⏳ ${slot.time} is in the past, skipping`);
       }
       
       if (!hasConflict && !isPast) {
-        console.log(`✅ Slot ${slot.time} is available`);
         availableSlots.push({
           time: slot.time,
           available: true,
@@ -707,7 +665,6 @@ function PublicBookingForm() {
       }
     }
 
-    console.log(`🎯 Returning ${availableSlots.length} available slots for ${formatDate(date)}`);
     return availableSlots;
   };
 
@@ -772,7 +729,7 @@ function PublicBookingForm() {
             // All-day event blocks the entire day
             const isBlocked = slotDate >= eventStartDate && slotDate < eventEndDate;
             if (isBlocked) {
-              console.log(`🚫 Slot ${slot.time} blocked by all-day event: ${event.summary}`);
+              console.log(`🚫 ${slot.time} blocked by all-day event: ${event.summary}`);
             }
             return isBlocked;
           }
@@ -782,10 +739,14 @@ function PublicBookingForm() {
             const eventStart = new Date(event.start.dateTime);
             const eventEnd = new Date(event.end.dateTime);
             
+            // The event times are already in the correct timezone, no need to convert
+            const eventStartLocal = new Date(eventStart);
+            const eventEndLocal = new Date(eventEnd);
+            
             // Check for overlap
-            const hasOverlap = (slotStart < eventEnd && slotEnd > eventStart);
+            const hasOverlap = (slotStart < eventEndLocal && slotEnd > eventStartLocal);
             if (hasOverlap) {
-              console.log(`⚠️ Slot ${slot.time} (${slotStart.toISOString()} - ${slotEnd.toISOString()}) conflicts with: ${event.summary} (${eventStart.toISOString()} - ${eventEnd.toISOString()})`);
+              console.log(`⚠️ ${slot.time} conflicts with: ${event.summary} (${eventStartLocal.toLocaleTimeString()}-${eventEndLocal.toLocaleTimeString()})`);
             }
             return hasOverlap;
           }
@@ -796,10 +757,7 @@ function PublicBookingForm() {
         const hasConflict = conflictingEvents.length > 0;
 
         // Only add if no conflict and not in the past
-        // Compare in local timezone - current time in Malaysia
         const nowInMalaysia = new Date();
-        // For booking slots, only consider today's slots that have already passed as "past"
-        // Allow future dates and future times on today
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const slotDate = new Date(date);
@@ -813,14 +771,12 @@ function PublicBookingForm() {
           // Past date
           isPast = true;
         }
-        // Future dates are always available (isPast = false)
         
         if (isPast) {
-          console.log(`⏳ Slot ${slot.time} is in the past (slot: ${slotStart.toLocaleString()}, now: ${nowInMalaysia.toLocaleString()}), skipping`);
+          console.log(`⏳ ${slot.time} is in the past, skipping`);
         }
         
         if (!hasConflict && !isPast) {
-          console.log(`✅ Slot ${slot.time} is available`);
           availableSlots.push({
             time: slot.time,
             available: true,
@@ -844,11 +800,11 @@ function PublicBookingForm() {
 
   const generateAllTimeSlots = () => {
     const slots = [];
-    // Generate slots from 10 AM to 4:30 PM
-    for (let hour = 10; hour <= 16; hour++) {
+    // Generate slots from 9 AM to 5 PM (business hours)
+    for (let hour = 9; hour <= 17; hour++) {
       for (let minute = 0; minute < 60; minute += 30) {
-        // Stop at 4:30 PM (16:30)
-        if (hour === 16 && minute > 30) break;
+        // Stop at 5:00 PM (17:00)
+        if (hour === 17 && minute > 0) break;
         
         const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
         const period = hour >= 12 ? 'pm' : 'am';
@@ -860,7 +816,6 @@ function PublicBookingForm() {
         });
       }
     }
-    console.log(`⏰ Generated ${slots.length} time slots (10:00am - 4:30pm)`);
     return slots;
   };
 
@@ -875,16 +830,17 @@ function PublicBookingForm() {
 
     const result = new Date(date);
     result.setHours(hour, minute, 0, 0);
+    
     return result;
   };
 
   const fetchSlot = async (title: string) => {
     console.log('🔍 Fetching slot for title:', title);
     try {
-      // Use the correct Neon database endpoint for booking slots
-      const response = await axios.get(`${baseUrl}/api/booking-slots/${title}`, {
-  
-      });
+      setError(null); // Clear any previous errors
+      
+      // Use the simplified slug format: title-staffname
+      const response = await axios.get(`${baseUrl}/api/booking-slots/${title}`);
       
       console.log('📡 API Response:', response.data);
       
@@ -892,19 +848,26 @@ function PublicBookingForm() {
         console.log('✅ Setting slot from API:', response.data.bookingSlot);
         setSlot(response.data.bookingSlot);
         
+        // Set selected staff from slot data
+        if (response.data.bookingSlot.staff_name) {
+          setSelectedStaff(response.data.bookingSlot.staff_name);
+        }
+        
         // If we have a company_id, fetch employees for this company
         if (response.data.bookingSlot.company_id) {
           await fetchEmployees(response.data.bookingSlot.company_id);
         }
-      } else {
-        throw new Error('No booking slot found in response');
+        return; // Success, exit early
       }
-    } catch (error) {
-      console.error('❌ Error fetching booking slot:', error);
-      throw error; // Let the useEffect handle the fallback
-    } finally {
-      console.log('🏁 Setting isLoading to false');
-      setIsLoading(false);
+      
+      // If we get here, the slot wasn't found
+      console.log('❌ No slot found for title:', title);
+      setError(`Booking slot not found: ${title}`);
+      setSlot(null);
+    } catch (error: any) {
+      console.error('❌ Error fetching slot:', error);
+      setError(`Failed to load booking slot: ${error.message || 'Unknown error'}`);
+      setSlot(null);
     }
   };
 
@@ -922,13 +885,13 @@ function PublicBookingForm() {
         setEmployees(response.data);
         
         // If staffName is provided in URL params, find and set the selected staff
-        if (staffName && response.data.length > 0) {
+        if (slot?.staff_name && response.data.length > 0) {
           const matchingEmployee = response.data.find((emp: any) => 
-            emp.name?.toLowerCase().includes(staffName.toLowerCase()) ||
-            emp.fullName?.toLowerCase().includes(staffName.toLowerCase())
+            emp.name?.toLowerCase().includes(slot?.staff_name?.toLowerCase() || '') ||
+            emp.fullName?.toLowerCase().includes(slot?.staff_name?.toLowerCase() || '')
           );
           if (matchingEmployee) {
-            setSelectedStaff(matchingEmployee.name || matchingEmployee.fullName || staffName);
+            setSelectedStaff(matchingEmployee.name || matchingEmployee.fullName || slot?.staff_name || '');
             console.log('✅ Pre-selected staff from URL:', matchingEmployee);
             
             // Update slot with staff phone if available
@@ -987,7 +950,7 @@ function PublicBookingForm() {
       const startTime = parseTimeSlot(eventDate, selectedSlot.time);
 
       // For test mode, skip database booking but try Google Calendar
-      if (!slotTitle) {
+      if (!slug) {
         console.log('Test booking data:', bookingRecord);
         
         // Try to create Google Calendar event for testing
@@ -1243,7 +1206,7 @@ function PublicBookingForm() {
       // Fallback: Try to get employee data from a different endpoint
       try {
         console.log('🔄 Trying alternative employee data endpoint...');
-        const altResponse = await axios.get(`${baseUrl}/api/employees?companyId=${companyId}&search=${encodeURIComponent(staffName)}`);
+        const altResponse = await axios.get(`${baseUrl}/api/employees-data/${companyId}`);
         
         if (altResponse.data && altResponse.data.employees) {
           console.log('📋 Found employees in alternative endpoint:', altResponse.data.employees);
@@ -1276,7 +1239,7 @@ function PublicBookingForm() {
       // Try one more approach: search by name in the employees endpoint
       try {
         console.log('🔄 Trying direct name search in employees endpoint...');
-        const searchResponse = await axios.get(`${baseUrl}/api/employees?companyId=${companyId}`);
+        const searchResponse = await axios.get(`${baseUrl}/api/employees-data/${companyId}`);
         
         if (searchResponse.data && searchResponse.data.employees) {
           console.log('📋 All employees in company:', searchResponse.data.employees);
@@ -1761,7 +1724,7 @@ function PublicBookingForm() {
       
       // Test employees endpoint
       try {
-        const empResponse = await axios.get(`${baseUrl}/api/employees?companyId=${slot?.company_id || '0210'}`);
+        const empResponse = await axios.get(`${baseUrl}/api/employees-data/${slot?.company_id || '0210'}`);
         console.log('📋 employees endpoint response:', empResponse.data);
         if (empResponse.data && empResponse.data.employees) {
           console.log('👥 Available employees from employees endpoint:', empResponse.data.employees);
@@ -1775,78 +1738,278 @@ function PublicBookingForm() {
     }
   };
 
+  const fetchEventsByDateRange = async (startDate: Date, endDate: Date, userEmail: string): Promise<GoogleCalendarEvent[]> => {
+    try {
+      // Format dates for Google Calendar API
+      const startOfRange = new Date(startDate);
+      startOfRange.setHours(0, 0, 0, 0);
+      const endOfRange = new Date(endDate);
+      endOfRange.setHours(23, 59, 59, 999);
+
+      const apiUrl = `${baseUrl}/api/google-calendar/events`;
+      const apiParams = {
+        email: userEmail,
+        timeMin: startOfRange.toISOString(),
+        timeMax: endOfRange.toISOString(),
+        calendarId: 'thealistmalaysia@gmail.com'
+      };
+
+      console.log('🌐 Making date range API call to:', apiUrl);
+      console.log('📋 Date range API Parameters:', apiParams);
+      console.log('🔗 Date range Full URL:', `${apiUrl}?${new URLSearchParams(apiParams).toString()}`);
+
+      const response = await axios.get(apiUrl, {
+        params: apiParams
+      });
+
+      console.log('📡 Date range API Response status:', response.status);
+      console.log('📊 Date range API Response data:', response.data);
+
+      const events: GoogleCalendarEvent[] = response.data.events || [];
+      console.log(`📅 Found ${events.length} events for date range`);
+      
+      // Log events with dates for debugging
+      if (events.length > 0) {
+        console.log('🎯 EVENTS BY DATE:');
+        const eventsByDate: Record<string, string[]> = {};
+        
+        events.forEach((event) => {
+          let eventDate = '';
+          if (event.start.dateTime) {
+            eventDate = formatDate(new Date(event.start.dateTime));
+          } else if (event.start.date) {
+            eventDate = event.start.date;
+          }
+          
+          if (eventDate) {
+            if (!eventsByDate[eventDate]) {
+              eventsByDate[eventDate] = [];
+            }
+            eventsByDate[eventDate].push(event.summary);
+          }
+        });
+        
+        // Display events grouped by date
+        Object.keys(eventsByDate).sort().forEach(date => {
+          console.log(`  ${date}: ${eventsByDate[date].length} events`);
+          eventsByDate[date].forEach(eventSummary => {
+            console.log(`    - ${eventSummary}`);
+          });
+        });
+      } else {
+        console.log('❌ No events found for the date range');
+      }
+      
+      return events;
+    } catch (error) {
+      console.error('❌ Error fetching events by date range:', error);
+      if (error instanceof Error && 'response' in error) {
+        const axiosError = error as any;
+        console.error('📡 Response status:', axiosError.response?.status);
+        console.error('📡 Response data:', axiosError.response?.data);
+      }
+      return [];
+    }
+  };
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-white via-red-50 to-pink-100 dark:from-slate-900 dark:via-red-900/20 dark:to-pink-900/20">
+        <div className="relative max-w-2xl mx-auto px-4 py-12">
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-r from-red-500 to-red-600 rounded-3xl mb-8 shadow-2xl">
+              <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+            
+            <h1 className="text-4xl font-bold text-red-600 dark:text-red-400 mb-4">
+              Booking Error
+            </h1>
+            <p className="text-xl text-slate-600 dark:text-slate-400 mb-8">{error}</p>
+            
+            <div className="backdrop-blur-2xl bg-white/90 dark:bg-slate-800/90 rounded-3xl border border-white/40 dark:border-slate-700/60 shadow-2xl p-8 mb-6">
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">Debug Information:</h2>
+              <div className="text-left space-y-2 text-sm text-slate-600 dark:text-slate-400">
+                <div><strong>URL Slug:</strong> {slug}</div>
+                <div><strong>Phone:</strong> {phone || 'Not provided'}</div>
+                <div><strong>Base URL:</strong> {baseUrl}</div>
+                <div><strong>API Endpoint:</strong> {baseUrl}/api/booking-slots/{slug}</div>
+              </div>
+            </div>
+            
+            <div className="flex gap-4 justify-center">
+              <button
+                onClick={() => window.location.href = '/'}
+                className="px-8 py-4 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold rounded-2xl hover:from-red-600 hover:to-red-700 transition-all duration-200"
+              >
+                Return Home
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-8 py-4 bg-gradient-to-r from-slate-500 to-gray-600 text-white font-semibold rounded-2xl hover:from-slate-600 hover:to-gray-700 transition-all duration-200"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state if no slug or still loading
+  if (!slug || isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-white via-red-50 to-pink-100 dark:from-slate-900 dark:via-red-900/20 dark:to-pink-900/20">
+        <div className="relative max-w-2xl mx-auto px-4 py-12">
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-r from-red-500 to-red-600 rounded-3xl mb-8 shadow-2xl animate-pulse">
+              <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+            </div>
+            
+            <h1 className="text-4xl font-bold text-red-600 dark:text-red-400 mb-4">
+              Loading...
+            </h1>
+            <p className="text-xl text-slate-600 dark:text-slate-400 mb-8">
+              {!slug ? 'No booking slug provided' : 'Loading booking information...'}
+            </p>
+            
+            {!slug && (
+              <div className="backdrop-blur-2xl bg-white/90 dark:bg-slate-800/90 rounded-3xl border border-white/40 dark:border-slate-700/60 shadow-2xl p-8 mb-6">
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">Debug Information:</h2>
+                <div className="text-left space-y-2 text-sm text-slate-600 dark:text-slate-400">
+                  <div><strong>URL Slug:</strong> {slug || 'undefined'}</div>
+                  <div><strong>Phone:</strong> {phone || 'Not provided'}</div>
+                  <div><strong>Current URL:</strong> {window.location.href}</div>
+                </div>
+              </div>
+            )}
+            
+            <button
+              onClick={() => window.location.href = '/'}
+              className="px-8 py-4 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold rounded-2xl hover:from-red-600 hover:to-red-700 transition-all duration-200"
+            >
+              Return Home
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-green-50">
-        <LoadingIcon icon="three-dots" className="w-20 h-20" />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900">
+        {/* Background decorative elements */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full blur-3xl"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-indigo-400/20 to-pink-600/20 rounded-full blur-3xl"></div>
+        </div>
+        
+        <div className="relative">
+          <div className="backdrop-blur-xl bg-white/70 dark:bg-slate-800/70 rounded-3xl border border-white/20 dark:border-slate-700/50 shadow-2xl p-12">
+            <LoadingIcon icon="three-dots" className="w-20 h-20" />
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!slot) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-green-50">
-        <LoadingIcon icon="three-dots" className="w-20 h-20" />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900">
+        {/* Background decorative elements */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full blur-3xl"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-indigo-400/20 to-pink-600/20 rounded-full blur-3xl"></div>
+        </div>
+        
+        <div className="relative">
+          <div className="backdrop-blur-xl bg-white/70 dark:bg-slate-800/70 rounded-3xl border border-white/20 dark:border-slate-700/50 shadow-2xl p-12">
+            <LoadingIcon icon="three-dots" className="w-20 h-20" />
+          </div>
+        </div>
       </div>
     );
   }
 
   if (isBooked) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-        <div className="max-w-2xl mx-auto px-4 py-12">
+      <div className="min-h-screen bg-gradient-to-br from-white via-red-50 to-pink-100 dark:from-slate-900 dark:via-red-900/20 dark:to-pink-900/20">
+        {/* Background decorative elements */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-red-400/20 to-pink-600/20 rounded-full blur-3xl"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-red-400/20 to-pink-600/20 rounded-full blur-3xl"></div>
+        </div>
+
+        <div className="relative max-w-2xl mx-auto px-4 py-12">
           <div className="text-center">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-100 rounded-full mb-6">
-              <svg className="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">Booking Confirmed!</h1>
-            <p className="text-lg text-gray-600 mb-8">Thank you for booking your appointment.</p>
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">{slot.title}</h2>
-              <div className="space-y-3 text-left">
-                <div className="flex items-center space-x-3">
-                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <span className="text-gray-700">{selectedDate ? new Date(selectedDate).toLocaleDateString() : 'No date selected'}</span>
+            {/* THE A-LIST Logo */}
+
+
+            
+            {/* Main Title */}
+            <h1 className="text-5xl font-bold bg-gradient-to-r from-red-600 to-red-500 bg-clip-text text-transparent mb-4">
+              Booking Confirmed!
+            </h1>
+            <p className="text-xl text-slate-600 dark:text-slate-400 mb-8">Thank you for choosing The A-List Malaysia for your appointment.</p>
+            
+            {/* Main Content Card */}
+            <div className="backdrop-blur-2xl bg-white/90 dark:bg-slate-800/90 rounded-3xl border border-white/40 dark:border-slate-700/60 shadow-2xl p-8 mb-6">
+              <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-6">{slot.title}</h2>
+              
+              {/* Appointment Details */}
+              <div className="space-y-4 text-left mb-6">
+                <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-slate-50/80 to-gray-50/80 dark:from-slate-700/60 dark:to-gray-700/60 rounded-2xl border border-slate-200/30 dark:border-slate-600/30 backdrop-blur-sm">
+                  <div className="w-3 h-3 bg-blue-500 rounded-full shadow-lg"></div>
+                  <span className="text-slate-700 dark:text-slate-300 font-medium">
+                    {selectedDate ? new Date(selectedDate).toLocaleDateString('en-US', { 
+                      weekday: 'long', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    }) : 'No date selected'}
+                  </span>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="text-gray-700">{selectedTime ? `${selectedTime} (${slot?.duration || 30} min)` : 'No time selected'}</span>
+                
+                <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-red-50/80 to-pink-50/80 dark:from-red-900/40 dark:to-pink-900/40 rounded-2xl border border-red-200/30 dark:border-red-600/30 backdrop-blur-sm">
+                  <div className="w-3 h-3 bg-red-500 rounded-full shadow-lg"></div>
+                  <span className="text-slate-700 dark:text-slate-300 font-medium">
+                    {selectedTime ? `${selectedTime} (${slot?.duration || 30} min)` : 'No time selected'}
+                  </span>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  <span className="text-gray-700">{slot.location}</span>
+                
+                <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-purple-50/80 to-violet-50/80 dark:from-purple-900/40 dark:to-violet-900/40 rounded-2xl border border-purple-200/30 dark:border-purple-600/30 backdrop-blur-sm">
+                  <div className="w-3 h-3 bg-purple-500 rounded-full shadow-lg"></div>
+                  <span className="text-slate-700 dark:text-slate-300 font-medium">{slot.location}</span>
                 </div>
               </div>
 
               {/* Reminder Notification */}
-              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-start space-x-3">
+              <div className="p-6 bg-gradient-to-r from-red-50/80 to-pink-50/80 dark:from-red-900/30 dark:to-pink-900/30 border border-red-200/40 dark:border-red-700/40 rounded-2xl backdrop-blur-sm">
+                <div className="flex items-start gap-4">
                   <div className="flex-shrink-0">
-                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM4 19h6l-6 6v-6zM4 13h6l-6 6v-6zM4 7h6l-6 6V7zM10 19h6l-6 6v-6zM10 13h6l-6 6v-6zM10 7h6l-6 6V7z" />
-                    </svg>
+                    <div className="w-10 h-10 bg-gradient-to-r from-red-500 to-red-600 rounded-2xl flex items-center justify-center shadow-lg">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM4 19h6l-6 6v-6zM4 13h6l-6 6v-6zM4 7h6l-6 6V7zM10 19h6l-6 6v-6zM10 13h6l-6 6v-6zM10 7h6l-6 6V7z" />
+                      </svg>
+                    </div>
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-sm font-medium text-blue-800 mb-1">
-                      🔔 Reminders Set Up
+                    <h3 className="text-lg font-bold text-red-800 dark:text-red-300 mb-3">
+                      🔔 Smart Reminders Activated
                     </h3>
-                    <p className="text-sm text-blue-700">
-                      We've automatically set up reminders for both you and your assigned staff member. 
-                      You'll receive a WhatsApp notification 24 hours before your appointment to ensure everyone is prepared.
+                    <p className="text-sm text-red-700 dark:text-red-400 leading-relaxed">
+                      We've automatically set up intelligent reminders for both you and your assigned staff member. 
+                      You'll receive WhatsApp notifications to ensure everyone is prepared for your appointment.
                     </p>
                   </div>
                 </div>
               </div>
             </div>
+
+     
           </div>
         </div>
       </div>
@@ -1854,104 +2017,206 @@ function PublicBookingForm() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-white via-red-50 to-pink-100 dark:from-slate-900 dark:via-red-900/20 dark:to-pink-900/20">
+      {/* Background decorative elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-red-400/20 to-pink-600/20 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-red-400/20 to-pink-600/20 rounded-full blur-3xl"></div>
+      </div>
+
+      <div className="relative max-w-6xl mx-auto px-4 py-6">
         {/* Header */}
-        <div className="flex items-start justify-between mb-8 pb-6">
-          <div>
-            <h1 className="text-3xl font-normal text-gray-900 mb-2">{selectedStaff || 'Select Staff'}</h1>
-            <h2 className="text-xl font-normal text-gray-700 mb-4">{slot.title}</h2>
-            
-            <div className="flex items-center text-gray-600 mb-2">
-              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-              </svg>
-              <span>{slot.duration || 30} min appointments</span>
+        <div className="backdrop-blur-2xl bg-white/90 dark:bg-slate-800/90 rounded-3xl border border-white/40 dark:border-slate-700/60 shadow-2xl p-8 mb-8">
+          <div className="text-center space-y-4">
+            {/* Logo and Branding */}
+            <div className="flex items-center justify-center gap-3 mb-6">
+              <div className="w-16 h-16  rounded-2xl flex items-center justify-center shadow-lg">
+                <img 
+                  src="/src/assets/images/alist-logo.png" 
+                  alt="THE A-LIST" 
+                  className="w-24 h-24 object-contain"
+                />
+              </div>
+         
             </div>
             
-            <div className="flex items-center text-gray-600">
-              <svg className="w-4 h-4 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M2 6a2 2 0 012-2h6l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM5 8a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm1 3a1 1 0 100 2h8a1 1 0 100-2H6z" />
-              </svg>
-              <span>Google Meet video conference info added after booking</span>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="flex items-center text-gray-500 text-sm">
-              <span className="mr-2">Google</span>
-              <span className="text-blue-500 font-medium">Calendar</span>
+            {/* Main Title */}
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-red-600 to-red-500 bg-clip-text text-transparent">
+              Introduction with The A-List Malaysia
+            </h1>
+   
+            
+            {/* Features */}
+            <div className="flex items-center justify-center gap-6 text-sm text-slate-500 dark:text-slate-400">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                <span>{slot?.duration || 30} min appointments</span>
+              </div>
+         
             </div>
           </div>
         </div>
 
-
-
-        {/* Calendar Section */}
-        <div className="bg-white rounded-lg border border-gray-200">
-          <div className="flex">
-            {/* Mini Calendar Sidebar */}
-            <div className="w-80 border-r border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900">
-                  {currentWeekStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                </h3>
-                <div className="flex items-center space-x-1">
-                  {(() => {
-                    const today = new Date();
-                    const minDate = new Date(today);
-                    minDate.setDate(today.getDate() - today.getDay() + 1);
-                    
-                    const maxDate = new Date(today);
-                    maxDate.setDate(today.getDate() - today.getDay() + 1 + 14);
-                    
-                    const canGoPrev = currentWeekStart > minDate;
-                    const canGoNext = currentWeekStart < maxDate;
-                    
-                    return (
-                      <>
-                        <button
-                          onClick={() => navigateWeek('prev')}
-                          disabled={!canGoPrev}
-                          className={`p-1 ${canGoPrev ? 'text-gray-400 hover:text-gray-600' : 'text-gray-200 cursor-not-allowed'}`}
-                          title={canGoPrev ? 'Previous week' : 'Cannot go to past weeks'}
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => navigateWeek('next')}
-                          disabled={!canGoNext}
-                          className={`p-1 ${canGoNext ? 'text-gray-400 hover:text-gray-600' : 'text-gray-200 cursor-not-allowed'}`}
-                          title={canGoNext ? 'Next week' : 'Cannot book more than 2 weeks ahead'}
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        </button>
-                      </>
-                    );
-                  })()}
-                  
-                  <button
-                    onClick={goToCurrentWeek}
-                    className="ml-2 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
-                    title="Go to current week"
-                  >
-                    Today
-                  </button>
+        {/* Main Content */}
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Calendar Section */}
+          <div className="lg:col-span-2">
+            <div className="backdrop-blur-2xl bg-white/90 dark:bg-slate-800/90 rounded-3xl border border-white/40 dark:border-slate-700/60 shadow-2xl overflow-hidden">
+              {/* Calendar Header */}
+              <div className="p-8 border-b border-white/30 dark:border-slate-700/40 bg-gradient-to-r from-red-50/50 to-pink-50/50 dark:from-red-900/20 dark:to-pink-900/20">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-2xl font-bold text-slate-800 dark:text-white">Select Appointment Time</h3>
+                  <div className="flex items-center gap-4">
+                    <div className="text-sm text-slate-500 dark:text-slate-400 bg-white/70 dark:bg-slate-700/70 px-4 py-2 rounded-full border border-white/40 dark:border-slate-600/60 backdrop-blur-sm">
+                      GMT+08:00 Malaysia
+                    </div>
+                    {isLoadingAvailability && (
+                      <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                        <div className="w-4 h-4 border-2 border-red-300 border-t-red-600 rounded-full animate-spin"></div>
+                        <span className="text-sm">Loading...</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Mini Calendar Grid */}
-              <div className="grid grid-cols-7 gap-1 text-center text-xs mb-2">
+              {/* Week Navigation */}
+              <div className="p-8 border-b border-white/30 dark:border-slate-700/40">
+                <div className="flex items-center justify-between mb-6">
+                  <h4 className="text-xl font-bold text-slate-700 dark:text-slate-300">
+                    {currentWeekStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                  </h4>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => navigateWeek('prev')}
+                      className="p-3 hover:bg-white/70 dark:hover:bg-slate-700/70 rounded-2xl transition-all duration-200 hover:scale-105 backdrop-blur-sm"
+                    >
+                      <svg className="w-6 h-6 text-slate-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={goToCurrentWeek}
+                      className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white text-sm font-bold rounded-2xl hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
+                    >
+                      Today
+                    </button>
+                    <button
+                      onClick={() => navigateWeek('next')}
+                      className="p-3 hover:bg-white/70 dark:hover:bg-slate-700/70 rounded-2xl transition-all duration-200 hover:scale-105 backdrop-blur-sm"
+                    >
+                      <svg className="w-6 h-6 text-slate-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Week Days Grid */}
+                <div className="grid grid-cols-5 gap-4">
+                  {getWeekDates()
+                    .filter(date => date.getDay() !== 0 && date.getDay() !== 6)
+                    .map((date, index) => {
+                      const isToday = formatDate(date) === formatDate(new Date());
+                      const weekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI'];
+                      const dateStr = formatDate(date);
+                      const daySlots = availableSlots[dateStr] || [];
+                      
+                      return (
+                        <div key={index} className="text-center">
+                          <div className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-3 uppercase tracking-wider">
+                            {weekdays[date.getDay() - 1]}
+                          </div>
+                          <div className={`w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-4 text-xl font-bold transition-all duration-200 ${
+                            isToday 
+                              ? 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-xl scale-110' 
+                              : 'text-slate-700 dark:text-slate-300'
+                          }`}>
+                            {date.getDate()}
+                          </div>
+
+                          {/* Time Slots */}
+                          <div className="space-y-2">
+                            {isLoadingSlots ? (
+                              <div className="flex justify-center">
+                                <div className="w-5 h-5 border-2 border-red-300 border-t-red-600 rounded-full animate-spin"></div>
+                              </div>
+                            ) : daySlots.length === 0 ? (
+                              <div className="text-sm text-slate-400 dark:text-slate-500 py-3">—</div>
+                            ) : (
+                              daySlots.map((slot, timeIndex) => {
+                                const isSelected = selectedDate === dateStr && selectedTime === slot.time;
+                                return (
+                                  <button
+                                    key={timeIndex}
+                                    onClick={() => {
+                                      setSelectedSlot({date: dateStr, time: slot.time});
+                                      setShowBookingModal(true);
+                                    }}
+                                    className={`w-full py-3 px-3 text-sm rounded-2xl border transition-all duration-200 hover:scale-105 ${
+                                      isSelected
+                                        ? 'border-red-500 bg-gradient-to-r from-red-500 to-red-600 text-white shadow-xl'
+                                        : 'border-slate-200 dark:border-slate-600 bg-white/70 dark:bg-slate-700/70 text-slate-700 dark:text-slate-300 hover:border-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 backdrop-blur-sm'
+                                    }`}
+                                  >
+                                    {slot.time}
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+
+              {/* Selected Time Display */}
+              {selectedDate && selectedTime && (
+                <div className="p-8 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 border-t border-white/30 dark:border-slate-700/40">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-4 h-4 bg-red-500 rounded-full animate-pulse"></div>
+                      <span className="text-xl font-bold text-slate-800 dark:text-white">
+                        {new Date(selectedDate).toLocaleDateString('en-US', { 
+                          weekday: 'long', 
+                          month: 'short', 
+                          day: 'numeric' 
+                        })} at {selectedTime}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSelectedDate('');
+                        setSelectedTime('');
+                        setSelectedSlot(null);
+                      }}
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-2 hover:bg-white/70 dark:hover:bg-slate-700/70 rounded-xl backdrop-blur-sm"
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-8">
+            {/* Mini Calendar */}
+            <div className="backdrop-blur-2xl bg-white/90 dark:bg-slate-800/90 rounded-3xl border border-white/40 dark:border-slate-700/60 shadow-2xl p-8">
+              <h4 className="text-xl font-bold text-slate-800 dark:text-white mb-6">Calendar</h4>
+              
+              {/* Calendar Grid */}
+              <div className="grid grid-cols-7 gap-2 text-center text-sm mb-4">
                 {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
-                  <div key={i} className="py-2 text-gray-500 font-medium">{day}</div>
+                  <div key={i} className="py-3 text-slate-500 dark:text-slate-400 font-bold">{day}</div>
                 ))}
               </div>
               
-              <div className="grid grid-cols-7 gap-1 text-center text-sm">
-                {/* Generate calendar days */}
+              <div className="grid grid-cols-7 gap-2 text-center text-sm">
                 {(() => {
                   const firstDay = new Date(currentWeekStart.getFullYear(), currentWeekStart.getMonth(), 1);
                   const lastDay = new Date(currentWeekStart.getFullYear(), currentWeekStart.getMonth() + 1, 0);
@@ -1962,43 +2227,34 @@ function PublicBookingForm() {
                   for (let i = 0; i < 42; i++) {
                     const currentDay = new Date(startDate);
                     currentDay.setDate(startDate.getDate() + i);
-                    const isCurrentMonth = currentDay.getMonth() === currentWeekStart.getMonth();
-                    const isToday = currentDay.toDateString() === new Date().toDateString();
-                    const isSelected = selectedDate === formatDate(currentDay);
                     
+                    const isCurrentMonth = currentDay.getMonth() === currentWeekStart.getMonth();
+                    const isToday = formatDate(currentDay) === formatDate(new Date());
+                    const isInWeekRange = currentDay >= currentWeekStart && currentDay < new Date(currentWeekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
                     const isSelectable = isDateSelectable(currentDay);
-                    const isInWeekRange = getWeekDates().some(weekDate => 
-                      formatDate(weekDate) === formatDate(currentDay)
-                    );
                     
                     days.push(
                       <button
                         key={i}
                         onClick={() => {
-                          console.log('📅 Calendar date clicked:', {
-                            date: currentDay.toDateString(),
-                            isSelectable: isSelectable,
-                            formatDate: formatDate(currentDay)
-                          });
                           if (isSelectable) {
-                            navigateToDate(currentDay);
-                          } else {
-                            console.log('🚫 Date not selectable');
+                            const newWeekStart = new Date(currentDay);
+                            newWeekStart.setDate(newWeekStart.getDate() - newWeekStart.getDay() + 1);
+                            setCurrentWeekStart(newWeekStart);
                           }
                         }}
                         disabled={!isSelectable}
-                        className={`py-2 px-1 text-sm rounded-full transition-colors ${
+                        className={`py-2 px-1 text-sm rounded-xl transition-all duration-200 ${
                           !isSelectable
-                            ? 'text-gray-300 cursor-not-allowed'
+                            ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
                             : isInWeekRange
-                            ? 'bg-blue-600 text-white'
+                            ? 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-xl'
                             : isToday
-                            ? 'bg-blue-100 text-blue-600 font-medium hover:bg-blue-200'
+                            ? 'bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 font-bold'
                             : isCurrentMonth
-                            ? 'text-gray-900 hover:bg-gray-100'
-                            : 'text-gray-400 hover:text-gray-600'
+                            ? 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/70'
+                            : 'text-slate-400 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-400'
                         }`}
-                        title={!isSelectable ? 'Date not available for booking' : 'Click to view this week'}
                       >
                         {currentDay.getDate()}
                       </button>
@@ -2009,343 +2265,148 @@ function PublicBookingForm() {
               </div>
             </div>
 
-            {/* Main Calendar Content */}
-            <div className="flex-1 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-medium text-gray-900">Select an appointment time</h2>
-                <div className="text-sm text-gray-500">
-                  (GMT+08:00) Malaysia Time - Kuala Lumpur
-                  {isLoadingAvailability && (
-                    <div className="mt-1 flex items-center text-blue-600">
-                      <div className="w-3 h-3 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin mr-2"></div>
-                      <span className="text-xs">Loading availability...</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Week Days Headers */}
-              <div className="grid grid-cols-5 gap-4 mb-6">
-                {getWeekDates()
-                  .filter(date => date.getDay() !== 0 && date.getDay() !== 6) // Filter out weekends
-                  .map((date, index) => {
-                  const isToday = formatDate(date) === formatDate(new Date());
-                  const weekdays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-                  
-                  return (
-                    <div key={index} className="text-center">
-                      <div className="text-sm font-medium text-gray-600 mb-2">
-                        {weekdays[date.getDay()]}
-                      </div>
-                      <div className={`text-2xl font-normal mb-4 ${isToday ? 'text-white bg-blue-600 w-10 h-10 rounded-full flex items-center justify-center mx-auto' : 'text-gray-900'}`}>
-                        {date.getDate()}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Time Slots Grid */}
-              <div className="grid grid-cols-5 gap-4">
-                {getWeekDates()
-                  .filter(date => date.getDay() !== 0 && date.getDay() !== 6) // Filter out weekends
-                  .map((date, dateIndex) => {
-                  const dateStr = formatDate(date);
-                  const daySlots = availableSlots[dateStr] || [];
-                  
-                  return (
-                    <div key={dateIndex} className="space-y-2">
-                      {isLoadingSlots ? (
-                        <div className="text-center text-gray-400 py-4">
-                          <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto"></div>
-                        </div>
-                      ) : daySlots.length === 0 ? (
-                        <div className="text-center text-gray-400 py-4">—</div>
-                      ) : (
-                        daySlots.map((slot, timeIndex) => {
-                          const isSelected = selectedDate === dateStr && selectedTime === slot.time;
-                          return (
-                            <button
-                              key={timeIndex}
-                              onClick={() => {
-                                setSelectedSlot({date: dateStr, time: slot.time});
-                                setShowBookingModal(true);
-                              }}
-                              className={`w-full py-2 px-3 text-sm rounded-full border transition-all duration-200 ${
-                                isSelected
-                                  ? 'border-blue-500 bg-blue-500 text-white shadow-md'
-                                  : 'border-gray-300 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50'
-                              }`}
-                            >
-                              {slot.time}
-                            </button>
-                          );
-                        })
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
           </div>
+        </div>
 
-          {/* Selected Time Display */}
-          {selectedDate && selectedTime && (
-            <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="flex items-center text-blue-800">
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <span className="font-medium">
-                  Selected: {new Date(selectedDate).toLocaleDateString('en-US', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })} at {selectedTime}
-                </span>
-                {selectedStaff && (
-                  <div className="text-sm text-gray-600">
-                    with {selectedStaff}
+      </div>
+
+      {/* Booking Modal */}
+      <Dialog open={showBookingModal} onClose={() => setShowBookingModal(false)} className="relative z-50">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" aria-hidden="true" />
+        
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <Dialog.Panel className="w-full max-w-2xl backdrop-blur-2xl bg-white/95 dark:bg-slate-800/95 rounded-3xl border border-white/50 dark:border-slate-700/70 shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="p-6 border-b border-white/30 dark:border-slate-700/40 bg-gradient-to-r from-red-50/50 to-pink-50/50 dark:from-red-900/20 dark:to-pink-900/20">
+              <Dialog.Title className="text-xl font-bold text-slate-800 dark:text-white mb-2">
+                {slot?.title || 'The A-List Introduction'}
+              </Dialog.Title>
+              
+              {selectedSlot && (
+                <div className="text-slate-600 dark:text-slate-300">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                    <span className="font-medium">
+                      {new Date(selectedSlot.date).toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })} · {selectedSlot.time}
+                    </span>
                   </div>
-                )}
-              </div>
+                  <div className="text-sm text-slate-500 dark:text-slate-400">
+                    (GMT+08:00) Malaysia Time
+                  </div>
+                </div>
+              )}
             </div>
-          )}
 
-          {/* Booking Form */}
-          {selectedDate && selectedTime && (
-            <div className="mt-6 border-t border-gray-200 pt-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Your Details</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Full Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="John Doe"
-                    required
-                  />
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* Features */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200/50 dark:border-red-700/30 backdrop-blur-sm">
+                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                  <span className="text-sm text-red-700 dark:text-red-300">Duration: {slot?.duration || 30} minutes</span>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Phone Number <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="+60 12-345 6789"
-                    required
-                  />
+         
+              </div>
+
+              {/* Form Fields */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      First name
+                    </label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-white/70 dark:bg-slate-700/70 border border-slate-200/50 dark:border-slate-600/50 rounded-xl focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all duration-200 backdrop-blur-sm"
+                
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      Last name
+                    </label>
+                    <input
+                      type="text"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-white/70 dark:bg-slate-700/70 border border-slate-200/50 dark:border-slate-600/50 rounded-xl focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all duration-200 backdrop-blur-sm"
+                   
+                    />
+                  </div>
                 </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email Address (Optional)
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Email address
                   </label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="john@example.com"
+                    className="w-full px-3 py-2.5 bg-white/70 dark:bg-slate-700/70 border border-slate-200/50 dark:border-slate-600/50 rounded-xl focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all duration-200 backdrop-blur-sm"
+                   
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Company name
+                  </label>
+                  <input
+                    type="text"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-white/70 dark:bg-slate-700/70 border border-slate-200/50 dark:border-slate-600/50 rounded-xl focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all duration-200 backdrop-blur-sm"
+   
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Phone number
+                  </label>
+                  <input
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-white/70 dark:bg-slate-700/70 border border-slate-200/50 dark:border-slate-600/50 rounded-xl focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all duration-200 backdrop-blur-sm"
+                    placeholder="+60123456789"
                   />
                 </div>
               </div>
-
-              {/* Reminder Information */}
-              <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-center space-x-2">
-                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="text-sm text-green-700">
-                    🔔 Automatic reminders will be set up for both you and your staff member 24 hours before the appointment
-                  </span>
-                </div>
-              </div>
-
-              <button
-                onClick={confirmBooking}
-                disabled={isSubmitting || !phoneNumber.trim() || !name.trim()}
-                className="w-full md:w-auto px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {isSubmitting ? (
-                  <div className="flex items-center justify-center space-x-2">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Booking...</span>
-                  </div>
-                ) : (
-                  'Book Appointment'
-                )}
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="text-center mt-8 py-4">
-          <div className="text-sm text-blue-600 hover:text-blue-800 cursor-pointer">
-            <span>Create your own appointment page.</span>
-            <span className="ml-2 underline">Learn More</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Booking Modal */}
-      <Dialog open={showBookingModal} onClose={() => setShowBookingModal(false)} className="relative z-50">
-        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-        <div className="fixed inset-0 flex items-center justify-center p-4">
-          <Dialog.Panel className="mx-auto max-w-md rounded-2xl bg-white p-8 shadow-2xl">
-            <Dialog.Title className="text-xl font-medium text-gray-900 mb-2">
-              {slot?.title || 'The A-List Introduction'}
-            </Dialog.Title>
-            
-            {selectedSlot && (
-              <div className="text-gray-600 mb-6">
-                <div className="flex items-center mb-2">
-                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                  </svg>
-                  {new Date(selectedSlot.date).toLocaleDateString('en-US', { 
-                    weekday: 'long', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })} · {selectedSlot.time} - {(() => {
-                    const startTime = parseTimeSlot(new Date(selectedSlot.date), selectedSlot.time);
-                    const endTime = new Date(startTime.getTime() + (slot?.duration || 30) * 60000);
-                    return endTime.toLocaleTimeString('en-US', { 
-                      hour: 'numeric', 
-                      minute: '2-digit',
-                      hour12: true 
-                    });
-                  })()}
-                </div>
-                <div className="text-sm text-gray-500">
-                  (GMT+08:00) Malaysia Time - Kuala Lumpur
-                </div>
-              </div>
-            )}
-
-            <div className="mb-6">
-              <div className="flex items-center text-green-600 mb-4">
-                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M2 6a2 2 0 012-2h6l2 2h6a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM5 8a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm1 3a1 1 0 100 2h8a1 1 0 100-2H6z" />
-                </svg>
-                <span className="text-sm">Google Meet video conference info added after booking</span>
-              </div>
             </div>
 
-            {/* Reminder Information */}
-            <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-start space-x-2">
-                <svg className="w-4 h-4 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM4 19h6l-6 6v-6zM4 13h6l-6 6v-6zM4 7h6l-6 6V7zM10 19h6l-6 6v-6zM10 13h6l-6 6v-6zM10 7h6l-6 6V7z" />
-                </svg>
-                <div>
-                  <h3 className="text-sm font-medium text-blue-800 mb-1">
-                    🔔 Automatic Reminders
-                  </h3>
-                  <p className="text-xs text-blue-700">
-                    We'll automatically set up WhatsApp reminders for both you and your staff member 24 hours before the appointment.
-                  </p>
-                </div>
+            {/* Footer */}
+            <div className="p-6 border-t border-white/30 dark:border-slate-700/40 bg-gradient-to-r from-slate-50/50 to-gray-50/50 dark:from-slate-800/20 dark:to-gray-800/20">
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowBookingModal(false)}
+                  className="flex-1 px-4 py-2.5 text-slate-700 dark:text-slate-300 bg-white/70 dark:bg-slate-700/70 border border-slate-200/50 dark:border-slate-600/50 rounded-xl hover:bg-white/90 dark:hover:bg-slate-700/90 transition-all duration-200 backdrop-blur-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmBooking}
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white font-medium rounded-xl hover:from-red-600 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Booking...
+                    </>
+                  ) : (
+                    'Book Appointment'
+                  )}
+                </button>
               </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  First name
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Firaz"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Last name
-                </label>
-                <input
-                  type="text"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Fhansurie"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email address
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="ferazfhansurie@gmail.com"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Company name
-                </label>
-                <input
-                  type="text"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Your Company Ltd"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone number
-                </label>
-                <input
-                  type="tel"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="+60123456789"
-                />
-              </div>
-            </div>
-
-            <div className="flex space-x-3 mt-8">
-              <button
-                onClick={() => setShowBookingModal(false)}
-                className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmBooking}
-                disabled={isSubmitting}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-              >
-                {isSubmitting ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                    Booking...
-                  </>
-                ) : (
-                  'Book'
-                )}
-              </button>
             </div>
           </Dialog.Panel>
         </div>

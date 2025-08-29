@@ -6473,7 +6473,9 @@ const handleConfirmSyncFirebase = async () => {
         <div className="sticky top-0 backdrop-blur-md z-10 py-2 sm:py-4 border-b border-gray-200/50 dark:border-gray-700/50">    <div className="flex flex-col md:flex-row items-start md:items-center justify-between">
       <div className="flex-grow">
       <div className="flex items-center mb-1 sm:mb-2">
-       
+        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-r from-blue-500/90 to-blue-600/90 backdrop-blur-md shadow-lg border border-blue-400/20 flex items-center justify-center mr-2 sm:mr-3">
+          <Lucide icon="Users" className="w-5 h-5 text-white" />
+        </div>
           <span className="text-lg sm:text-xl font-semibold text-gray-800 dark:text-gray-200">
   Contacts
 </span>

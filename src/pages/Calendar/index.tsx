@@ -388,8 +388,8 @@ function Main() {
     }
 
     try {
-      // Create a slug from the title (similar to how PublicAttendanceForm works)
-      const slug = bookingLinkForm.title
+      // Create a simple slug from the title
+      const baseSlug = bookingLinkForm.title
         .toLowerCase()
         .replace(/[^a-z0-9]/g, "-")
         .replace(/-+/g, "-")
@@ -405,13 +405,12 @@ function Main() {
         const staffPhone =
           staffEmployee?.phoneNumber || staffEmployee?.phone || "";
 
-        // Add timestamp to ensure unique slug
-        const timestamp = Date.now();
-        const staffSlug = `${slug}-${staffName
+        // Create a simple, short slug: title-staffname
+        const staffSlug = `${baseSlug}-${staffName
           .toLowerCase()
           .replace(/[^a-z0-9]/g, "-")
           .replace(/-+/g, "-")
-          .replace(/^-|-$/g, "")}-${timestamp}`;
+          .replace(/^-|-$/g, "")}`;
 
         const bookingSlotData = {
           title: `${bookingLinkForm.title} with ${staffName}`,
@@ -420,7 +419,7 @@ function Main() {
           location: bookingLinkForm.location,
           duration: bookingLinkForm.duration,
           staffName: staffName,
-          staff_phone: staffPhone, // Add staff phone number
+          staff_phone: staffPhone,
           is_active: true,
           created_by: localStorage.getItem("userEmail"),
           company_id: companyId,
@@ -434,21 +433,16 @@ function Main() {
           {
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${userEmail}`, // Adjust based on your auth system
+              Authorization: `Bearer ${userEmail}`,
             },
           }
         );
 
         if (response.data.success) {
           const baseUrlWindow = window.location.origin;
-          const staffNameSlug = staffName
-            .toLowerCase()
-            .replace(/[^a-z0-9]/g, "-")
-            .replace(/-+/g, "-")
-            .replace(/^-|-$/g, "");
-          const link = `${baseUrlWindow}/booking/${staffSlug}/${staffNameSlug}/${
-            bookingLinkForm.phone || "PHONE"
-          }`;
+          // Match the new router structure: /booking/:slug/:phone
+          const phoneParam = bookingLinkForm.phone || "PHONE";
+          const link = `${baseUrlWindow}/booking/${staffSlug}/${phoneParam}`;
           createdSlots.push({
             staffName,
             link,
@@ -3278,6 +3272,9 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
                 Users will select their preferred date and time on the booking
                 page
               </p>
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                💡 Example: "consultation-john" will create /booking/consultation-john/+60123456789
+              </p>
             </div>
 
             {generatedBookingLink && (
@@ -3299,9 +3296,17 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
                     Copy All Links
                   </button>
                 </div>
+                <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                  <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">📋 How to Use These Links:</h4>
+                  <ul className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                    <li>• Each staff member gets their own unique booking link</li>
+                    <li>• AI can send different links to different leads</li>
+                    <li>• When booked, the staff name is automatically set in Google Calendar</li>
+                    <li>• All appointments use the same shared calendar</li>
+                  </ul>
+                </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  Each staff member gets their own unique booking link. Share
-                  the appropriate link with clients.
+                  Each staff member gets their own unique booking link. Share the appropriate link with clients.
                 </p>
               </div>
             )}
