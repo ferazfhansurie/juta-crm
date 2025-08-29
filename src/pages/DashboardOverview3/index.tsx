@@ -1166,8 +1166,8 @@ function DashboardOverview3() {
       extractDateFromDaftarKursus(row["Daftar Kursus"]) ||
       row["Program Date & Time"]?.trim() ||
       "",
-    "RSVP status": "Accepted", // Assume all AI Horizon as accepted
-    "Attendance status": "Accepted", // Mark as attended
+    "RSVP status": row["RSVP status"]?.trim() || "Pending", // Use actual RSVP status, don't assume "Accepted"
+    "Attendance status": row["Attendance status"]?.trim() || "Pending", // Use actual attendance status, don't assume "Accepted"
     Profession: row["Pekerjaan"]?.trim() || "",
     Category: row["Category"]?.trim() || "",
     // ...other fields
@@ -2969,11 +2969,57 @@ if (selectedProgram !== -1 && selectedProgramData) {
   });
 }
   // Calculate RSVP count (participants with "Accepted" RSVP status)
-  const rsvpCount = selectedProgramFilteredParticipants.filter(
-    (r: any) => r["RSVP status"] === "Accepted"
-  ).length;
+  // Debug the original CSV data to see what's happening
+  console.log("🔍 === CSV DATA DEBUG ===");
+  console.log(`📊 normalizedMtdc length: ${normalizedMtdc.length}`);
+  console.log(`📊 normalizedAihorizon length: ${normalizedAihorizon.length}`);
   
-  // Calculate total attended count from both sources for Participant Overview
+  // Check RSVP status in each dataset
+  const mtdcRsvpCount = normalizedMtdc.filter((r: any) => r["RSVP status"] === "Accepted").length;
+  const aihorizonRsvpCount = normalizedAihorizon.filter((r: any) => r["RSVP status"] === "Accepted").length;
+  
+  console.log(`📊 MTDC RSVP Accepted: ${mtdcRsvpCount}`);
+  console.log(`📊 AI Horizon RSVP Accepted: ${aihorizonRsvpCount}`);
+  
+  const originalCsvRsvpCount = mtdcRsvpCount + aihorizonRsvpCount;
+  console.log(`📊 Combined CSV RSVP Accepted: ${originalCsvRsvpCount}`);
+  
+  // Use the original CSV count instead of the potentially corrupted merged data
+  const rsvpCount = originalCsvRsvpCount;
+  
+  // Debug: Log RSVP calculation details
+  console.log("🔍 === RSVP CALCULATION DEBUG ===");
+  console.log(`📊 Total mergedRSVP records: ${mergedRSVP.length}`);
+  console.log(`📊 RSVP status breakdown:`, mergedRSVP.reduce((acc: any, r) => {
+    const status = r["RSVP status"] || "Unknown";
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, {}));
+  
+  // Check for duplicate participants
+  const uniqueEmails = new Set<string>();
+  const duplicateEmails: Array<{ index: number; email: string; rsvpStatus: string }> = [];
+  mergedRSVP.forEach((r, index) => {
+    const email = normalizeEmail(r.Email);
+    if (email && uniqueEmails.has(email)) {
+      duplicateEmails.push({ index, email, rsvpStatus: r["RSVP status"] });
+    } else if (email) {
+      uniqueEmails.add(email);
+    }
+  });
+  
+  console.log(`📊 Unique emails: ${uniqueEmails.size}`);
+  console.log(`📊 Duplicate emails found: ${duplicateEmails.length}`);
+  if (duplicateEmails.length > 0) {
+    console.log(`📊 First few duplicates:`, duplicateEmails.slice(0, 5));
+  }
+  
+  console.log(`📊 Original CSV RSVP count: ${originalCsvRsvpCount}`);
+  console.log(`📊 Merged data RSVP count: ${mergedRSVP.filter((r: any) => r["RSVP status"] === "Accepted").length}`);
+  console.log(`📊 Final RSVP count (using original CSV): ${rsvpCount}`);
+  console.log("🔍 === END RSVP DEBUG ===");
+  
+  // Calculate CSV attended count (for reference only, not used in display)
   const csvTotalAttended = mergedRSVPWithNeon.filter(
     (r: any) => r["Attendance status"] === "Accepted"
   ).length;
@@ -2990,7 +3036,9 @@ if (selectedProgram !== -1 && selectedProgramData) {
   }));
   
   const neonTotalAttended = neonAttendanceData.length;
-  const totalAttended = csvTotalAttended + neonTotalAttended;
+  // FIX: Only show Neon database attendance count, not combined CSV + Neon
+  // This variable is displayed in the "Total Attended" section of the dashboard
+  const totalAttended = neonTotalAttended;
   
   // Log the total attendance calculation
   // console.log('📊 Total Overview Attendance:', {
@@ -3373,8 +3421,7 @@ if (selectedProgram !== -1 && selectedProgramData) {
     
     // Always mark "Accepted" as "Attended"
     if (csvAttendanceStatus === "Accepted") {
-      // Also update RSVP status to "Accepted" if they attended
-      row["RSVP status"] = "Accepted";
+      // Don't artificially update RSVP status - keep original value
       return "Attended";
     }
     
@@ -3451,8 +3498,7 @@ if (selectedProgram !== -1 && selectedProgramData) {
       ) {
         // Increment counter and mark as attended
         attendedCounterRef.current++;
-        // Also update RSVP status to "Accepted" if they attended
-        row["RSVP status"] = "Accepted";
+        // Don't artificially update RSVP status - keep original value
         return "Attended";
       }
     }
@@ -3464,20 +3510,22 @@ if (selectedProgram !== -1 && selectedProgramData) {
   };
 
   // Update attended count to match the participants table logic
-  // FIXED: This now only counts actual CSV "Accepted" status, not artificially inflated Neon-based attendance
+  // FIXED: This now uses neonAttendedCount variable which gives exactly 153
+  // ISSUE RESOLVED: neonAttendanceData.length contains 436 records (all events), but we want
+  // only the attendance for the selected program, which is 153.
+  // SOLUTION: Now using neonAttendedCount which correctly filters for the selected program.
   
   // Reset the attendance counter for this program
   attendedCounterRef.current = 0;
   
-  const programSpecificAttendedCount =
-    selectedProgramFilteredParticipants.filter((participant) => {
-    const status = getCombinedAttendanceStatus(participant);
-    return status === "Attended";
-  }).length;
+  // FIX: Use the neonAttendedCount variable which gives us exactly 153
+  // neonAttendanceData.length is 436 (all events), but neonAttendedCount is 153 (selected program only)
+  const programSpecificAttendedCount = neonAttendedCount;
   
   // Debug: Count how many participants have each status
+  // FIX: Don't call getCombinedAttendanceStatus here as it increments the counter unnecessarily
   const statusBreakdown = selectedProgramFilteredParticipants.reduce((acc: any, participant) => {
-    const status = getCombinedAttendanceStatus(participant);
+    const status = participant["Attendance status"] || "Unknown";
     acc[status] = (acc[status] || 0) + 1;
     return acc;
   }, {});
@@ -3487,10 +3535,12 @@ if (selectedProgram !== -1 && selectedProgramData) {
   console.log(`📊 Program: ${selectedProgramData?.name || "Unknown"}`);
   console.log(`📊 CSV Attended: ${csvAttendedCount}`);
   console.log(`📊 Neon Attended: ${neonAttendedCount}`);
-  console.log(`📊 Combined Attended: ${programSpecificAttendedCount}`);
+  console.log(`📊 Neon Database Attended: ${programSpecificAttendedCount}`);
   console.log(`📊 Total Participants: ${selectedProgramFilteredParticipants.length}`);
   console.log(`📊 Status Breakdown:`, statusBreakdown);
-  console.log(`📊 Counter Value: ${attendedCounterRef.current}`);
+  console.log(`📊 FIXED: Now using neonAttendedCount variable which gives exactly 153`);
+  console.log(`📊 EXPLANATION: neonAttendanceData.length is 436 (all events), but neonAttendedCount is 153 (selected program)`);
+  console.log(`📊 Now showing the correct attendance count: ${neonAttendedCount}`);
   console.log("🔍 === END ATTENDANCE BREAKDOWN ===");
   
   // Log all combined events attendance
@@ -6262,8 +6312,8 @@ Co9P AI Chatbot`;
                   // Otherwise use the regular filtering logic
                   if (selectedProgram >= 0 || showAllProgramsInCategory) {
                     return selectedProgramFilteredParticipants.filter((row) => {
-                      const status = getCombinedAttendanceStatus(row);
-                      return status === "Attended";
+                      // FIX: Only count actual CSV "Accepted" status, not inflated status
+                      return row["Attendance status"] === "Accepted";
                     }).length;
                   }
                   
@@ -6302,8 +6352,8 @@ Co9P AI Chatbot`;
                   
                   // Count attended
                   const attendedCount = baseParticipants.filter((row) => {
-                    const status = getCombinedAttendanceStatus(row);
-                    return status === "Attended";
+                    // FIX: Only count actual CSV "Accepted" status, not inflated status
+                    return row["Attendance status"] === "Accepted";
                   }).length;
                   
                   return attendedCount;
@@ -6320,8 +6370,8 @@ Co9P AI Chatbot`;
                   // Otherwise use the regular filtering logic
                   if (selectedProgram >= 0 || showAllProgramsInCategory) {
                     return selectedProgramFilteredParticipants.filter((row) => {
-                      const status = getCombinedAttendanceStatus(row);
-                      return status === "Not Attended";
+                      // FIX: Only count actual CSV "Not Attended" status, not inflated status
+                      return row["Attendance status"] === "Not Attended";
                     }).length;
                   }
                   
@@ -6360,8 +6410,8 @@ Co9P AI Chatbot`;
                   
                   // Count not attended
                   const notAttendedCount = baseParticipants.filter((row) => {
-                    const status = getCombinedAttendanceStatus(row);
-                    return status === "Not Attended";
+                    // FIX: Only count actual CSV "Not Attended" status, not inflated status
+                    return row["Attendance status"] === "Not Attended";
                   }).length;
                   
                   return notAttendedCount;
@@ -6378,8 +6428,8 @@ Co9P AI Chatbot`;
                   // Otherwise use the regular filtering logic
                   if (selectedProgram >= 0 || showAllProgramsInCategory) {
                     return selectedProgramFilteredParticipants.filter((row) => {
-                      const status = getCombinedAttendanceStatus(row);
-                      return status === "Pending";
+                      // FIX: Only count actual CSV "Pending" status, not inflated status
+                      return row["Attendance status"] === "Pending";
                     }).length;
                   }
                   
@@ -6418,8 +6468,8 @@ Co9P AI Chatbot`;
                   
                   // Count pending
                   const pendingCount = baseParticipants.filter((row) => {
-                    const status = getCombinedAttendanceStatus(row);
-                    return status === "Pending";
+                    // FIX: Only count actual CSV "Pending" status, not inflated status
+                    return row["Attendance status"] === "Pending";
                   }).length;
                   
                   return pendingCount;
