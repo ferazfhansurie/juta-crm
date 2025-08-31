@@ -499,13 +499,17 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
       const response = await axios.post('https://juta-dev.ngrok.dev/api/ai-followup-builder-save-thread/save', {
         threadId,
         email: userEmail,
-        messages: messagesToSave,
+        threadData: {
+          messages: messagesToSave,
+          metadata: {
+            createdAt: new Date().toISOString()
+          }
+        },
         templateName: threadName
       });
 
-      if (!response.data.success) {
-        console.error('Error saving chat history:', response.data.error);
-      }
+      // Backend response is already handled, no need to check success flag
+      console.log('Chat history saved successfully');
     } catch (error) {
       console.error('Error saving chat history:', error);
     }
@@ -522,15 +526,22 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
 
       const response = await axios.get(`https://juta-dev.ngrok.dev/api/ai-followup-builder-save-thread/${threadId}?email=${encodeURIComponent(userEmail)}`);
       
-      if (response.data.success) {
-        return response.data.data.messages || [];
-      } else {
-        console.error('Error loading chat history:', response.data.error);
-        return [];
-      }
+      // Transform backend response to match frontend expectations
+      return response.data.thread?.threadData?.messages || [];
     } catch (error) {
       console.error('Error loading chat history:', error);
       return [];
+    }
+  };
+
+  // Utility function to safely parse dates
+  const safeParseDate = (dateString: any): string => {
+    if (!dateString) return new Date().toISOString();
+    try {
+      const date = new Date(dateString);
+      return isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+    } catch {
+      return new Date().toISOString();
     }
   };
 
@@ -545,15 +556,38 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
 
       const response = await axios.get(`https://juta-dev.ngrok.dev/api/ai-followup-builder-save-thread?email=${encodeURIComponent(userEmail)}`);
       
-      if (response.data.success) {
-        const threads = response.data.data.threads || [];
-        setAvailableThreads(threads);
+      console.log('Backend response:', response.data);
+      
+      // Transform backend response to match frontend expectations
+      const threads = response.data.threads || [];
+      
+      // Ensure all threads have proper date fields
+      const validatedThreads = threads.map((thread: any) => {
+        try {
+          return {
+            ...thread,
+            lastUpdated: safeParseDate(thread.lastUpdated),
+            createdAt: safeParseDate(thread.createdAt)
+          };
+        } catch (dateError) {
+          console.error('Error processing thread dates:', dateError, thread);
+          return {
+            ...thread,
+            lastUpdated: new Date().toISOString(),
+            createdAt: new Date().toISOString()
+          };
+        }
+      });
+      
+      setAvailableThreads(validatedThreads);
+      
+      // If no threads exist, automatically create one
+      if (threads.length === 0 && !currentThreadId) {
+        const newThreadId = generateThreadId();
+        const defaultName = generateDefaultThreadName();
+        setCurrentThreadId(newThreadId);
         
-        // If no threads exist, automatically create one
-        if (threads.length === 0 && !currentThreadId) {
-          const newThreadId = generateThreadId();
-          const defaultName = generateDefaultThreadName();
-          setCurrentThreadId(newThreadId);
+        try {
           await saveChatHistory(newThreadId, [], defaultName);
           
           // Add the new thread to available threads
@@ -566,13 +600,14 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
           const updatedThreads = [newThread];
           setAvailableThreads(updatedThreads);
           return updatedThreads;
+        } catch (saveError) {
+          console.error('Error auto-creating thread:', saveError);
+          // Return empty array if auto-creation fails
+          return [];
         }
-        
-        return threads;
-      } else {
-        console.error('Error getting available threads:', response.data.error);
-        return [];
       }
+      
+      return threads;
     } catch (error) {
       console.error('Error getting available threads:', error);
       return [];
@@ -1522,7 +1557,7 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
                                         {thread.templateName}
                                       </div>
                                       <div className="text-xs text-gray-500 dark:text-gray-400">
-                                        {thread.messageCount} messages - {new Date(thread.lastUpdated).toLocaleDateString()}
+                                        {thread.messageCount} messages - {thread.lastUpdated ? new Date(thread.lastUpdated).toLocaleDateString() : 'Unknown date'}
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-2 ml-2">
@@ -1636,7 +1671,7 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
                             {aiThinkingProgress < 30 && "Analyzing your request..."}
                             {aiThinkingProgress >= 30 && aiThinkingProgress < 60 && "Processing your follow-up data..."}
                             {aiThinkingProgress >= 60 && aiThinkingProgress < 90 && "Builder is taking longer than expected..."}
-                            {aiThinkingProgress >= 90 && aiThinkingProgress < 100 && "Please wait for a while i build your follow-up templates..."}
+                            {aiThinkingProgress >= 90 && aiThinkingProgress < 100 && "Please wait while I build your follow-up templates..."}
                             {aiThinkingProgress >= 100 && "Response ready!"}
                           </div>
                         </div>
@@ -1935,7 +1970,7 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
                           </div>
                           
                           <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                            <p><strong>Created:</strong> {new Date(template.createdAt).toLocaleDateString()}</p>
+                            <p><strong>Created:</strong> {template.createdAt ? new Date(template.createdAt).toLocaleDateString() : 'Unknown date'}</p>
                             <p><strong>Messages:</strong> {currentFollowUps.messages[template.templateId]?.length || 0}</p>
                             
                             {template.triggerTags && template.triggerTags.length > 0 && (

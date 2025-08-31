@@ -45,9 +45,19 @@ interface MessageListProps {
   isApplyingChanges: boolean;
   applyProgress: number;
   onApplyChanges: () => void;
+  // Thread management props
+  availableThreads: Array<{
+    threadId: string;
+    templateName: string;
+    lastUpdated: string;
+    messageCount: number;
+  }>;
+  onLoadThread: (threadId: string) => void;
+  onCreateNewThread: () => void;
+  onClearCurrentThread: () => void;
 }
 
-const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assistantName, deleteThread, threadId, isApplyingChanges, applyProgress, onApplyChanges }) => {
+const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assistantName, deleteThread, threadId, isApplyingChanges, applyProgress, onApplyChanges, availableThreads, onLoadThread, onCreateNewThread, onClearCurrentThread }) => {
   const [newMessage, setNewMessage] = useState('');
   const navigate = useNavigate();
 
@@ -66,37 +76,76 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
 
   return (
     <div className="flex flex-col w-full h-full bg-white dark:bg-gray-900 relative">
-      <div className="flex items-center justify-between p-4 border-b border-white/20 dark:border-gray-700/30 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-t-2xl">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
-            title="Go back"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div className="bg-gray-600/80 dark:bg-gray-700/80 backdrop-blur-sm border border-gray-500/30 dark:border-gray-600/30 rounded-2xl px-4 py-3 shadow-lg">
-            <div className="font-bold text-white dark:text-white text-lg">Prompt Builder</div>
-            <div className="text-sm text-gray-200 dark:text-gray-200">AI-powered prompt optimization</div>
+      <div className="p-3 border-b border-white/20 dark:border-gray-700/30 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-t-2xl">
+        {/* Main Header */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate(-1)}
+              className="p-1.5 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
+              title="Go back"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <div className="bg-gray-600/80 dark:bg-gray-700/80 backdrop-blur-sm border border-gray-500/30 dark:border-gray-600/30 rounded-xl px-3 py-2 shadow-lg">
+              <div className="font-bold text-white dark:text-white text-base">Prompt Builder</div>
+            </div>
           </div>
         </div>
-        <div>
-          <button 
-            onClick={deleteThread} 
-            className={`px-4 py-2 text-white rounded-xl flex items-center space-x-2 transition-all duration-200 ${!threadId ? 'bg-gray-400/80 dark:bg-gray-600/80 cursor-not-allowed' : 'bg-red-500/80 dark:bg-red-600/80 hover:bg-red-600/90 dark:hover:bg-red-700/90'} active:scale-95 shadow-lg hover:shadow-xl backdrop-blur-sm border border-white/20 dark:border-red-500/30`}
-            disabled={!threadId}
+        
+        {/* Thread Management Section */}
+        <div className="flex items-center gap-1.5">
+          {/* Thread Selection Dropdown */}
+          <div className="relative">
+            <select
+              value={threadId || ''}
+              onChange={(e) => {
+                if (e.target.value) {
+                  onLoadThread(e.target.value);
+                }
+              }}
+              className="px-2.5 py-1.5 text-xs bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[140px]"
+            >
+              <option value="">Select Conversation</option>
+              {availableThreads.map((thread) => (
+                <option key={thread.threadId} value={thread.threadId}>
+                  {thread.templateName} - {new Date(thread.lastUpdated).toLocaleDateString()}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          {/* New Thread Button */}
+          <button
+            onClick={onCreateNewThread}
+            className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs active:scale-95 transition-all duration-200 flex items-center gap-1"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            <span>Reset Chat</span>
+            New
           </button>
+          
+          {/* Clear Thread Button */}
+          {threadId && (
+            <button
+              onClick={onClearCurrentThread}
+              className="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs active:scale-95 transition-all duration-200 flex items-center gap-1"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Clear
+            </button>
+          )}
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 dark:bg-gray-900">
+
+        
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center">
                     <div className="w-16 h-16 bg-[#dcf8c6]/30 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
@@ -329,6 +378,16 @@ const Main: React.FC = () => {
   const [applyProgress, setApplyProgress] = useState(0);
   const [brainstormSuggestions, setBrainstormSuggestions] = useState<string[]>([]);
   const [currentBrainstormMessage, setCurrentBrainstormMessage] = useState<string>('');
+  
+  // Thread management state
+  const [availableThreads, setAvailableThreads] = useState<Array<{
+    threadId: string;
+    templateName: string;
+    lastUpdated: string;
+    messageCount: number;
+  }>>([]);
+  const [editingThreadName, setEditingThreadName] = useState<string | null>(null);
+  const [editingThreadNameValue, setEditingThreadNameValue] = useState<string>('');
 
   const navigate = useNavigate();
 
@@ -376,6 +435,222 @@ const Main: React.FC = () => {
     reader.readAsText(file);
   };
   
+  // Thread management functions
+  const generateThreadId = () => {
+    return Date.now().toString() + Math.random().toString(36).substr(2, 9);
+  };
+
+  const generateDefaultThreadName = () => {
+    const chatNumber = availableThreads.length + 1;
+    const date = new Date().toLocaleDateString();
+    return `Prompt Builder Chat ${chatNumber} - ${date}`;
+  };
+
+  const saveChatHistory = async (threadId: string, messages: ChatMessage[], customName?: string) => {
+    try {
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        console.error("No user email found");
+        return;
+      }
+
+      const threadName = customName || 'Prompt Builder Chat';
+
+      const response = await axios.post('https://juta-dev.ngrok.dev/api/ai-followup-builder-save-thread/save', {
+        threadId,
+        email: userEmail,
+        messages: messages,
+        templateName: threadName
+      });
+
+      if (response.data.success) {
+        console.log('Chat history saved successfully');
+        // Backend should now have the updated message count
+      } else {
+        console.error('Error saving chat history:', response.data.error);
+      }
+    } catch (error) {
+      console.error('Error saving chat history:', error);
+    }
+  };
+
+  const loadChatHistory = async (threadId: string): Promise<ChatMessage[]> => {
+    try {
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        console.error("No user email found");
+        return [];
+      }
+
+      console.log('Loading chat history for thread:', threadId, 'email:', userEmail);
+      const response = await axios.get(`https://juta-dev.ngrok.dev/api/ai-followup-builder-save-thread/${threadId}?email=${encodeURIComponent(userEmail)}`);
+      
+      console.log('Chat history response:', response.data);
+      console.log('Response data structure:', {
+        success: response.data.success,
+        hasData: !!response.data.data,
+        dataKeys: response.data.data ? Object.keys(response.data.data) : 'no data',
+        messages: response.data.data?.messages,
+        messagesType: typeof response.data.data?.messages,
+        messagesIsArray: Array.isArray(response.data.data?.messages)
+      });
+      
+      if (response.data.success) {
+        const messages = response.data.data.messages || [];
+        console.log('Messages loaded:', messages);
+        console.log('Messages length:', messages.length);
+        return messages;
+      } else {
+        console.error('Error loading chat history:', response.data.error);
+        return [];
+      }
+    } catch (error) {
+      console.error('Error loading chat history:', error);
+      return [];
+    }
+  };
+
+  const getAvailableThreads = async () => {
+    try {
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        console.error("No user email found");
+        return [];
+      }
+
+      const response = await axios.get(`https://juta-dev.ngrok.dev/api/ai-followup-builder-save-thread?email=${encodeURIComponent(userEmail)}`);
+      
+      console.log('Backend response:', response.data);
+      
+      if (!response.data.success) {
+        console.error('Error getting available threads:', response.data.error);
+        return [];
+      }
+      
+      const threads = response.data.data.threads || [];
+      
+      const validatedThreads = threads.map((thread: any) => {
+        try {
+          const messageCount = thread.threadData?.messages?.length || 0;
+          console.log(`Thread ${thread.threadId}: backend messageCount = ${messageCount}, threadData =`, thread.threadData);
+          
+          return {
+            ...thread,
+            lastUpdated: thread.lastUpdated || new Date().toISOString(),
+            createdAt: thread.createdAt || new Date().toISOString(),
+            messageCount: messageCount
+          };
+        } catch (dateError) {
+          console.error('Error processing thread dates:', dateError, thread);
+          return {
+            ...thread,
+            lastUpdated: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            messageCount: thread.threadData?.messages?.length || 0
+          };
+        }
+      });
+      
+      // Sort threads by last updated date (most recent first)
+      const sortedThreads = validatedThreads.sort((a: any, b: any) => 
+        new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()
+      );
+      
+      setAvailableThreads(sortedThreads);
+      
+      return sortedThreads;
+    } catch (error) {
+      console.error('Error getting available threads:', error);
+      return [];
+    }
+  };
+
+  const clearCurrentThread = async () => {
+    if (threadId) {
+      try {
+        const userEmail = localStorage.getItem("userEmail");
+        if (userEmail) {
+          // Delete the thread from the backend
+          await axios.delete(`https://juta-dev.ngrok.dev/api/ai-followup-builder-save-thread/${threadId}?email=${encodeURIComponent(userEmail)}`);
+          
+          // Remove the thread from local state immediately
+          setAvailableThreads(prevThreads => 
+            prevThreads.filter(thread => thread.threadId !== threadId)
+          );
+        }
+      } catch (error) {
+        console.error('Error clearing thread history:', error);
+      }
+    }
+    
+    const newThreadId = generateThreadId();
+    setThreadId(newThreadId);
+    setMessages([]);
+    
+    await saveChatHistory(newThreadId, []);
+    
+    // Refresh threads from backend to ensure consistency
+    await getAvailableThreads();
+  };
+
+  const loadThread = async (threadId: string) => {
+    try {
+      console.log('Loading thread:', threadId);
+      const threadMessages = await loadChatHistory(threadId);
+      console.log('Thread messages loaded:', threadMessages);
+      console.log('Thread messages type:', typeof threadMessages, 'isArray:', Array.isArray(threadMessages));
+      
+      // Always set the threadId first, regardless of message count
+      console.log('Setting threadId to:', threadId);
+      setThreadId(threadId);
+      
+      // Ensure we have valid messages
+      if (Array.isArray(threadMessages) && threadMessages.length > 0) {
+        console.log('Setting messages in state:', threadMessages);
+        setMessages(threadMessages);
+        console.log('Thread loaded successfully, messages count:', threadMessages.length);
+      } else {
+        console.log('No valid messages found, setting empty array');
+        setMessages([]);
+      }
+      
+      // Note: We're not updating availableThreads locally anymore
+      // The backend should return the correct message count
+      console.log('Thread loaded, but backend should provide correct message count');
+    } catch (error) {
+      console.error('Error loading thread:', error);
+    }
+  };
+
+  const createNewThread = async () => {
+    const newThreadId = generateThreadId();
+    const defaultName = generateDefaultThreadName();
+    setThreadId(newThreadId);
+    setMessages([]);
+    
+    await saveChatHistory(newThreadId, [], defaultName);
+    
+    await getAvailableThreads();
+  };
+
+  const startEditingThreadName = (threadId: string) => {
+    const thread = availableThreads.find(t => t.threadId === threadId);
+    if (thread) {
+      setEditingThreadNameValue(thread.templateName);
+      setEditingThreadName(threadId);
+    }
+  };
+
+  const saveThreadName = async (threadId: string) => {
+    try {
+      await saveChatHistory(threadId, messages, editingThreadNameValue.trim());
+      setEditingThreadName(null);
+      await getAvailableThreads();
+    } catch (error) {
+      console.error('Error saving thread name:', error);
+    }
+  };
+  
   useEffect(() => {
     fetchCompanyId();
   }, []);
@@ -397,6 +672,31 @@ const Main: React.FC = () => {
     return () => window.removeEventListener('resize', checkIfMobile);
   }, []);
 
+  // Load threads when component mounts and auto-create new thread
+  useEffect(() => {
+    const initializeThreads = async () => {
+      console.log('Initializing threads...');
+      const threads = await getAvailableThreads();
+      console.log('Available threads:', threads);
+      
+      // Always try to select the most recent thread on first load
+      if (threads.length > 0) {
+        console.log('Threads exist, selecting most recent one...');
+        const mostRecentThread = threads[0]; // Assuming they're sorted by date
+        if (mostRecentThread) {
+          console.log('Loading most recent thread:', mostRecentThread.threadId);
+          await loadThread(mostRecentThread.threadId);
+        }
+      } else {
+        console.log('No threads exist, creating new one...');
+        // No threads exist, create a new one
+        await createNewThread();
+      }
+    };
+    
+    initializeThreads();
+  }, []); // Only run once on mount
+
   useEffect(() => {
     const checkScreenWidth = () => {
       setIsWideScreen(window.innerWidth >= 1024); // Adjust this breakpoint as needed
@@ -407,6 +707,16 @@ const Main: React.FC = () => {
 
     return () => window.removeEventListener('resize', checkScreenWidth);
   }, []);
+
+  // Debug: Monitor messages state changes
+  useEffect(() => {
+    console.log('Messages state changed:', messages.length, 'messages:', messages);
+  }, [messages]);
+
+  // Debug: Monitor availableThreads state changes
+  useEffect(() => {
+    console.log('AvailableThreads state changed:', availableThreads.length, 'threads:', availableThreads);
+  }, [availableThreads]);
 
   const fetchCompanyId = async () => {
     const userEmail = localStorage.getItem("userEmail");
@@ -705,13 +1015,24 @@ const Main: React.FC = () => {
       
 
   
-      // Remove loading message and add the real response
+            // Remove loading message and add the real response
       setMessages(prevMessages => {
         const filteredMessages = prevMessages.filter(msg => !msg.isLoading);
-        return [assistantResponse, ...filteredMessages];
+        const updatedMessages = [assistantResponse, ...filteredMessages];
+        
+        // Save messages to current thread
+        if (threadId) {
+          saveChatHistory(threadId, updatedMessages);
+        } else if (userEmail) {
+          // Create new thread if none exists
+          const newThreadId = generateThreadId();
+          setThreadId(newThreadId);
+          saveChatHistory(newThreadId, updatedMessages);
+          getAvailableThreads();
+        }
+        
+        return updatedMessages;
       });
-  
-      setThreadId(userEmail);
   
     } catch (error) {
       console.error('Error:', error);
@@ -940,6 +1261,10 @@ return (
                 isApplyingChanges={isApplyingChanges}
                 applyProgress={applyProgress}
                 onApplyChanges={applyChangesToPrompt}
+                availableThreads={availableThreads}
+                onLoadThread={loadThread}
+                onCreateNewThread={createNewThread}
+                onClearCurrentThread={clearCurrentThread}
               />
             </div>
             {/* Assistant details moved to right side */}
@@ -1259,6 +1584,10 @@ return (
                   isApplyingChanges={isApplyingChanges}
                   applyProgress={applyProgress}
                   onApplyChanges={applyChangesToPrompt}
+                  availableThreads={availableThreads}
+                  onLoadThread={loadThread}
+                  onCreateNewThread={createNewThread}
+                  onClearCurrentThread={clearCurrentThread}
                 />
               </Tab.Panel>
             </Tab.Panels>
