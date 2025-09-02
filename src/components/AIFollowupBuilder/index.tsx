@@ -524,10 +524,12 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
         return [];
       }
 
-      const response = await axios.get(`https://juta-dev.ngrok.dev/api/ai-followup-builder-save-thread/${threadId}?email=${encodeURIComponent(userEmail)}`);
+      const response = await axios.get(`https://juta-dev.ngrok.dev/api/threads/${threadId}`, {
+        params: { email: userEmail, page: 'aifollowup' }
+      });
       
       // Transform backend response to match frontend expectations
-      return response.data.thread?.threadData?.messages || [];
+      return response.data.data?.messages || [];
     } catch (error) {
       console.error('Error loading chat history:', error);
       return [];
@@ -559,7 +561,7 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
       console.log('Backend response:', response.data);
       
       // Transform backend response to match frontend expectations
-      const threads = response.data.threads || [];
+      const threads = response.data.data?.threads || [];
       
       // Ensure all threads have proper date fields
       const validatedThreads = threads.map((thread: any) => {
@@ -620,7 +622,9 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
       try {
         const userEmail = localStorage.getItem("userEmail");
         if (userEmail) {
-          await axios.delete(`https://juta-dev.ngrok.dev/api/ai-followup-builder-save-thread/${currentThreadId}?email=${encodeURIComponent(userEmail)}`);
+          await axios.delete(`https://juta-dev.ngrok.dev/api/threads/${currentThreadId}`, {
+            params: { email: userEmail, page: 'aifollowup' }
+          });
         }
       } catch (error) {
         console.error('Error clearing thread history:', error);
@@ -1153,27 +1157,58 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
           return null;
         }
         
-        // Transform messages from objects to strings (your API expects strings)
+        // Transform messages: keep full objects and normalize timing rules
+        const defaultTimes = ["09:00", "10:00", "14:00", "16:00"];
         const transformedMessages = template.messages.map((msg: any, index: number) => {
           if (!msg || typeof msg !== 'object') {
             console.error(`Invalid message at index ${index}:`, msg);
             return null;
           }
-          
+
           if (typeof msg.message !== 'string') {
             console.error(`Message at index ${index} has invalid message field:`, msg.message);
             return null;
           }
-          
+
           // Clean up the message content (remove artifacts like "||")
           let cleanMessage = msg.message.trim();
-          // Remove common artifacts that might appear at the end
-          cleanMessage = cleanMessage.replace(/\|\s*$/, ''); // Remove trailing "|"
-          cleanMessage = cleanMessage.replace(/\|\|\s*$/, ''); // Remove trailing "||"
-          cleanMessage = cleanMessage.replace(/^\|\s*/, ''); // Remove leading "|"
-          
-          return cleanMessage; // Return cleaned message text
-        }).filter(Boolean); // Remove any null values
+          cleanMessage = cleanMessage.replace(/\|\s*$/, '');
+          cleanMessage = cleanMessage.replace(/\|\|\s*$/, '');
+          cleanMessage = cleanMessage.replace(/^\|\s*/, '');
+
+          const isFirst = index === 0;
+
+          if (isFirst) {
+            const delayAfter = msg.delayAfter && typeof msg.delayAfter.value === 'number'
+              ? { value: msg.delayAfter.value, unit: msg.delayAfter.unit || 'minutes', isInstantaneous: false }
+              : { value: 30, unit: 'minutes', isInstantaneous: false };
+
+            return {
+              ...msg,
+              message: cleanMessage,
+              sequence: typeof msg.sequence === 'number' ? msg.sequence : index + 1,
+              dayNumber: 0,
+              useScheduledTime: false,
+              scheduledTime: '',
+              delayAfter
+            };
+          }
+
+          const time = (typeof msg.scheduledTime === 'string' && msg.scheduledTime.trim())
+            ? msg.scheduledTime
+            : defaultTimes[(index - 1) % defaultTimes.length];
+
+          return {
+            ...msg,
+            message: cleanMessage,
+            sequence: typeof msg.sequence === 'number' ? msg.sequence : index + 1,
+            dayNumber: typeof msg.dayNumber === 'number' && msg.dayNumber >= 1 ? msg.dayNumber : 1,
+            useScheduledTime: true,
+            scheduledTime: time,
+            // Remove delayAfter to avoid UI falling back to Instant
+            delayAfter: null
+          };
+        }).filter(Boolean);
         
         return {
           templateId: template.templateId,
@@ -1208,28 +1243,25 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
       throw new Error("Some templates have no messages. Please check the data.");
     }
     
-    // Final validation: ensure each message is a string
+    // Final validation: ensure each message is an object with non-empty text
     const finalValidation = templatesToSave.map((template: any, templateIndex: number) => {
       console.log(`Validating template ${templateIndex}: ${template.stageName}`);
       console.log(`Original messages count: ${template.messages.length}`);
       console.log(`Original messages:`, template.messages);
-      
+
       const validMessages = template.messages.filter((msg: any, msgIndex: number) => {
-        if (typeof msg !== 'string') {
-          console.error(`Template ${templateIndex}, Message ${msgIndex} is not a string:`, msg);
-          return false;
+        const isValid = msg && typeof msg.message === 'string' && msg.message.trim();
+        if (!isValid) {
+          console.error(`Template ${templateIndex}, Message ${msgIndex} invalid:`, msg);
+        } else {
+          console.log(`Template ${templateIndex}, Message ${msgIndex} is valid:`, msg.message);
         }
-        if (!msg.trim()) {
-          console.error(`Template ${templateIndex}, Message ${msgIndex} is empty:`, msg);
-          return false;
-        }
-        console.log(`Template ${templateIndex}, Message ${msgIndex} is valid:`, msg);
-        return true;
+        return Boolean(isValid);
       });
-      
+
       console.log(`Valid messages count: ${validMessages.length}`);
       console.log(`Valid messages:`, validMessages);
-      
+
       return {
         ...template,
         messages: validMessages,
@@ -1670,8 +1702,8 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
                           <div className="text-xs text-gray-500 dark:text-gray-400">
                             {aiThinkingProgress < 30 && "Analyzing your request..."}
                             {aiThinkingProgress >= 30 && aiThinkingProgress < 60 && "Processing your follow-up data..."}
-                            {aiThinkingProgress >= 60 && aiThinkingProgress < 90 && "Builder is taking longer than expected..."}
-                            {aiThinkingProgress >= 90 && aiThinkingProgress < 100 && "Please wait while I build your follow-up templates..."}
+                            {aiThinkingProgress >= 60 && aiThinkingProgress < 90 && "I am building your follow-up templates..."}
+                            {aiThinkingProgress >= 90 && aiThinkingProgress < 100 && "Builder is taking longer than expected...Please wait for a while"}
                             {aiThinkingProgress >= 100 && "Response ready!"}
                           </div>
                         </div>

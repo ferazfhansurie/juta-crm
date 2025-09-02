@@ -74,6 +74,93 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
     }
   };
 
+  // Render formatted message with special section markers
+  const renderFormattedMessage = (rawText: string, isFromMe: boolean) => {
+    const sectionRegex = /(\[(?:CHANGES|EXPLANATION)_START\])([\s\S]*?)(\[(?:CHANGES|EXPLANATION)_END\])/g;
+    const elements: JSX.Element[] = [];
+    let lastIndex = 0;
+
+    const renderPlainBlock = (textBlock: string, leadingClass: string) => (
+      <div className={`max-w-none text-sm ${leadingClass}`} key={`plain-${elements.length}`}> 
+        {textBlock.split('\n').map((line, index) => {
+          if (line.trim().startsWith('**') && line.trim().endsWith('**')) {
+            // Render bold-marked lines as plain text (show the ** literally)
+            return (
+              <p key={index} className={`mb-3 ${isFromMe ? 'text-white' : 'text-gray-800 dark:text-white'}`}>{line}</p>
+            );
+          } else if (line.trim().match(/^\d+\./)) {
+            return (
+              <div key={index} className="ml-6 mb-3 flex items-start">
+                <span className={`${isFromMe ? 'text-white' : 'text-[#2d5a2d] dark:text-green-400'} font-semibold mr-2 min-w-[20px]`}>{line.match(/^\d+\./)?.[0]}</span>
+                <span className={`${isFromMe ? 'text-white' : 'text-gray-800 dark:text-white'}`}>{line.replace(/^\d+\.\s*/, '')}</span>
+              </div>
+            );
+          } else if (line.trim().startsWith('- ')) {
+            // Render dash bullets as a textual dash prefix rather than a dot bullet
+            return (
+              <p key={index} className={`ml-6 mb-3 ${isFromMe ? 'text-white' : 'text-gray-800 dark:text-white'}`}>{`- ${line.substring(2)}`}</p>
+            );
+          } else if (line.trim()) {
+            return (
+              <p key={index} className={`mb-3 ${isFromMe ? 'text-white' : 'text-gray-800 dark:text-white'}`}>{line}</p>
+            );
+          } else {
+            return <div key={index} className="h-3"></div>;
+          }
+        })}
+      </div>
+    );
+
+    for (const match of rawText.matchAll(sectionRegex)) {
+      const matchStart = match.index || 0;
+      const matchEnd = matchStart + match[0].length;
+      const startTag = match[1];
+      const body = match[2].trim();
+
+      if (matchStart > lastIndex) {
+        const preceding = rawText.substring(lastIndex, matchStart);
+        if (preceding.trim().length > 0) {
+          elements.push(renderPlainBlock(preceding, 'leading-relaxed'));
+        }
+      }
+
+      const isChanges = startTag.includes('[CHANGES_START]');
+      const sectionTitle = isChanges ? 'Changes' : 'Explanation';
+
+      elements.push(
+        <div key={`section-${elements.length}`} className={`${isChanges ? 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-200 dark:border-green-700' : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'} mt-4 mb-4 p-3 rounded-lg border`}>
+          <div className="mb-2">
+            <span className={`inline-block rounded-full px-3 py-1 text-sm md:text-base font-semibold shadow-sm border ${
+              isFromMe
+                ? 'text-white border-white/30 bg-white/10'
+                : isChanges
+                  ? 'text-[#1f3d1f] dark:text-green-200 bg-[#dcf8c6] dark:bg-green-800/40 border-green-300 dark:border-green-700'
+                  : 'text-gray-800 dark:text-gray-100 bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600'
+            }`}>{sectionTitle}</span>
+          </div>
+          <div className={`${isChanges ? 'font-mono' : ''}`}>
+            {renderPlainBlock(body, isChanges ? 'leading-normal' : 'leading-relaxed')}
+          </div>
+        </div>
+      );
+
+      lastIndex = matchEnd;
+    }
+
+    if (lastIndex < rawText.length) {
+      const trailing = rawText.substring(lastIndex);
+      if (trailing.trim().length > 0) {
+        elements.push(renderPlainBlock(trailing, 'leading-relaxed'));
+      }
+    }
+
+    if (elements.length === 0) {
+      elements.push(renderPlainBlock(rawText, 'leading-relaxed'));
+    }
+
+    return <>{elements}</>;
+  };
+
   return (
     <div className="flex flex-col w-full h-full bg-white dark:bg-gray-900 relative">
       <div className="p-3 border-b border-white/20 dark:border-gray-700/30 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-t-2xl">
@@ -204,43 +291,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onSendMessage, assi
                     >
                       {/* Format the AI response text nicely */}
                       <div className="max-w-none">
-                        {message.text.split('\n').map((line, index) => {
-                          // Handle different line types for better formatting
-                          if (line.trim().startsWith('**') && line.trim().endsWith('**')) {
-                            // Bold headers
-                                                          return (
-                                <h4 key={index} className={`font-bold mt-4 mb-3 text-lg border-b pb-1 ${message.from_me ? 'text-white border-white/30' : 'text-[#2d5a2d] dark:text-green-300 border-[#dcf8c6] dark:border-green-700'}`}>
-                                  {line.replace(/\*\*/g, '')}
-                                </h4>
-                              );
-                          } else if (line.trim().match(/^\d+\./)) {
-                            // Numbered lists
-                                                          return (
-                                <div key={index} className="ml-6 mb-3 flex items-start">
-                                  <span className={`${message.from_me ? 'text-white' : 'text-[#2d5a2d] dark:text-green-400'} font-semibold mr-2 min-w-[20px]`}>{line.match(/^\d+\./)?.[0]}</span>
-                                  <span className={`${message.from_me ? 'text-white' : 'text-gray-800 dark:text-white'} leading-relaxed`}>{line.replace(/^\d+\.\s*/, '')}</span>
-                                </div>
-                              );
-                          } else if (line.trim().startsWith('- ')) {
-                            // Bullet points
-                                                          return (
-                                <div key={index} className="ml-6 mb-3 flex items-start">
-                                  <span className={`${message.from_me ? 'text-white' : 'text-[#2d5a2d] dark:text-green-400'} mr-3 mt-1`}>•</span>
-                                  <span className={`${message.from_me ? 'text-white' : 'text-gray-800 dark:text-white'} leading-relaxed`}>{line.substring(2)}</span>
-                                </div>
-                              );
-                          } else if (line.trim()) {
-                            // Regular text
-                                                          return (
-                                <p key={index} className={`mb-3 leading-relaxed ${message.from_me ? 'text-white' : 'text-gray-800 dark:text-white'}`}>
-                                  {line}
-                                </p>
-                              );
-                          } else {
-                            // Empty lines for spacing
-                            return <div key={index} className="h-3"></div>;
-                          }
-                        })}
+                        {renderFormattedMessage(message.text, !!message.from_me)}
                       </div>
                       
                       {/* Show Apply Changes button for brainstorm messages */}
@@ -531,8 +582,8 @@ const Main: React.FC = () => {
       
       const validatedThreads = threads.map((thread: any) => {
         try {
-          const messageCount = thread.threadData?.messages?.length || 0;
-          console.log(`Thread ${thread.threadId}: backend messageCount = ${messageCount}, threadData =`, thread.threadData);
+          const messageCount = thread.messageCount || 0;
+          console.log(`Thread ${thread.threadId}: backend messageCount = ${messageCount}`);
           
           return {
             ...thread,
@@ -546,7 +597,7 @@ const Main: React.FC = () => {
             ...thread,
             lastUpdated: new Date().toISOString(),
             createdAt: new Date().toISOString(),
-            messageCount: thread.threadData?.messages?.length || 0
+            messageCount: thread.messageCount || 0
           };
         }
       });
@@ -946,15 +997,26 @@ const Main: React.FC = () => {
       // Use the brainstorming endpoint for suggestions
       const apiUrl = 'https://juta-dev.ngrok.dev';
   
+      // Send the full conversation history so AI remembers the context
+      const conversationHistory = messages.map(msg => ({
+        role: msg.from_me ? 'user' : 'assistant',
+        content: msg.text
+      }));
+      
+      console.log('Sending conversation history to AI:', conversationHistory);
+      console.log('Current messages state:', messages);
+      
       const res = await axios({
         method: 'post',
         url: `${apiUrl}/api/prompt-brainstorm/`,
         params: {
           message: messageText,
-          email: userEmail
+          email: userEmail,
+
         },
         data: {
-          currentPrompt: assistantInfo.instructions || ''
+          currentPrompt: assistantInfo.instructions || '',
+          conversationHistory: conversationHistory
         }
       });
       
@@ -1322,9 +1384,6 @@ return (
                           overflowY: 'auto'
                         }}
                       />
-                    </div>
-                    <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                      💡 Use the chat below to ask AI to improve these instructions
                     </div>
                   </div>
 

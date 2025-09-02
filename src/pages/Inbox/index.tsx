@@ -1293,6 +1293,15 @@ const Main: React.FC = () => {
       const userEmail = localStorage.getItem("userEmail");
 
       // Get the assistant response first
+      // Send the full conversation history so AI remembers the context
+      const conversationHistory = messages.map(msg => ({
+        role: msg.from_me ? 'user' : 'assistant',
+        content: msg.text
+      }));
+      
+      console.log('Sending conversation history to AI:', conversationHistory);
+      console.log('Current messages state:', messages);
+      
       const res = await axios.get(
         `https://juta-dev.ngrok.dev/api/assistant-test/`,
         {
@@ -1300,6 +1309,7 @@ const Main: React.FC = () => {
             message: messageText,
             email: userEmail,
             assistantid: assistantId,
+            conversationHistory: JSON.stringify(conversationHistory)
           },
         }
       );
@@ -1516,7 +1526,7 @@ const Main: React.FC = () => {
             ...thread,
             lastUpdated: thread.lastUpdated || new Date().toISOString(),
             createdAt: thread.createdAt || new Date().toISOString(),
-            messageCount: thread.threadData?.messages?.length || 0
+            messageCount: thread.messageCount || 0
           };
         } catch (dateError) {
           console.error('Error processing thread dates:', dateError, thread);
@@ -1524,7 +1534,7 @@ const Main: React.FC = () => {
             ...thread,
             lastUpdated: new Date().toISOString(),
             createdAt: new Date().toISOString(),
-            messageCount: thread.threadData?.messages?.length || 0
+            messageCount: thread.messageCount || 0
           };
         }
       });
@@ -2503,64 +2513,33 @@ const Main: React.FC = () => {
                   {/* AI Tools Section */}
                   <div className="mb-3">
                     <div className="flex flex-wrap gap-1.5">
-                      <div className="relative ai-tools-dropdown">
-                        <button 
-                          onClick={handleAiToolsClick}
-                          className="px-2 py-1.5 bg-blue-500 dark:bg-blue-600 text-white border-2 border-blue-600 dark:border-blue-500 rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 hover:border-blue-700 dark:hover:border-blue-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-1.5 whitespace-nowrap text-xs"
+                      <button 
+                        onClick={handleAutomatedClick}
+                        className="px-2 py-1.5 bg-blue-500 dark:bg-blue-600 text-white border-2 border-blue-600 dark:border-blue-500 rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 hover:border-blue-700 dark:hover:border-blue-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-1.5 whitespace-nowrap text-xs"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-3 w-3"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
                         >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-3 w-3"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l8 8a1 1 0 001.414 0l4-4z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                          AI Tools
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className={`h-3 w-3 transition-transform duration-200 ${showAiToolsDropdown ? 'rotate-180' : ''}`}
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                          >
-                            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                        
-                        {/* Dropdown Menu */}
-                        {showAiToolsDropdown && (
-                          <div className="absolute top-full left-0 mt-1.5 w-40 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
-                            <button
-                              onClick={handleAutomatedClick}
-                              className="w-full px-3 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-t-lg border-b border-gray-200 dark:border-gray-700 flex items-center gap-1.5 text-xs"
-                            >
-                              <svg className="w-3 h-3 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
-                              </svg>
-                              Automated AI Tools
-                            </button>
-                            <div className="px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-700">
-                              Let AI Decide To Trigger
-                            </div>
-                            <button
-                              onClick={handleManualClick}
-                              className="w-full px-3 py-2 text-left text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-b-lg flex items-center gap-1.5 text-xs"
-                            >
-                              <svg className="w-3 h-3 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              Manual AI Tools
-                            </button>
-                            <div className="px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 rounded-b-lg">
-                              Set Keywords To Trigger
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                          <path
+                            fillRule="evenodd"
+                            d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        AI Tools
+                      </button>
+                      <button
+                        onClick={handleManualClick}
+                        className="px-2 py-1.5 bg-indigo-500 dark:bg-indigo-600 text-white border-2 border-indigo-600 dark:border-indigo-500 rounded-lg hover:bg-indigo-600 dark:hover:bg-indigo-700 hover:border-indigo-700 dark:hover:border-indigo-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-1.5 whitespace-nowrap text-xs"
+                      >
+                        <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M2 10a8 8 0 1116 0 8 8 0 01-16 0zm7-3h2v6H9V7zm0 8h2v2H9v-2z" />
+                        </svg>
+                        Keyword Tools
+                      </button>
                       <Link to="/follow-ups">
                         <button className="px-2 py-1.5 bg-teal-500 dark:bg-teal-600 text-white border-2 border-teal-600 dark:border-teal-500 rounded-lg hover:bg-teal-600 dark:hover:bg-teal-700 hover:border-teal-700 dark:hover:border-teal-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-1.5 whitespace-nowrap text-xs">
                           <svg
