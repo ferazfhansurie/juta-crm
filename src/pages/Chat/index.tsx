@@ -1292,7 +1292,7 @@ console.log(data);
   const [messagePage, setMessagePage] = useState(0);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
-  const MESSAGES_PER_PAGE = 30;
+  const MESSAGES_PER_PAGE = 10;
 // Add these functions after the fetchMessages function (around line 6171)
 
 // Replace the existing loadMoreMessages function (around line 1298) with this corrected version:
@@ -1333,8 +1333,9 @@ const loadMoreMessages = useCallback(() => {
   }, 300);
 }, [messagePage, allMessages.length, isLoadingMoreMessages, hasMoreMessages]);
 
+
 // Replace the handleMessageListScroll function (around line 1315) with this button approach:
-const handleLoadMoreMessages = useCallback(() => {
+const handleLoadMoreMessages = useCallback(async () => {
   if (isLoadingMoreMessages || !hasMoreMessages) return;
   
   setIsLoadingMoreMessages(true);
@@ -1350,6 +1351,7 @@ const handleLoadMoreMessages = useCallback(() => {
     if (startIndex < allMessages.length) {
       const newMessages = allMessages.slice(startIndex, endIndex);
       setDisplayedMessages(prev => [...newMessages, ...prev]);
+      console.log(displayedMessages);
       setMessagePage(nextPage);
       setHasMoreMessages(endIndex < allMessages.length);
       console.log(`✅ Loaded ${newMessages.length} more messages`);
@@ -1357,10 +1359,10 @@ const handleLoadMoreMessages = useCallback(() => {
       console.log(`🔍 No more messages to load - reached end`);
       setHasMoreMessages(false);
     }
-    
+ 
     setIsLoadingMoreMessages(false);
   }, 500);
-}, [messagePage, allMessages.length, isLoadingMoreMessages, hasMoreMessages]);
+}, [messagePage, isLoadingMoreMessages, hasMoreMessages, selectedChatId, whapiToken]);
 
 // Remove the handleMessageListScroll function entirely
 // Remove the onScroll={handleMessageListScroll} from the message list div
@@ -2502,6 +2504,36 @@ useEffect(() => {
         initialLoadedPages.add(page);
       }
       setLoadedPages(initialLoadedPages);
+
+      // Fetch first page messages for only the first page of contacts (first 20 visible contacts)
+      console.log("Starting background message caching for first page contacts...");
+      const contactsToCache = sortedContacts.slice(0, 20); // Only cache first 20 contacts (first page)
+      console.log(`Caching messages for ${contactsToCache.length} contacts (first page only)`);
+      
+      const messagePromises = contactsToCache.map(async (contact, index) => {
+        try {
+          console.log(`Caching messages for contact ${index + 1}/${contactsToCache.length}: ${contact.contactName} (chat_id: ${contact.chat_id}, contact_id: ${contact.id})`);
+          // Use contact.id for cache key and contact.chat_id for API call
+          await fetchFirstPageMessages(contact.contact_id, contact.chat_id);
+          console.log(`✅ Successfully cached messages for ${contact.contactName}`);
+        } catch (error) {
+          console.error(`❌ Failed to cache messages for ${contact.contactName}:`, error);
+        }
+      });
+      
+      // Execute all message fetching in parallel but don't wait for completion
+      Promise.allSettled(messagePromises).then(results => {
+        const successful = results.filter(r => r.status === 'fulfilled').length;
+        const failed = results.filter(r => r.status === 'rejected').length;
+        console.log(`🎉 Message caching completed: ${successful} successful, ${failed} failed`);
+        
+        // Log which contacts have cached messages
+        const cachedContacts = contactsToCache.filter(contact => {
+          const cached = getCachedMessages(contact.id);
+          return cached && cached.length > 0;
+        });
+        console.log(`📦 ${cachedContacts.length} contacts now have cached messages`);
+      });
 
       // Step 4: Complete loading (100%)
       setRealLoadingProgress(100);
@@ -4463,15 +4495,25 @@ useEffect(() => {
     }
   };
 
-  useEffect(() => {
-    if (messageListRef.current) {
-      messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
-    }
-  }, [selectedChatId, messages]);
+
 
   useEffect(() => {
     console.log("userRole changed:", userRole);
   }, [userRole]);
+
+  // Scroll to bottom only when selecting a new chat, not when messages update
+  useEffect(() => {
+    if (messageListRef.current) {
+      // Add a small delay to ensure messages are rendered before scrolling
+      setTimeout(() => {
+        if (messageListRef.current) {
+          messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+        }
+      }, 100);
+    }
+  }, [selectedChatId]);
+
+
 
   useEffect(() => {
     fetchConfigFromDatabase().catch((error) => {
@@ -5830,6 +5872,189 @@ useEffect(() => {
       return null;
     }
   };
+
+  // Utility functions for message cache management
+  const getCachedMessages = (chatId: string) => {
+    try {
+      const key = `cached_messages_${chatId}`;
+      const stored = localStorage.getItem(key);
+      return stored ? JSON.parse(stored) : null;
+    } catch (error) {
+      console.error("Error getting cached messages from localStorage:", error);
+      return null;
+    }
+  };
+
+  const setCachedMessages = (chatId: string, messages: any[]) => {
+    try {
+      const key = `cached_messages_${chatId}`;
+      localStorage.setItem(key, JSON.stringify(messages));
+    } catch (error) {
+      console.error("Error setting cached messages to localStorage:", error);
+    }
+  };
+
+  const clearCachedMessages = (chatId: string) => {
+    try {
+      const key = `cached_messages_${chatId}`;
+      localStorage.removeItem(key);
+    } catch (error) {
+      console.error("Error clearing cached messages from localStorage:", error);
+    }
+  };
+
+  // Function to fetch first page messages for a contact
+  const fetchFirstPageMessages = async (contactId: string, whatsappChatId: string) => {
+    try {
+      // Get user data and company info from SQL (same as fetchMessages)
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        console.error("No user email found for message caching");
+        return;
+      }
+
+      const userResponse = await fetch(
+        `${baseUrl}/api/user-data?email=${encodeURIComponent(userEmail)}`,
+        {
+          credentials: "include",
+        }
+      );
+
+      if (!userResponse.ok) {
+        console.error(`Failed to fetch user data for contact ${contactId}: ${userResponse.status}`);
+        return;
+      }
+
+      const userData = await userResponse.json();
+      const companyId = userData.company_id;
+      
+      console.log(`🔍 Fetching messages for contact ${contactId} (WhatsApp: ${whatsappChatId}) with companyId ${companyId}`);
+      const apiUrl = `${baseUrl}/api/message-pages?chatId=${contactId}&companyId=${companyId}&limit=${MESSAGES_PER_PAGE}&offset=0`;
+      console.log(`📡 API URL: ${apiUrl}`);
+      
+      const messagesResponse = await fetch(apiUrl, {
+        credentials: "include",
+      });
+
+      if (!messagesResponse.ok) {
+        console.error(`❌ Failed to fetch messages for contact ${contactId}: ${messagesResponse.status} ${messagesResponse.statusText}`);
+        return;
+      }
+
+      const responseData = await messagesResponse.json();
+      const messages = responseData.messages || [];
+      console.log(`📨 Received ${messages.length} messages for contact ${contactId}`);
+      
+      if (messages.length > 0) {
+        // Process and format messages (simplified version of the main processing logic)
+        const formattedMessages: any[] = [];
+        
+        messages.forEach((message: any) => {
+          if (message.message_type !== "action") {
+            const formattedMessage: any = {
+              id: message.message_id || `main-${message.chat_id}-${message.timestamp}-${Math.random().toString(36).substr(2, 9)}`,
+              message_id: message.message_id,
+              from_me: message.from_me,
+              from_name: message.author,
+              from: message.customer_phone,
+              chat_id: message.chat_id,
+              type: message.message_type,
+              author: message.author,
+              name: message.author,
+              phoneIndex: message.phone_index,
+              userName: message.author,
+              edited: message.edited || false,
+            };
+
+            // Handle timestamp
+            const timestamp = new Date(message.timestamp).getTime() / 1000;
+            formattedMessage.createdAt = timestamp;
+            formattedMessage.timestamp = timestamp;
+
+            // Handle message content based on type
+            switch (message.message_type) {
+              case "text":
+              case "chat":
+                formattedMessage.text = {
+                  body: message.content || "",
+                };
+                break;
+              case "image":
+                formattedMessage.image = {
+                  link: message.media_url,
+                  data: message.media_data,
+                  mimetype: message.media_metadata?.mimetype,
+                  filename: message.media_metadata?.filename,
+                  caption: message.media_metadata?.caption,
+                  width: message.media_metadata?.width,
+                  height: message.media_metadata?.height,
+                  thumbnail: message.media_metadata?.thumbnail,
+                };
+                break;
+              case "video":
+                formattedMessage.video = {
+                  link: message.media_url,
+                  data: message.media_data,
+                  mimetype: message.media_metadata?.mimetype,
+                  filename: message.media_metadata?.filename,
+                  caption: message.media_metadata?.caption,
+                  thumbnail: message.media_metadata?.thumbnail,
+                };
+                break;
+              case "audio":
+              case "ptt":
+                formattedMessage.audio = {
+                  link: message.media_url,
+                  data: message.media_data,
+                  mimetype: message.media_metadata?.mimetype || "audio/ogg; codecs=opus",
+                };
+                break;
+              case "document":
+                formattedMessage.document = {
+                  link: message.media_url,
+                  data: message.media_data,
+                  mimetype: message.media_metadata?.mimetype,
+                  filename: message.media_metadata?.filename,
+                  caption: message.media_metadata?.caption,
+                  pageCount: message.media_metadata?.page_count,
+                  fileSize: message.media_metadata?.file_size,
+                };
+                break;
+              default:
+                formattedMessage.text = {
+                  body: message.content || "",
+                };
+            }
+
+            formattedMessages.push(formattedMessage);
+          }
+        });
+
+        // Sort messages by timestamp
+        formattedMessages.sort((a, b) => {
+          const aTime = new Date(a.timestamp || a.createdAt || 0).getTime();
+          const bTime = new Date(b.timestamp || b.createdAt || 0).getTime();
+          return aTime - bTime;
+        });
+
+        // Cache the formatted messages using contactId
+        setCachedMessages(contactId, formattedMessages);
+        console.log(`💾 Cached ${formattedMessages.length} messages for contact ${contactId}`);
+        
+        // Verify the cache was set correctly
+        const cached = getCachedMessages(contactId);
+        if (cached && cached.length > 0) {
+          console.log(`✅ Cache verification successful for contact ${contactId}: ${cached.length} messages cached`);
+        } else {
+          console.error(`❌ Cache verification failed for contact ${contactId}`);
+        }
+      } else {
+        console.log(`📭 No messages found for contact ${contactId}`);
+      }
+    } catch (error) {
+      console.error(`❌ Error fetching first page messages for contact ${contactId}:`, error);
+    }
+  };
   useEffect(() => {
     if (selectedChatId) {
       console.log(selectedContact);
@@ -5877,7 +6102,24 @@ useEffect(() => {
       setMessages(allMessages);
     }
   }, [allMessages, userPhone, phoneNames]);
-  async function fetchMessages(selectedChatId: string, whapiToken: string) {
+  async function fetchMessages(selectedChatId: string, whapiToken: string, page: number = 0) {
+    // Check if we have cached messages for the first page
+    console.log("selectedchatid",selectedChatId);
+    if (page === 0) {
+      const cachedMessages = getCachedMessages(selectedChatId);
+      if (cachedMessages && cachedMessages.length > 0) {
+        console.log(`🚀 Using cached messages for chat ${selectedChatId}: ${cachedMessages.length} messages loaded instantly`);
+        setAllMessages(cachedMessages);
+        setDisplayedMessages(cachedMessages);
+        setMessagePage(0);
+        setHasMoreMessages(cachedMessages.length === MESSAGES_PER_PAGE);
+        setLoading(false);
+        return;
+      } else {
+        console.log(`📭 No cached messages found for chat ${selectedChatId}, fetching from API...`);
+      }
+    }
+
     setLoading(true);
     setSelectedIcon("ws");
 
@@ -5915,20 +6157,22 @@ useEffect(() => {
       const companyData = await companyResponse.json();
       setToken(companyData.whapiToken);
 
-      // Fetch all messages from SQL (without phone filtering)
-      const messagesResponse = await fetch(
-        `${baseUrl}/api/messages?chatId=${selectedChatId}&companyId=${companyId}`,
-        {
-          credentials: "include",
-        }
-      );
+      // Fetch paginated messages from SQL
+      const offset = page * MESSAGES_PER_PAGE;
+      const apiUrl = `${baseUrl}/api/message-pages?chatId=${selectedChatId}&companyId=${companyId}&limit=${MESSAGES_PER_PAGE}&offset=${offset}`;
+      console.log(`📡 Working fetchMessages API URL: ${apiUrl}`);
+      
+      const messagesResponse = await fetch(apiUrl, {
+        credentials: "include",
+      });
 
       if (!messagesResponse.ok) {
         throw new Error("Failed to fetch messages");
       }
 
-      const messages = await messagesResponse.json();
-      console.log("meesages:", messages);
+      const responseData = await messagesResponse.json();
+      const messages = responseData.messages || [];
+      console.log("messages:", messages);
       
       // Debug: Log all action messages to see their structure
       const actionMessages = messages.filter((msg: any) => msg.message_type === "action");
@@ -6192,11 +6436,23 @@ useEffect(() => {
       });
 
       console.log("formattedMessages:", mergedMessages);
-      setAllMessages(mergedMessages); // Store all messages for filtering
-      const recentMessages = mergedMessages.slice(-MESSAGES_PER_PAGE);
-      setDisplayedMessages(recentMessages);
-      setMessagePage(Math.floor((mergedMessages.length - 1) / MESSAGES_PER_PAGE));
-      setHasMoreMessages(mergedMessages.length > MESSAGES_PER_PAGE);
+      
+      if (page === 0) {
+        // Initial load - replace all messages and cache them
+        setAllMessages(mergedMessages);
+        setDisplayedMessages(mergedMessages);
+        setMessagePage(0);
+        setHasMoreMessages(mergedMessages.length === MESSAGES_PER_PAGE);
+        
+        // Cache the first page messages
+        setCachedMessages(selectedChatId, mergedMessages);
+      } else {
+        // Load more - append to existing messages
+        setAllMessages(prev => [...prev, ...mergedMessages]);
+        setDisplayedMessages(prev => [...prev, ...mergedMessages]);
+        setMessagePage(page);
+        setHasMoreMessages(mergedMessages.length === MESSAGES_PER_PAGE);
+      }
 
       // Update last message timestamp for polling
       if (mergedMessages.length > 0) {
@@ -6530,6 +6786,10 @@ useEffect(() => {
             // Store updated messages in localStorage
             storeMessagesInLocalStorage(selectedChatId, mergedMessages);
 
+            // Cache the updated messages for faster loading
+            setCachedMessages(selectedChatId, mergedMessages);
+            console.log(`💾 Cached ${mergedMessages.length} messages for chat ${selectedChatId} (polling update)`);
+
             // Update last message timestamp only for unique new messages
             const latestMessage =
               uniqueNewMessages[uniqueNewMessages.length - 1];
@@ -6537,14 +6797,6 @@ useEffect(() => {
               latestMessage.timestamp || latestMessage.createdAt || 0
             ).getTime();
             setLastMessageTimestamp(latestTimestamp);
-
-            // Scroll to bottom when new messages arrive
-            setTimeout(() => {
-              if (messageListRef.current) {
-                messageListRef.current.scrollTop =
-                  messageListRef.current.scrollHeight;
-              }
-            }, 100);
 
             return mergedMessages;
           }
@@ -6560,7 +6812,20 @@ useEffect(() => {
     }
   }, [selectedChatId, userData, lastMessageTimestamp, baseUrl]);
 
+  // Set up continuous polling for new messages
+  useEffect(() => {
+    if (!selectedChatId || !userData) return;
 
+    // Poll for new messages every 3 seconds
+    const interval = setInterval(() => {
+      pollForNewMessages();
+    }, 3000);
+
+    // Cleanup interval on unmount or when selectedChatId changes
+    return () => {
+      clearInterval(interval);
+    };
+  }, [selectedChatId, userData, pollForNewMessages]);
 
   async function fetchMessagesBackground(
     selectedChatId: string,
