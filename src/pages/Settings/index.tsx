@@ -10,6 +10,9 @@ import ThemeSwitcher from "@/components/ThemeSwitcher";
 import { useAppDispatch, useAppSelector } from "@/stores/hooks";
 import { selectColorScheme, setColorScheme } from "@/stores/colorSchemeSlice";
 import { selectDarkMode, setDarkMode } from "@/stores/darkModeSlice";
+import { toast } from 'react-toastify';
+import { Dialog } from "@/components/Base/Headless";
+import Lucide from "@/components/Base/Lucide";
 
 function SettingsPage() {
   const dispatch = useAppDispatch();
@@ -36,6 +39,13 @@ function SettingsPage() {
   const [showCompanyIdChange, setShowCompanyIdChange] = useState(false);
   const [newCompanyId, setNewCompanyId] = useState('');
   const [isChangingCompanyId, setIsChangingCompanyId] = useState(false);
+  
+  // Bot disconnect functionality state
+  const [botStatuses, setBotStatuses] = useState<Map<string, string>>(new Map());
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [showDisconnectModal, setShowDisconnectModal] = useState(false);
+  const [disconnectBotName, setDisconnectBotName] = useState<string>('');
+  const [disconnectPhoneIndex, setDisconnectPhoneIndex] = useState<number | undefined>(undefined);
 
   const firestore = getFirestore();
 
@@ -196,6 +206,88 @@ const fetchSettings = async () => {
       setError('Failed to change Company ID. Please try again.');
     } finally {
       setIsChangingCompanyId(false);
+    }
+  };
+
+  // Bot disconnect functionality
+  const showNotification = (message: string, isError: boolean = false) => {
+    if (isError) {
+      toast.error(message);
+    } else {
+      toast.success(message);
+    }
+  };
+
+  const updateBotStatus = (botName: string, status: string, phoneIndex?: number) => {
+    const key = phoneIndex !== undefined ? `${botName}_${phoneIndex}` : botName;
+    setBotStatuses(prev => new Map(prev.set(key, status)));
+  };
+
+  const showDisconnectConfirmation = (botName: string, phoneIndex?: number) => {
+    setDisconnectBotName(botName);
+    setDisconnectPhoneIndex(phoneIndex);
+    setShowDisconnectModal(true);
+  };
+
+  const confirmDisconnect = async () => {
+    if (!disconnectBotName) return;
+
+    try {
+      setIsDisconnecting(true);
+      setShowDisconnectModal(false);
+      
+      // Show processing notification
+      showNotification(
+        `Disconnecting ${disconnectBotName}${
+          disconnectPhoneIndex !== undefined ? ` Phone ${disconnectPhoneIndex + 1}` : ""
+        }...`
+      );
+
+      const response = await fetch(`/api/bots/${disconnectBotName}/disconnect`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ phoneIndex: disconnectPhoneIndex }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to disconnect bot");
+      }
+
+      const data = await response.json();
+
+      // Update status for specified phone or all phones
+      if (disconnectPhoneIndex !== undefined) {
+        updateBotStatus(disconnectBotName, "Disconnected", disconnectPhoneIndex);
+      } else {
+        const phones = Array.from(botStatuses.entries())
+          .filter(([key]) => key.startsWith(disconnectBotName + "_"))
+          .map(([key]) => {
+            const [, phoneIndex] = key.split("_");
+            return parseInt(phoneIndex);
+          });
+
+        phones.forEach((idx) => {
+          updateBotStatus(disconnectBotName, "Disconnected", idx);
+        });
+      }
+
+      // Show success notification
+      showNotification(
+        data.message ||
+          `${disconnectBotName}${
+            disconnectPhoneIndex !== undefined ? ` Phone ${disconnectPhoneIndex + 1}` : ""
+          } disconnected successfully`
+      );
+    } catch (error) {
+      console.error("Error disconnecting bot:", error);
+      showNotification("Failed to disconnect bot. Please try again.", true);
+    } finally {
+      setIsDisconnecting(false);
+      setDisconnectBotName('');
+      setDisconnectPhoneIndex(undefined);
     }
   };
 
@@ -376,6 +468,44 @@ const fetchSettings = async () => {
           </div>
         )}
 
+        {/* Bot Management Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+          <h2 className="text-xl font-semibold mb-6">Bot Management</h2>
+          
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <div>
+                <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                  Disconnect Bot
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Disconnect your WhatsApp bot connection
+                </p>
+              </div>
+              <Button
+                variant="danger"
+                onClick={() => showDisconnectConfirmation(companyId || '')}
+                disabled={isDisconnecting || !companyId}
+                className="shadow-md"
+              >
+                {isDisconnecting ? (
+                  <>
+                    <LoadingIcon icon="three-dots" className="w-4 h-4 mr-2" />
+                    Disconnecting...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
+                    </svg>
+                    Disconnect Bot
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+
         {/* Daily Report Settings Section */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
           <h2 className="text-xl font-semibold mb-6">Daily Report Settings</h2>
@@ -452,6 +582,53 @@ const fetchSettings = async () => {
             </div>
           </div>
         </div>
+
+        {/* Disconnect Confirmation Modal */}
+        <Dialog
+          open={showDisconnectModal}
+          onClose={() => setShowDisconnectModal(false)}
+        >
+          <Dialog.Panel>
+            <div className="p-5 text-center">
+              <Lucide
+                icon="XCircle"
+                className="w-16 h-16 mx-auto mt-3 text-danger"
+              />
+              <div className="mt-5 text-3xl">Are you sure?</div>
+              <div className="mt-2 text-slate-500">
+                {disconnectPhoneIndex !== undefined
+                  ? `Do you really want to disconnect Phone ${disconnectPhoneIndex + 1} of ${disconnectBotName}?`
+                  : `Do you really want to disconnect all phones of ${disconnectBotName}?`}
+                <br />
+                This process cannot be undone.
+              </div>
+            </div>
+            <div className="px-5 pb-8 text-center">
+              <Button
+                type="button"
+                variant="outline-secondary"
+                onClick={() => setShowDisconnectModal(false)}
+                className="w-24 mr-1"
+                disabled={isDisconnecting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                className="w-24"
+                onClick={confirmDisconnect}
+                disabled={isDisconnecting}
+              >
+                {isDisconnecting ? (
+                  <LoadingIcon icon="three-dots" className="w-4 h-4" />
+                ) : (
+                  'Disconnect'
+                )}
+              </Button>
+            </div>
+          </Dialog.Panel>
+        </Dialog>
       </div>
     </div>
   );

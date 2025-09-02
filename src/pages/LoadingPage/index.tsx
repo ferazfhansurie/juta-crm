@@ -7,6 +7,9 @@ import Progress from "@/components/Base/Progress";
 import LZString from "lz-string";
 import LoadingPageOnboarding from "../../components/LoadingPageOnboarding";
 import { BookOpen, X } from "lucide-react";
+import { Dialog } from "@/components/Base/Headless";
+import Lucide from "@/components/Base/Lucide";
+import { toast } from 'react-toastify';
 interface Contact {
   chat_id: string;
   chat_pic?: string | null;
@@ -100,6 +103,12 @@ function LoadingPage() {
   const [reinitializeTimer, setReinitializeTimer] = useState<NodeJS.Timeout | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showOnboardingHint, setShowOnboardingHint] = useState(false);
+  
+  // Bot disconnect functionality state
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [showDisconnectModal, setShowDisconnectModal] = useState(false);
+  const [disconnectBotName, setDisconnectBotName] = useState<string>('');
+  const [disconnectPhoneIndex, setDisconnectPhoneIndex] = useState<number | undefined>(undefined);
   
   // Debug useEffect to monitor state changes
   useEffect(() => {
@@ -533,6 +542,91 @@ function LoadingPage() {
       }
     } finally {
       setIsReinitializing(false);
+    }
+  };
+
+  // Bot disconnect functionality
+  const showNotification = (message: string, isError: boolean = false) => {
+    if (isError) {
+      toast.error(message);
+    } else {
+      toast.success(message);
+    }
+  };
+
+  const showDisconnectConfirmation = (botName: string, phoneIndex?: number) => {
+    setDisconnectBotName(botName);
+    setDisconnectPhoneIndex(phoneIndex);
+    setShowDisconnectModal(true);
+  };
+
+  const confirmDisconnect = async () => {
+    if (!disconnectBotName) return;
+
+    try {
+      setIsDisconnecting(true);
+      setShowDisconnectModal(false);
+      
+      // Show processing notification
+      showNotification(
+        `Disconnecting ${disconnectBotName}${
+          disconnectPhoneIndex !== undefined ? ` Phone ${disconnectPhoneIndex + 1}` : ""
+        }...`
+      );
+
+      const response = await fetch(`/api/bots/${disconnectBotName}/disconnect`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ phoneIndex: disconnectPhoneIndex }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to disconnect bot");
+      }
+
+      const data = await response.json();
+
+      // Update phone statuses to "disconnected"
+      if (disconnectPhoneIndex !== undefined) {
+        setPhones(prevPhones => 
+          prevPhones.map(phone => 
+            phone.phoneIndex === disconnectPhoneIndex 
+              ? { ...phone, status: 'disconnected' }
+              : phone
+          )
+        );
+      } else {
+        setPhones(prevPhones => 
+          prevPhones.map(phone => ({ ...phone, status: 'disconnected' }))
+        );
+      }
+
+      // Set bot status to disconnected
+      setBotStatus('disconnected');
+      
+      // Clear QR code and other states
+      setQrCodeImage(null);
+      setPairingCode(null);
+      setPhoneNumber("");
+      setShouldFetchContacts(false);
+      
+      // Show success notification
+      showNotification(
+        data.message ||
+          `${disconnectBotName}${
+            disconnectPhoneIndex !== undefined ? ` Phone ${disconnectPhoneIndex + 1}` : ""
+          } disconnected successfully`
+      );
+    } catch (error) {
+      console.error("Error disconnecting bot:", error);
+      showNotification("Failed to disconnect bot. Please try again.", true);
+    } finally {
+      setIsDisconnecting(false);
+      setDisconnectBotName('');
+      setDisconnectPhoneIndex(undefined);
     }
   };
 
@@ -1705,7 +1799,7 @@ function LoadingPage() {
               <div className="mt-4 space-y-2 w-full max-w-xl mx-auto">
                 <h3 className="text-sm font-semibold text-gray-800 mb-2">Additional Options</h3>
                 
-                {/* Primary Actions Row */}
+                {/* Primary Actions Row - First Row */}
                 <div className="flex gap-2">
                   <button
                     onClick={handleRefresh}
@@ -1728,6 +1822,23 @@ function LoadingPage() {
                     </div>
                   </button>
                   
+                  <a
+                    href="https://wa.link/pcgo1k"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 px-3 py-2 bg-green-500 text-white text-xs font-semibold rounded-md hover:bg-green-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 shadow-sm hover:shadow-md"
+                  >
+                    <div className="flex items-center justify-center space-x-1.5">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-sm">Get Help</span>
+                    </div>
+                  </a>
+                </div>
+                
+                {/* Secondary Actions Row - Second Row */}
+                <div className="flex gap-2">
                   {/* Reinitialize Bot Button */}
                   <button
                     onClick={() => reinitializeBot()}
@@ -1762,19 +1873,34 @@ function LoadingPage() {
                     </div>
                   </button>
                   
-                  <a
-                    href="https://wa.link/pcgo1k"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 px-3 py-2 bg-green-500 text-white text-xs font-semibold rounded-md hover:bg-green-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 shadow-sm hover:shadow-md"
+                  {/* Disconnect Bot Button */}
+                  <button
+                    onClick={() => showDisconnectConfirmation(companyId || '')}
+                    disabled={isDisconnecting || !companyId || !phones || phones.length === 0}
+                    className={`flex-1 px-3 py-2 text-xs font-semibold rounded-md transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-opacity-50 shadow-sm hover:shadow-md ${
+                      isDisconnecting
+                        ? 'bg-red-500 text-white cursor-not-allowed' 
+                        : 'bg-red-500 text-white hover:bg-red-600 focus:ring-red-500'
+                    }`}
                   >
                     <div className="flex items-center justify-center space-x-1.5">
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span className="text-sm">Get Help</span>
+                      {isDisconnecting ? (
+                        <div className="relative">
+                          <svg className="w-3 h-3 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        </div>
+                      ) : (
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
+                        </svg>
+                      )}
+                      <span className="font-medium text-sm">
+                        {isDisconnecting ? 'Disconnecting...' : 'Disconnect Bot'}
+                      </span>
                     </div>
-                  </a>
+                  </button>
                 </div>
                 
                 {/* Logout Button - Full Width */}
@@ -1863,6 +1989,56 @@ function LoadingPage() {
           </div>
         </div>
       )}
+      
+      {/* Disconnect Confirmation Modal */}
+      <Dialog
+        open={showDisconnectModal}
+        onClose={() => setShowDisconnectModal(false)}
+      >
+        <Dialog.Panel>
+          <div className="p-5 text-center">
+            <Lucide
+              icon="XCircle"
+              className="w-16 h-16 mx-auto mt-3 text-danger"
+            />
+            <div className="mt-5 text-3xl">Are you sure?</div>
+            <div className="mt-2 text-slate-500">
+              {disconnectPhoneIndex !== undefined
+                ? `Do you really want to disconnect Phone ${disconnectPhoneIndex + 1} of ${disconnectBotName}?`
+                : `Do you really want to disconnect all phones of ${disconnectBotName}?`}
+              <br />
+              This process cannot be undone.
+            </div>
+          </div>
+          <div className="px-5 pb-8 text-center">
+            <button
+              type="button"
+              onClick={() => setShowDisconnectModal(false)}
+              className="w-24 mr-1 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              disabled={isDisconnecting}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={confirmDisconnect}
+              className="w-24 px-3 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              disabled={isDisconnecting}
+            >
+              {isDisconnecting ? (
+                <div className="flex items-center justify-center">
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </div>
+              ) : (
+                'Disconnect'
+              )}
+            </button>
+          </div>
+        </Dialog.Panel>
+      </Dialog>
     </div>
   );
 }
