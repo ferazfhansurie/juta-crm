@@ -2018,17 +2018,19 @@ function Main() {
         }
       }
 
-      // Check if the tag is an employee name
-      const employee = employeeList.find((emp) => emp.name === tagName);
+      // Check if the tag is an employee name using stable reference
+      const stableEmployeeList = employeeListRef.current;
+      const employee = stableEmployeeList.find((emp) => emp.name === tagName);
       console.log("🔍 Employee search for tag:", tagName, "found:", employee);
       console.log(
-        "🔍 Available employees:",
-        employeeList.map((emp) => emp.name)
+        "🔍 Available employees (stable):",
+        stableEmployeeList.map((emp) => emp.name)
       );
-      console.log("🔍 Employee list length:", employeeList.length);
+      console.log("🔍 Stable employee list length:", stableEmployeeList.length);
+      console.log("🔍 State employee list length:", employeeList.length);
 
-      if (employeeList.length === 0) {
-        console.warn("🔍 Employee list is empty, may need to fetch employees");
+      if (stableEmployeeList.length === 0) {
+        console.warn("🔍 Stable employee list is empty, may need to fetch employees");
         toast.warning(
           "Employee list not loaded yet. Please try again in a moment."
         );
@@ -2062,7 +2064,7 @@ function Main() {
         // Remove any existing employee tags first, then add the new one
         const currentTags = contact.tags || [];
         const nonEmployeeTags = currentTags.filter(
-          (tag) => !employeeList.some((emp) => emp.name === tag)
+          (tag) => !stableEmployeeList.some((emp) => emp.name === tag)
         );
         const updatedTags = [...nonEmployeeTags, tagName];
         console.log("🏷️ [EMPLOYEE ASSIGNMENT] Updated tags:", updatedTags);
@@ -7255,23 +7257,11 @@ function Main() {
                           </div>
                         </div>
                         {(() => {
-                          const filteredEmployees = employeeList.filter(
-                            (employee) => {
-                              if (userRole === "4" || userRole === "2") {
-                                return (
-                                  employee.role === "2" &&
-                                  employee.name
-                                    .toLowerCase()
-                                    .includes(employeeSearch.toLowerCase())
-                                );
-                              }
-                              return employee.name
-                                .toLowerCase()
-                                .includes(employeeSearch.toLowerCase());
-                            }
-                          );
-
-                          if (filteredEmployees.length === 0) {
+                          // Use the ref instead of the state
+                          const stableEmployeeList = employeeListRef.current;
+                          console.log('Using stable employee list:', stableEmployeeList.length, 'employees');
+                          
+                          if (stableEmployeeList.length === 0) {
                             return (
                               <div className="p-6 text-center">
                                 <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-slate-100/80 to-slate-200/60 dark:from-slate-700/80 dark:to-slate-800/60 rounded-2xl backdrop-blur-sm border border-slate-200/40 dark:border-slate-600/40 flex items-center justify-center">
@@ -7283,22 +7273,50 @@ function Main() {
                                 <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
                                   No employees found
                                 </p>
+                                <p className="text-xs text-slate-500 dark:text-slate-500 mt-2">
+                                  Stable list length: {stableEmployeeList.length}
+                                </p>
+                                <p className="text-xs text-slate-500 dark:text-slate-500">
+                                  Current state length: {employeeList.length}
+                                </p>
+                                <p className="text-xs text-slate-500 dark:text-slate-500">
+                                  Search query: "{employeeSearch}"
+                                </p>
                               </div>
                             );
                           }
-
+                          
+                          const filteredEmployees = stableEmployeeList.filter((employee) => {
+                            if (userRole === "4" || userRole === "2") {
+                              return (
+                                employee.role === "2" &&
+                                employee.name
+                                  .toLowerCase()
+                                  .includes(employeeSearch.toLowerCase())
+                              );
+                            }
+                            return employee.name
+                              .toLowerCase()
+                              .includes(employeeSearch.toLowerCase());
+                          });
+                          
                           return filteredEmployees.map((employee) => (
                             <button
                               key={employee.id}
                               className="group flex w-full items-center px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-300 transition-all duration-200 hover:bg-gradient-to-r hover:from-blue-50/60 hover:to-violet-50/40 dark:hover:from-blue-900/20 dark:hover:to-violet-900/20 rounded-xl backdrop-blur-sm border border-transparent hover:border-blue-200/40 dark:hover:border-blue-700/40 hover:shadow-lg"
                               onClick={() => {
-                                selectedContacts.forEach((contact) => {
-                                  handleAddTagToSelectedContacts(
-                                    employee.name,
-                                    contact
-                                  );
-                                });
-                                setShowAssignUserMenu(false);
+                                if (userRole !== "3") {
+                                  selectedContacts.forEach((contact) => {
+                                    handleAddTagToSelectedContacts(
+                                      employee.name,
+                                      contact
+                                    );
+                                  });
+                                  setShowAssignUserMenu(false);
+                                  toast.success(`Assigned ${employee.name} to ${selectedContacts.length} contact${selectedContacts.length !== 1 ? 's' : ''}`);
+                                } else {
+                                  toast.error("You don't have permission to assign users to contacts.");
+                                }
                               }}
                             >
                               <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500/20 to-violet-500/20 dark:from-blue-400/20 dark:to-violet-400/20 backdrop-blur-sm border border-blue-200/40 dark:border-blue-700/40 mr-3 group-hover:scale-110 transition-transform duration-300">
@@ -8795,38 +8813,55 @@ function Main() {
                       </h4>
                     </div>
                     <div className="space-y-3 max-h-60 overflow-y-auto bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 dark:border-slate-600/20 shadow-inner">
-                      {employeeList.map((employee) => (
-                        <label
-                          key={employee.id}
-                          className="group flex items-center p-3 rounded-xl hover:bg-white/10 dark:hover:bg-slate-600/20 transition-all duration-200 cursor-pointer border border-transparent hover:border-white/10"
-                        >
-                          <div className="relative">
-                            <input
-                              type="checkbox"
-                              checked={selectedUserFilters.includes(
-                                employee.name
-                              )}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedUserFilters((prev) => [
-                                    ...prev,
-                                    employee.name,
-                                  ]);
-                                } else {
-                                  setSelectedUserFilters((prev) =>
-                                    prev.filter((u) => u !== employee.name)
-                                  );
-                                }
-                              }}
-                              className="w-5 h-5 rounded-lg border-2 border-white/30 text-teal-500 focus:ring-teal-500/20 focus:ring-2 bg-white/5 backdrop-blur-sm transition-all duration-200"
-                            />
-                            <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-teal-400/20 to-cyan-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
-                          </div>
-                          <span className="ml-4 text-sm font-medium text-white/80 dark:text-slate-300 group-hover:text-white transition-colors duration-200">
-                            {employee.name}
-                          </span>
-                        </label>
-                      ))}
+                      {(() => {
+                        // Use the ref instead of the state
+                        const stableEmployeeList = employeeListRef.current;
+                        console.log('Filter modal - Using stable employee list:', stableEmployeeList.length, 'employees');
+                        
+                        if (stableEmployeeList.length === 0) {
+                          return (
+                            <div className="text-center py-4 text-gray-500 dark:text-gray-400">
+                              <Lucide icon="Users" className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                              <p>No employees found</p>
+                              <p className="text-xs">Stable list length: {stableEmployeeList.length}</p>
+                              <p className="text-xs">Current state length: {employeeList.length}</p>
+                            </div>
+                          );
+                        }
+                        
+                        return stableEmployeeList.map((employee) => (
+                          <label
+                            key={employee.id}
+                            className="group flex items-center p-3 rounded-xl hover:bg-white/10 dark:hover:bg-slate-600/20 transition-all duration-200 cursor-pointer border border-transparent hover:border-white/10"
+                          >
+                            <div className="relative">
+                              <input
+                                type="checkbox"
+                                checked={selectedUserFilters.includes(
+                                  employee.name
+                                )}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedUserFilters((prev) => [
+                                      ...prev,
+                                      employee.name,
+                                    ]);
+                                  } else {
+                                    setSelectedUserFilters((prev) =>
+                                      prev.filter((u) => u !== employee.name)
+                                    );
+                                  }
+                                }}
+                                className="w-5 h-5 rounded-lg border-2 border-white/30 text-teal-500 focus:ring-teal-500/20 focus:ring-2 bg-white/5 backdrop-blur-sm transition-all duration-200"
+                              />
+                              <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-teal-400/20 to-cyan-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                            </div>
+                            <span className="ml-4 text-sm font-medium text-white/80 dark:text-slate-300 group-hover:text-white transition-colors duration-200">
+                              {employee.name}
+                            </span>
+                          </label>
+                        ));
+                      })()}
                     </div>
                   </div>
                 </div>
