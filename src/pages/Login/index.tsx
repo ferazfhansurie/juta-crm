@@ -47,7 +47,7 @@ function Main() {
       if (response.ok) {
         localStorage.setItem('userEmail', email);
         localStorage.setItem('userData', JSON.stringify(data.user));
-        navigate('/loading');
+        navigate('/chat');
       } else {
         setError(data.error || "An error occurred during sign-in. Please try again later.");
       }
@@ -101,7 +101,14 @@ function Main() {
 
   return (
     <>
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-4">
+      <div 
+        className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-4"
+        style={{ 
+          minHeight: '100vh', 
+          backgroundColor: '#f9fafb', // Fallback color
+          transition: 'background-color 0.3s ease'
+        }}
+      >
         <div className="flex flex-col items-center w-full max-w-2xl text-center px-3 py-4">
           
           {/* Main Title and Logo */}

@@ -49,6 +49,11 @@ import VirtualContactList from "../../components/VirtualContactList";
 import SearchModal from "@/components/SearchModal";
 import QuickRepliesModal from "@/components/QuickRepliesModal";
 import { time } from "console";
+declare global {
+  interface Window {
+    OneSignal: any;
+  }
+}
 
 interface Label {
   id: string;
@@ -2708,6 +2713,63 @@ function Main() {
     fetchContactsOnce();
   }, []); // Empty dependency array = run only once
 
+  // OneSignal notification listener
+  useEffect(() => {
+    const setupOneSignalListener = () => {
+      if (typeof window !== 'undefined' && window.OneSignal) {
+        window.OneSignal.on('notificationDisplay', function(event: any) {
+          console.log('OneSignal notification received:', event);
+          
+          // Check if this is a message notification that should trigger contact refresh
+          const notificationData = event.additionalData;
+          if (notificationData && notificationData.type === 'message') {
+            console.log('Message notification received, refreshing contacts...');
+            fetchContactsWithLazyLoading();
+            
+            // If the notification is for the currently selected chat, refresh messages too
+            if (notificationData.chat_id && selectedChatId && notificationData.chat_id === selectedChatId && whapiToken) {
+              console.log('Notification matches selected chat, refreshing messages...');
+              fetchMessages(selectedChatId, whapiToken);
+            }
+          }
+        });
+
+        window.OneSignal.on('notificationClick', function(event: any) {
+          console.log('OneSignal notification clicked:', event);
+          
+          // Also refresh on notification click for any message-related notifications
+          const notificationData = event.additionalData;
+          if (notificationData && notificationData.type === 'message') {
+            console.log('Message notification clicked, refreshing contacts...');
+            fetchContactsWithLazyLoading();
+            
+            // If the notification is for the currently selected chat, refresh messages too
+            if (notificationData.chat_id && selectedChatId && notificationData.chat_id === selectedChatId && whapiToken) {
+              console.log('Notification click matches selected chat, refreshing messages...');
+              fetchMessages(selectedChatId, whapiToken);
+            }
+          }
+        });
+
+        console.log('OneSignal notification listeners setup complete');
+      } else {
+        // If OneSignal is not available immediately, wait a bit and try again
+        setTimeout(setupOneSignalListener, 1000);
+      }
+    };
+
+    // Setup the listener
+    setupOneSignalListener();
+
+    // Cleanup function
+    return () => {
+      if (typeof window !== 'undefined' && window.OneSignal) {
+        window.OneSignal.off('notificationDisplay');
+        window.OneSignal.off('notificationClick');
+      }
+    };
+  }, [selectedChatId, whapiToken]);
+
   // Add useEffect to close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -2984,7 +3046,13 @@ function Main() {
         setSelectedChatId(null);
       } else {
         const errorData = await response.json().catch(() => ({}));
-        console.error("Delete failed:", errorData);
+        console.error("Delete failed:", {
+          status: response.status,
+          statusText: response.statusText,
+          errorData,
+          contactId: selectedContact.contact_id,
+          apiUrl: `${apiUrl}/api/contacts/${selectedContact.contact_id}?companyId=${companyId}`
+        });
 
         // Check if this is a constraint error that can be resolved with force delete
         const canForceDelete =
@@ -10274,8 +10342,18 @@ function Main() {
       );
       if (!response.ok) {
         const errorText = await response.text();
+        console.error("Delete tag API error:", {
+          status: response.status,
+          statusText: response.statusText,
+          errorText,
+          apiUrl: `${apiUrl}/api/contacts/${companyId}/${contactId}/tags`,
+          requestBody: { tags: [tagName] }
+        });
         throw new Error(errorText || "Failed to remove tag from contact");
       }
+
+      const responseData = await response.json();
+      console.log("Delete tag API success:", responseData);
 
       // Update state immediately
       const updateContactsList = (prevContacts: Contact[]) =>
@@ -11021,7 +11099,7 @@ function Main() {
         createdAt: new Date().toISOString(), // Use ISO string instead of Firebase Timestamp
         documentUrl: documentUrl || "",
         fileName: selectedDocument ? selectedDocument.name : null,
-        image: selectedImage ? await uploadImage(selectedImage) : null,
+        image: (selectedMedia && selectedMedia.type.startsWith('image/')) ? mediaUrl : null,
         mediaUrl: mediaUrl || "",
         mimeType: selectedMedia
           ? selectedMedia.type
@@ -11034,7 +11112,7 @@ function Main() {
         status: "scheduled",
         v2: true,
         whapiToken: null,
-        phoneIndex: userData?.phoneIndex,
+        phoneIndex: selectedContact?.phoneIndex ?? userData?.phoneIndex ?? 0,
         minDelay,
         maxDelay,
         activateSleep,
@@ -11565,6 +11643,18 @@ function Main() {
           </div>
 
           <div className="flex flex-col gap-1.5">
+            {/* Phone Connection Status Indicator */}
+            {Object.entries(phoneNames).some(([index]) => {
+              const phoneStatus = qrCodes[parseInt(index)]?.status || "unknown";
+              const isConnected = phoneStatus === "ready" || phoneStatus === "authenticated";
+              return !isConnected;
+            }) && (
+              <div className="flex items-center justify-center space-x-1.5 text-xs text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 px-2 py-1 rounded-lg border border-orange-200 dark:border-orange-800/50">
+                <Lucide icon="AlertTriangle" className="w-3 h-3" />
+                <span className="font-medium">Phone Connection Needed</span>
+              </div>
+            )}
+            
             {/* Phone Selection Button */}
             <button
               onClick={() => setShowPhoneModal(true)}
@@ -14980,6 +15070,123 @@ function Main() {
                     </p>
                   </div>
                 </div>
+                <button
+                  onClick={() => setShowPhoneModal(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
+                >
+                  <Lucide
+                    icon="X"
+                    className="w-4 h-4"
+                  />
+                </button>
+              </div>
+
+              {/* Phone List */}
+              <div className="space-y-2.5 max-h-64 overflow-y-auto custom-scrollbar">
+                {Object.entries(phoneNames).map(([index, phoneName], itemIndex) => {
+                  const phoneStatus =
+                    qrCodes[parseInt(index)]?.status || "unknown";
+                  const isConnected =
+                    phoneStatus === "ready" ||
+                    phoneStatus === "authenticated";
+                  const isCurrentPhone = userData?.phone === parseInt(index);
+
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        handlePhoneChange(parseInt(index));
+                        setShowPhoneModal(false);
+                      }}
+                      className={`w-full p-3.5 rounded-lg border transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] ${
+                        isCurrentPhone
+                          ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700/50 shadow-sm"
+                          : "bg-white dark:bg-gray-700/50 border-gray-200 dark:border-gray-600/50 hover:bg-gray-50 dark:hover:bg-gray-600/50 hover:border-blue-300 dark:hover:border-blue-500/50"
+                      }`}
+                      style={{
+                        animationDelay: `${itemIndex * 75}ms`,
+                        animation: 'slideInUp 0.4s ease-out forwards'
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className={`p-2 rounded-md ${
+                            isCurrentPhone
+                              ? "bg-blue-100 dark:bg-blue-800/50"
+                              : "bg-gray-100 dark:bg-gray-600/50"
+                          }`}>
+                            <Lucide
+                              icon="Smartphone"
+                              className={`w-4 h-4 ${
+                                isCurrentPhone
+                                  ? "text-blue-600 dark:text-blue-400"
+                                  : "text-gray-600 dark:text-gray-400"
+                              }`}
+                            />
+                          </div>
+                          <div className="text-left">
+                            <div className={`font-medium ${
+                              isCurrentPhone
+                                ? "text-blue-900 dark:text-blue-100"
+                                : "text-gray-900 dark:text-white"
+                            }`}>
+                              {phoneName}
+                            </div>
+                            {isCurrentPhone && (
+                              <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                                Current Phone
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-col items-end space-y-2">
+                          <span
+                            className={`text-xs px-2 py-1 rounded-full font-medium ${
+                              isConnected
+                                ? "bg-green-100 text-green-700 dark:bg-green-800/50 dark:text-green-300"
+                                : "bg-red-100 text-red-700 dark:bg-red-800/50 dark:text-red-300"
+                            }`}
+                          >
+                            {isConnected ? "Connected" : "Not Connected"}
+                          </span>
+                          
+                          {isCurrentPhone && (
+                            <div className="w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full animate-pulse" />
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Footer */}
+              <div className="mt-5 pt-4 border-t border-gray-200 dark:border-gray-600/50">
+                {/* Check if any phone is not connected */}
+                {Object.entries(phoneNames).some(([index]) => {
+                  const phoneStatus = qrCodes[parseInt(index)]?.status || "unknown";
+                  const isConnected = phoneStatus === "ready" || phoneStatus === "authenticated";
+                  return !isConnected;
+                }) && (
+                  <div className="mb-3">
+                    <button
+                      onClick={() => {
+                        navigate('/loading');
+                        setShowPhoneModal(false);
+                      }}
+                      className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium rounded-lg transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center space-x-2 shadow-md"
+                    >
+                      <Lucide icon="Wifi" className="w-4 h-4" />
+                      <span>Connect Phones</span>
+                    </button>
+                  </div>
+                )}
+                <div className="text-center">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {Object.keys(phoneNames).length} phone{Object.keys(phoneNames).length !== 1 ? 's' : ''} available
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -15848,7 +16055,18 @@ function Main() {
                         );
                       })}
                     </select>
-
+                    
+                    {/* Loading Button - Show when no phones found or bot not ready */}
+                    {(Object.keys(phoneNames).length === 0 || !Object.values(qrCodes).some(qr => ["ready", "authenticated"].includes(qr?.status?.toLowerCase()))) && (
+                      <button
+                        onClick={() => navigate('/loading')}
+                        className="ml-4 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl flex items-center space-x-2"
+                      >
+                        <Lucide icon="Settings" className="w-4 h-4" />
+                        <span>Setup Bot</span>
+                      </button>
+                    )}
+                    
                     {/* Phone Connection Status Indicator */}
                     {selectedContact.phoneIndex !== null &&
                       phoneNames[selectedContact.phoneIndex ?? 0] && (

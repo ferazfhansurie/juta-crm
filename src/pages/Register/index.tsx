@@ -161,6 +161,25 @@ function Main() {
   };
 
 
+  const sendNewUserNotification = async (userName: string, userEmail: string, companyName: string) => {
+    try {
+      const notificationPhone = '601121677522@s.whatsapp.net';
+      const message = `🎉 New user registered!\n\nName: ${userName}\nEmail: ${userEmail}\nCompany: ${companyName}\nTime: ${new Date().toLocaleString()}`;
+      
+      await fetch(`https://juta-dev.ngrok.dev/api/v2/messages/text/0210/${notificationPhone}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: message,
+          phoneIndex: 0,
+          userName: "System"
+        }),
+      });
+    } catch (error) {
+      console.error('Failed to send notification:', error);
+    }
+  };
+
   const handleRegister = async () => {
     try {
       setIsLoading(true);
@@ -197,6 +216,9 @@ function Main() {
   console.log('Login response:', data);
           // Sign in the user after successful registration
           if (response.ok) {
+            // Send notification about new user registration
+            await sendNewUserNotification(name, email, companyName);
+            
             localStorage.setItem('userEmail', email);
             localStorage.setItem('userData', JSON.stringify(data.user));
             navigate('/loading');

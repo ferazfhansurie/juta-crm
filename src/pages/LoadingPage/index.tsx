@@ -1492,10 +1492,10 @@ function LoadingPage() {
             Pay Now
           </button>
           <button
-            onClick={handleLogout}
+            onClick={() => navigate("/chat")}
             className="mt-3 px-3 py-1.5 bg-primary text-white text-sm font-semibold rounded hover:bg-blue-600 transition-colors"
           >
-            Back to Login
+            Go to Chat
           </button>
         </div>
       ) : (
@@ -1903,16 +1903,16 @@ function LoadingPage() {
                   </button>
                 </div>
                 
-                {/* Logout Button - Full Width */}
+                {/* Go to Chat Button - Full Width */}
                 <button
-                  onClick={handleLogout}
-                  className="w-full px-3 py-2 bg-gray-500 text-white text-xs font-semibold rounded-md hover:bg-gray-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 shadow-sm hover:shadow-md"
+                  onClick={() => navigate("/chat")}
+                  className="w-full px-3 py-2 bg-blue-500 text-white text-xs font-semibold rounded-md hover:bg-blue-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 shadow-sm hover:shadow-md"
                 >
                   <div className="flex items-center justify-center space-x-1.5">
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                     </svg>
-                    <span className="text-sm">Sign Out</span>
+                    <span className="text-sm">Go to Chat</span>
                   </div>
                 </button>
               </div>

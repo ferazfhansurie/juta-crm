@@ -655,26 +655,62 @@ const FollowUpsPage: React.FC = () => {
   const fetchTemplates = async () => {
     try {
       const userEmail = localStorage.getItem("userEmail");
-      if (!userEmail) return;
+      if (!userEmail) {
+        console.error("No userEmail found in localStorage");
+        toast.error("Please log in again");
+        return;
+      }
 
+      console.log("Fetching user company data for:", userEmail);
       const userResponse = await axios.get(
         `https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(
           userEmail
         )}`
       );
+      
+      if (!userResponse.data.userData?.companyId) {
+        console.error("No companyId found in user data:", userResponse.data);
+        toast.error("Company data not found");
+        return;
+      }
+      
       const companyId = userResponse.data.userData.companyId;
+      console.log("Fetching templates for companyId:", companyId);
 
       const response = await axios.get(
         `https://juta-dev.ngrok.dev/api/followup-templates?companyId=${encodeURIComponent(
           companyId
         )}`
       );
+      
+      console.log("Templates API response:", response.data);
+      
       if (response.data.success) {
-        console.log(response.data.templates);
-        setTemplates(response.data.templates);
+        console.log("Templates fetched successfully:", response.data.templates);
+        setTemplates(response.data.templates || []);
+        
+        if (!response.data.templates || response.data.templates.length === 0) {
+          console.log("No templates found for this company");
+        }
+      } else {
+        console.error("Templates API returned success: false", response.data);
+        toast.error("Failed to load templates");
+        setTemplates([]);
       }
     } catch (error) {
       console.error("Error fetching templates:", error);
+      if (axios.isAxiosError(error)) {
+        console.error("Axios error details:", {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          message: error.message
+        });
+        toast.error(`Failed to fetch templates: ${error.response?.status || error.message}`);
+      } else {
+        toast.error("Failed to fetch templates");
+      }
+      setTemplates([]);
     }
   };
 
