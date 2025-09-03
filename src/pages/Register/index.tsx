@@ -221,7 +221,7 @@ function Main() {
             
             localStorage.setItem('userEmail', email);
             localStorage.setItem('userData', JSON.stringify(data.user));
-            navigate('/loading');
+            navigate('/onboarding');
             toast.success("Registration successful!");
           } else {
            
