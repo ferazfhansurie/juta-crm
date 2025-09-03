@@ -537,13 +537,18 @@ const ImageModal: React.FC<ImageModalProps> = ({
   );
 };
 
-const PDFModal: React.FC<PDFModalProps> = ({ isOpen, onClose, documentUrl, documentName }) => {
+const PDFModal: React.FC<PDFModalProps> = ({
+  isOpen,
+  onClose,
+  documentUrl,
+  documentName,
+}) => {
   if (!isOpen) return null;
 
   return (
-        <div
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-          onClick={onClose}
+      onClick={onClose}
     >
       <div
         className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full md:w-[800px] h-auto md:h-[600px] p-3"
@@ -557,8 +562,18 @@ const PDFModal: React.FC<PDFModalProps> = ({ isOpen, onClose, documentUrl, docum
             className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
             onClick={onClose}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -566,18 +581,26 @@ const PDFModal: React.FC<PDFModalProps> = ({ isOpen, onClose, documentUrl, docum
           className="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg mb-3 flex justify-center items-center"
           style={{ height: "90%" }}
         >
-          {documentUrl.toLowerCase().includes('.pdf') ? (
-          <iframe
+          {documentUrl.toLowerCase().includes(".pdf") ? (
+            <iframe
               src={documentUrl}
-            width="100%"
-            height="100%"
-            title="PDF Document"
-            className="border rounded"
-          />
+              width="100%"
+              height="100%"
+              title="PDF Document"
+              className="border rounded"
+            />
           ) : (
             <div className="text-center">
-              <svg className="w-16 h-16 mb-1.5 mx-auto text-gray-600 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+              <svg
+                className="w-16 h-16 mb-1.5 mx-auto text-gray-600 dark:text-gray-400"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z"
+                  clipRule="evenodd"
+                />
               </svg>
               <p className="text-gray-800 dark:text-gray-200 font-semibold text-sm">
                 {documentName || "Document"}
@@ -585,13 +608,13 @@ const PDFModal: React.FC<PDFModalProps> = ({ isOpen, onClose, documentUrl, docum
               <p className="text-gray-600 dark:text-gray-400 mt-1.5 text-xs">
                 Click Download to view this document
               </p>
-        </div>
+            </div>
           )}
         </div>
         <div className="flex justify-center">
           <button
             className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors text-sm"
-            onClick={() => window.open(documentUrl, '_blank')}
+            onClick={() => window.open(documentUrl, "_blank")}
           >
             Download Document
           </button>
@@ -642,7 +665,6 @@ const getContactTimestamp = (contact: Contact): number => {
   }
 
   // Debug logging for problematic cases
- 
 
   return timestamp || 0; // No timestamp available
 };
@@ -749,7 +771,10 @@ function Main() {
   const [editedMessageText, setEditedMessageText] = useState<string>("");
   const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
   const [isPDFModalOpen, setPDFModalOpen] = useState(false);
-  const [pdfModalData, setPdfModalData] = useState<{ documentUrl: string; documentName?: string }>({ documentUrl: "", documentName: "" });
+  const [pdfModalData, setPdfModalData] = useState<{
+    documentUrl: string;
+    documentName?: string;
+  }>({ documentUrl: "", documentName: "" });
   const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
   const [isEmojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [isImageModalOpen2, setImageModalOpen2] = useState(false);
@@ -813,7 +838,7 @@ function Main() {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const currentUserName = userData?.name || "";
-  
+
   // Debug: Log user data when it changes
   useEffect(() => {
     console.log("🔍 User data updated:", userData);
@@ -823,20 +848,25 @@ function Main() {
 
   // Auto-refresh messages when temporary messages are selected
   useEffect(() => {
-    if (selectedMessages.length > 0 && selectedMessages.every(msg => !msg.id || msg.id.startsWith('temp_'))) {
+    if (
+      selectedMessages.length > 0 &&
+      selectedMessages.every((msg) => !msg.id || msg.id.startsWith("temp_"))
+    ) {
       // Only refresh if we haven't already started refreshing
       if (!isRefreshingMessages && selectedChatId && whapiToken) {
         setIsRefreshingMessages(true);
-        
+
         // Refresh messages and then check if they're still temporary
-        fetchMessages(selectedChatId, whapiToken).then(() => {
-          // After refresh, check if messages are still temporary
-          setTimeout(() => {
+        fetchMessages(selectedChatId, whapiToken)
+          .then(() => {
+            // After refresh, check if messages are still temporary
+            setTimeout(() => {
+              setIsRefreshingMessages(false);
+            }, 1000); // Give a moment for the refresh to complete
+          })
+          .catch(() => {
             setIsRefreshingMessages(false);
-          }, 1000); // Give a moment for the refresh to complete
-        }).catch(() => {
-          setIsRefreshingMessages(false);
-        });
+          });
       }
     }
   }, [selectedMessages, selectedChatId, whapiToken, isRefreshingMessages]);
@@ -875,7 +905,7 @@ function Main() {
   const [quickReplyFilter, setQuickReplyFilter] = useState("");
   const [phoneNames, setPhoneNames] = useState<Record<number, string>>({});
   const [showPhoneModal, setShowPhoneModal] = useState(false);
-  
+
   // Debug: Log phone names when they change
   useEffect(() => {
     console.log("🔍 Phone names updated:", phoneNames);
@@ -886,21 +916,21 @@ function Main() {
   useEffect(() => {
     if (showPhoneModal) {
       // Focus the modal when it opens
-      const modalElement = document.querySelector('[data-phone-modal]');
+      const modalElement = document.querySelector("[data-phone-modal]");
       if (modalElement) {
         (modalElement as HTMLElement).focus();
       }
-      
+
       // Prevent body scroll when modal is open
-      document.body.style.overflow = 'hidden';
+      document.body.style.overflow = "hidden";
     } else {
       // Restore body scroll when modal closes
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = "unset";
     }
 
     // Cleanup function
     return () => {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = "unset";
     };
   }, [showPhoneModal]);
   const [userPhone, setUserPhone] = useState<number | null>(null);
@@ -963,10 +993,11 @@ function Main() {
   const [isUsageDashboardOpen, setIsUsageDashboardOpen] =
     useState<boolean>(false);
   const [isTopUpModalOpen, setIsTopUpModalOpen] = useState<boolean>(false);
-  const [isTopUpAmountModalOpen, setIsTopUpAmountModalOpen] = useState<boolean>(false);
+  const [isTopUpAmountModalOpen, setIsTopUpAmountModalOpen] =
+    useState<boolean>(false);
   const [topUpAmount, setTopUpAmount] = useState<number>(10);
   const [isTopUpLoading, setIsTopUpLoading] = useState<boolean>(false);
-  
+
   // Top-up calculator functions
   const calculateTopUpPrice = () => {
     return topUpAmount;
@@ -979,100 +1010,114 @@ function Main() {
 
   const handleTopUpPurchase = async () => {
     if (topUpAmount < 1) return;
-    
+
     setIsTopUpLoading(true);
-    
+
     try {
-      console.log('Sending topup request with companyId:', companyId);
+      console.log("Sending topup request with companyId:", companyId);
       const response = await fetch(`${baseUrl}/api/payex/create-topup`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           amount: topUpAmount,
           aiResponses: calculateAIResponses(),
-          email: localStorage.getItem('userEmail'),
-          companyId: companyId
+          email: localStorage.getItem("userEmail"),
+          companyId: companyId,
         }),
       });
 
       const data = await response.json();
-console.log(data);
+      console.log(data);
       if (response.ok && data.success) {
         if (data.paymentUrl) {
           // Store payment intent ID for tracking
-          localStorage.setItem('pendingTopUpId', data.paymentIntentId);
-          localStorage.setItem('pendingTopUpAmount', topUpAmount.toString());
-          localStorage.setItem('pendingTopUpResponses', data.aiResponses.toString());
-          
+          localStorage.setItem("pendingTopUpId", data.paymentIntentId);
+          localStorage.setItem("pendingTopUpAmount", topUpAmount.toString());
+          localStorage.setItem(
+            "pendingTopUpResponses",
+            data.aiResponses.toString()
+          );
+
           // Show success message before redirect
-          const message = data.message || `Payment initiated! You will receive ${data.aiResponses} AI responses for RM ${topUpAmount}.`;
+          const message =
+            data.message ||
+            `Payment initiated! You will receive ${data.aiResponses} AI responses for RM ${topUpAmount}.`;
           //alert(message);
-          
+
           // Redirect to PayEx payment page
           // The backend should already include the return URL with payment ID
-          window.open(data.paymentUrl, '_blank');
+          window.open(data.paymentUrl, "_blank");
         } else {
           // Development mode or no payment URL
-          toast.success(`Top-up created successfully! ${data.message || 'You will receive ' + data.aiResponses + ' AI responses.'}`);
+          toast.success(
+            `Top-up created successfully! ${
+              data.message ||
+              "You will receive " + data.aiResponses + " AI responses."
+            }`
+          );
         }
       } else {
-        console.error('Top-up payment creation failed:', data.error);
-        const errorMessage = data.details || data.error || 'Unknown error occurred';
+        console.error("Top-up payment creation failed:", data.error);
+        const errorMessage =
+          data.details || data.error || "Unknown error occurred";
         toast.error(`Payment creation failed: ${errorMessage}`);
       }
     } catch (error) {
-      console.error('Top-up payment error:', error);
-      toast.error('Network error. Please check your connection and try again.');
+      console.error("Top-up payment error:", error);
+      toast.error("Network error. Please check your connection and try again.");
     } finally {
       setIsTopUpLoading(false);
     }
   };
 
-    // Function to refresh user's quota display
+  // Function to refresh user's quota display
   const refreshUserQuota = async () => {
     try {
-      console.log('Refreshing user quota display...');
+      console.log("Refreshing user quota display...");
       setQuotaLoading(true);
-      
+
       if (!companyId) {
-        console.log('No company ID available, skipping quota refresh');
+        console.log("No company ID available, skipping quota refresh");
         return;
       }
 
       // Fetch current quota from the backend
-      const response = await fetch(`${baseUrl}/api/usage/quota?companyId=${companyId}`);
+      const response = await fetch(
+        `${baseUrl}/api/usage/quota?companyId=${companyId}`
+      );
       const data = await response.json();
-      console.log("usagee",data);
+      console.log("usagee", data);
       if (data.success) {
-        console.log('Quota data received:', data.quota);
-        
+        console.log("Quota data received:", data.quota);
+
         // Update the existing quota state variables
         const { limit, used, remaining, percentageUsed } = data.quota;
-        
+
         // Update AI message quota
         setQuotaAIMessage(limit);
         setAiMessageUsage(used);
-        
+
         // Store full quota data for other uses - ensure consistent structure
         setQuotaData({
           limit: limit,
           used: used,
           remaining: remaining,
-          percentageUsed: percentageUsed
+          percentageUsed: percentageUsed,
         });
-        
+
         // Show success toast with quota info
-        toast.success(`Quota refreshed: ${aiMessageUsage}/${limit} AI responses used (${percentageUsed}% used)`);
-        
+        toast.success(
+          `Quota refreshed: ${aiMessageUsage}/${limit} AI responses used (${percentageUsed}% used)`
+        );
       } else {
-        console.error('Failed to fetch quota:', data.error);
-        toast.error('Failed to refresh quota information');
+        console.error("Failed to fetch quota:", data.error);
+        toast.error("Failed to refresh quota information");
       }
     } catch (error) {
-      console.error('Error refreshing quota:', error);
-      toast.error('Error refreshing quota information');
+      console.error("Error refreshing quota:", error);
+      toast.error("Error refreshing quota information");
     } finally {
       setQuotaLoading(false);
     }
@@ -1081,22 +1126,24 @@ console.log(data);
   // Alternative function to get quota by email
   const getQuotaByEmail = async (email: string) => {
     try {
-      console.log('Fetching quota by email:', email);
-      
-      const response = await fetch(`${baseUrl}/api/usage/quota?email=${encodeURIComponent(email)}`);
+      console.log("Fetching quota by email:", email);
+
+      const response = await fetch(
+        `${baseUrl}/api/usage/quota?email=${encodeURIComponent(email)}`
+      );
       const data = await response.json();
-      
+
       if (data.success) {
-        console.log('Quota data by email received:', data.quota);
+        console.log("Quota data by email received:", data.quota);
         return data.quota;
       } else {
-        console.error('Failed to fetch quota by email:', data.error);
-        toast.error('Failed to fetch quota information');
+        console.error("Failed to fetch quota by email:", data.error);
+        toast.error("Failed to fetch quota information");
         return null;
       }
     } catch (error) {
-      console.error('Error fetching quota by email:', error);
-      toast.error('Error fetching quota information');
+      console.error("Error fetching quota by email:", error);
+      toast.error("Error fetching quota information");
       return null;
     }
   };
@@ -1104,112 +1151,137 @@ console.log(data);
   // Function to get usage history
   const getUsageHistory = async (months: number = 6) => {
     try {
-      console.log('Fetching usage history for', months, 'months');
-      
+      console.log("Fetching usage history for", months, "months");
+
       if (!companyId) {
-        console.log('No company ID available, skipping usage history');
+        console.log("No company ID available, skipping usage history");
         return null;
       }
 
-      const response = await fetch(`${baseUrl}/api/usage/history?companyId=${companyId}&months=${months}`);
+      const response = await fetch(
+        `${baseUrl}/api/usage/history?companyId=${companyId}&months=${months}`
+      );
       const data = await response.json();
-      
+
       if (data.success) {
-        console.log('Usage history received:', data.usageHistory);
+        console.log("Usage history received:", data.usageHistory);
         return data;
       } else {
-        console.error('Failed to fetch usage history:', data.error);
-        toast.error('Failed to fetch usage history');
+        console.error("Failed to fetch usage history:", data.error);
+        toast.error("Failed to fetch usage history");
         return null;
       }
     } catch (error) {
-      console.error('Error fetching usage history:', error);
-      toast.error('Error fetching usage history');
+      console.error("Error fetching usage history:", error);
+      toast.error("Error fetching usage history");
       return null;
     }
   };
-
-
 
   // Check payment status when component mounts or when returning from PayEx
   useEffect(() => {
     const checkPaymentStatus = async () => {
       // Check if there's a payment ID in the URL (returning from PayEx)
       const urlParams = new URLSearchParams(window.location.search);
-      const paymentId = urlParams.get('payment_intent') || urlParams.get('reference_number');
-      const companyId = urlParams.get('company_id');
-      const paymentStatus = urlParams.get('status');
-      
+      const paymentId =
+        urlParams.get("payment_intent") || urlParams.get("reference_number");
+      const companyId = urlParams.get("company_id");
+      const paymentStatus = urlParams.get("status");
+
       if (paymentId) {
         try {
-          console.log('Payment return detected:', { paymentId, companyId, paymentStatus });
-          
+          console.log("Payment return detected:", {
+            paymentId,
+            companyId,
+            paymentStatus,
+          });
+
           // If status is already success from URL, handle it directly
-          if (paymentStatus === 'success') {
-            console.log('Payment success confirmed from URL parameters');
+          if (paymentStatus === "success") {
+            console.log("Payment success confirmed from URL parameters");
             // Show success message
-            toast.success('Payment successful! Your AI quota has been updated.');
+            toast.success(
+              "Payment successful! Your AI quota has been updated."
+            );
             // Clear any pending payment data
-            localStorage.removeItem('pendingTopUpId');
-            localStorage.removeItem('pendingTopUpAmount');
-            localStorage.removeItem('pendingTopUpResponses');
+            localStorage.removeItem("pendingTopUpId");
+            localStorage.removeItem("pendingTopUpAmount");
+            localStorage.removeItem("pendingTopUpResponses");
             // Refresh user's quota display
             refreshUserQuota();
             // Clean up the URL
-            window.history.replaceState({}, document.title, window.location.pathname);
-            console.log('Payment completed successfully!');
+            window.history.replaceState(
+              {},
+              document.title,
+              window.location.pathname
+            );
+            console.log("Payment completed successfully!");
             return;
           }
-          
+
           // If status is not success, check with backend
-          console.log('Checking payment status for ID:', paymentId);
-          const response = await fetch(`${baseUrl}/api/payex/check-status/${paymentId}`);
+          console.log("Checking payment status for ID:", paymentId);
+          const response = await fetch(
+            `${baseUrl}/api/payex/check-status/${paymentId}`
+          );
           const data = await response.json();
-          
-          if (data.status === 'completed' || data.status === 'success') {
+
+          if (data.status === "completed" || data.status === "success") {
             // Show success message
-            toast.success('Payment successful! Your AI quota has been updated.');
+            toast.success(
+              "Payment successful! Your AI quota has been updated."
+            );
             // Clear any pending payment data
-            localStorage.removeItem('pendingTopUpAmount');
-            localStorage.removeItem('pendingTopUpResponses');
+            localStorage.removeItem("pendingTopUpAmount");
+            localStorage.removeItem("pendingTopUpResponses");
             // Refresh user's quota display
             refreshUserQuota();
             // Clean up the URL
-            window.history.replaceState({}, document.title, window.location.pathname);
-            console.log('Payment completed successfully!');
-          } else if (data.status === 'failed') {
-            toast.error('Payment failed. Please try again or contact support.');
+            window.history.replaceState(
+              {},
+              document.title,
+              window.location.pathname
+            );
+            console.log("Payment completed successfully!");
+          } else if (data.status === "failed") {
+            toast.error("Payment failed. Please try again or contact support.");
             // Clean up the URL
-            window.history.replaceState({}, document.title, window.location.pathname);
+            window.history.replaceState(
+              {},
+              document.title,
+              window.location.pathname
+            );
           } else {
-            console.log('Payment status:', data.status);
+            console.log("Payment status:", data.status);
           }
         } catch (error) {
-          console.error('Error checking payment status:', error);
-          toast.error('Error checking payment status. Please contact support.');
+          console.error("Error checking payment status:", error);
+          toast.error("Error checking payment status. Please contact support.");
         }
       } else {
         // Check if there's a pending payment in localStorage
-        const pendingTopUpId = localStorage.getItem('pendingTopUpId');
+        const pendingTopUpId = localStorage.getItem("pendingTopUpId");
         if (pendingTopUpId) {
           try {
             // Check if payment was completed
-            const response = await fetch(`${baseUrl}/api/payex/quota-status/${companyId}`);
+            const response = await fetch(
+              `${baseUrl}/api/payex/quota-status/${companyId}`
+            );
             if (response.ok) {
               const data = await response.json();
               if (data.success) {
                 // Clear pending payment data
-                localStorage.removeItem('pendingTopUpId');
-                localStorage.removeItem('pendingTopUpAmount');
-                localStorage.removeItem('pendingTopUpResponses');
-                
+                localStorage.removeItem("pendingTopUpId");
+                localStorage.removeItem("pendingTopUpAmount");
+                localStorage.removeItem("pendingTopUpResponses");
+
                 // Refresh usage data
                 refreshUserQuota();
-                console.log('Payment completed successfully!');
+                console.log("Payment completed successfully!");
               }
             }
           } catch (error) {
-            console.error('Error checking payment status:', error);
+            console.error("Error checking payment status:", error);
           }
         }
       }
@@ -1217,8 +1289,6 @@ console.log(data);
 
     checkPaymentStatus();
   }, [companyId]);
-
-
 
   const [dailyUsageData, setDailyUsageData] = useState<any[]>([]);
   const [isLoadingUsageData, setIsLoadingUsageData] = useState<boolean>(false);
@@ -1244,7 +1314,7 @@ console.log(data);
   const [wsReconnectAttempts, setWsReconnectAttempts] = useState(0);
   const [wsError, setWsError] = useState<string | null>(null);
   const maxReconnectAttempts = 5;
-  
+
   // Quota state variables
   const [quotaData, setQuotaData] = useState<any>(null);
   const [quotaLoading, setQuotaLoading] = useState(false);
@@ -1293,116 +1363,134 @@ console.log(data);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
   const MESSAGES_PER_PAGE = 10;
-// Add these functions after the fetchMessages function (around line 6171)
+  // Add these functions after the fetchMessages function (around line 6171)
 
-// Replace the existing loadMoreMessages function (around line 1298) with this corrected version:
-// Replace the loadMoreMessages function (around line 1299) with this corrected version:
-const loadMoreMessages = useCallback(() => {
-  if (isLoadingMoreMessages || !hasMoreMessages) return;
-  
-  setIsLoadingMoreMessages(true);
-  
-  // Simulate loading delay for better UX
-  setTimeout(() => {
-    const nextPage = messagePage + 1;
-    const startIndex = nextPage * MESSAGES_PER_PAGE;
-    const endIndex = startIndex + MESSAGES_PER_PAGE;
-    
-    console.log(`�� Debug: page ${nextPage}, start: ${startIndex}, end: ${endIndex}, total: ${allMessages.length}`);
-    
-    if (startIndex < allMessages.length) {
-      const newMessages = allMessages.slice(startIndex, endIndex);
-      console.log(`🔍 New messages to add: ${newMessages.length}`);
-      
-      setDisplayedMessages(prev => {
-        const updated = [...newMessages, ...prev];
-        console.log(`🔍 Updated displayed messages: ${updated.length}`);
-        return updated;
-      });
-      
-      setMessagePage(nextPage);
-      setHasMoreMessages(endIndex < allMessages.length);
-      
-      console.log(`🔍 Successfully loaded more messages. Next page: ${nextPage + 1}, hasMore: ${endIndex < allMessages.length}`);
-    } else {
-      setHasMoreMessages(false);
-      console.log('🔍 No more messages to load - reached end');
-    }
-    
-    setIsLoadingMoreMessages(false);
-  }, 300);
-}, [messagePage, allMessages.length, isLoadingMoreMessages, hasMoreMessages]);
+  // Replace the existing loadMoreMessages function (around line 1298) with this corrected version:
+  // Replace the loadMoreMessages function (around line 1299) with this corrected version:
+  const loadMoreMessages = useCallback(() => {
+    if (isLoadingMoreMessages || !hasMoreMessages) return;
 
+    setIsLoadingMoreMessages(true);
 
-// Replace the handleMessageListScroll function (around line 1315) with this button approach:
-const handleLoadMoreMessages = useCallback(async () => {
-  if (isLoadingMoreMessages || !hasMoreMessages) return;
-  
-  setIsLoadingMoreMessages(true);
-  
-  // Simulate loading delay for better UX
-  setTimeout(() => {
-    const nextPage = messagePage + 1;
-    const startIndex = nextPage * MESSAGES_PER_PAGE;
-    const endIndex = startIndex + MESSAGES_PER_PAGE;
-    
-    console.log(`�� Debug: page ${nextPage}, start: ${startIndex}, end: ${endIndex}, total: ${allMessages.length}`);
-    
-    if (startIndex < allMessages.length) {
-      const newMessages = allMessages.slice(startIndex, endIndex);
-      setDisplayedMessages(prev => [...newMessages, ...prev]);
-      console.log(displayedMessages);
-      setMessagePage(nextPage);
-      setHasMoreMessages(endIndex < allMessages.length);
-      console.log(`✅ Loaded ${newMessages.length} more messages`);
-    } else {
-      console.log(`🔍 No more messages to load - reached end`);
-      setHasMoreMessages(false);
-    }
- 
-    setIsLoadingMoreMessages(false);
-  }, 500);
-}, [messagePage, isLoadingMoreMessages, hasMoreMessages, selectedChatId, whapiToken]);
+    // Simulate loading delay for better UX
+    setTimeout(() => {
+      const nextPage = messagePage + 1;
+      const startIndex = nextPage * MESSAGES_PER_PAGE;
+      const endIndex = startIndex + MESSAGES_PER_PAGE;
 
-// Remove the handleMessageListScroll function entirely
-// Remove the onScroll={handleMessageListScroll} from the message list div
-// Remove the useEffect that was calling handleMessageListScroll
+      console.log(
+        `�� Debug: page ${nextPage}, start: ${startIndex}, end: ${endIndex}, total: ${allMessages.length}`
+      );
 
+      if (startIndex < allMessages.length) {
+        const newMessages = allMessages.slice(startIndex, endIndex);
+        console.log(`🔍 New messages to add: ${newMessages.length}`);
+
+        setDisplayedMessages((prev) => {
+          const updated = [...newMessages, ...prev];
+          console.log(`🔍 Updated displayed messages: ${updated.length}`);
+          return updated;
+        });
+
+        setMessagePage(nextPage);
+        setHasMoreMessages(endIndex < allMessages.length);
+
+        console.log(
+          `🔍 Successfully loaded more messages. Next page: ${
+            nextPage + 1
+          }, hasMore: ${endIndex < allMessages.length}`
+        );
+      } else {
+        setHasMoreMessages(false);
+        console.log("🔍 No more messages to load - reached end");
+      }
+
+      setIsLoadingMoreMessages(false);
+    }, 300);
+  }, [messagePage, allMessages.length, isLoadingMoreMessages, hasMoreMessages]);
+
+  // Replace the handleMessageListScroll function (around line 1315) with this button approach:
+  const handleLoadMoreMessages = useCallback(async () => {
+    if (isLoadingMoreMessages || !hasMoreMessages) return;
+
+    setIsLoadingMoreMessages(true);
+
+    // Simulate loading delay for better UX
+    setTimeout(() => {
+      const nextPage = messagePage + 1;
+      const startIndex = nextPage * MESSAGES_PER_PAGE;
+      const endIndex = startIndex + MESSAGES_PER_PAGE;
+
+      console.log(
+        `�� Debug: page ${nextPage}, start: ${startIndex}, end: ${endIndex}, total: ${allMessages.length}`
+      );
+
+      if (startIndex < allMessages.length) {
+        const newMessages = allMessages.slice(startIndex, endIndex);
+        setDisplayedMessages((prev) => [...newMessages, ...prev]);
+        console.log(displayedMessages);
+        setMessagePage(nextPage);
+        setHasMoreMessages(endIndex < allMessages.length);
+        console.log(`✅ Loaded ${newMessages.length} more messages`);
+      } else {
+        console.log(`🔍 No more messages to load - reached end`);
+        setHasMoreMessages(false);
+      }
+
+      setIsLoadingMoreMessages(false);
+    }, 500);
+  }, [
+    messagePage,
+    isLoadingMoreMessages,
+    hasMoreMessages,
+    selectedChatId,
+    whapiToken,
+  ]);
+
+  // Remove the handleMessageListScroll function entirely
+  // Remove the onScroll={handleMessageListScroll} from the message list div
+  // Remove the useEffect that was calling handleMessageListScroll
 
   // Add this useEffect to initialize displayed messages when allMessages changes
-// Fix the useEffect around line 1347:
-useEffect(() => {
-  if (allMessages.length > 0) {
-    // Show the most recent messages first (last MESSAGES_PER_PAGE messages)
-    const recentMessages = allMessages.slice(-MESSAGES_PER_PAGE);
-    setDisplayedMessages(recentMessages);
-    
-    // Fix: Calculate the correct starting page (should be 0, not the last page)
-    setMessagePage(0); // Start from page 0, not the last page
-    setHasMoreMessages(allMessages.length > MESSAGES_PER_PAGE);
-    
-    console.log(`🔍 Initialized lazy loading: ${recentMessages.length} messages shown, ${allMessages.length} total, page: 0, hasMore: ${allMessages.length > MESSAGES_PER_PAGE}`);
-  } else {
-    setDisplayedMessages([]);
-    setMessagePage(0);
-    setHasMoreMessages(false);
-  }
-}, [allMessages]);
+  // Fix the useEffect around line 1347:
+  useEffect(() => {
+    if (allMessages.length > 0) {
+      // Show the most recent messages first (last MESSAGES_PER_PAGE messages)
+      const recentMessages = allMessages.slice(-MESSAGES_PER_PAGE);
+      setDisplayedMessages(recentMessages);
+
+      // Fix: Calculate the correct starting page (should be 0, not the last page)
+      setMessagePage(0); // Start from page 0, not the last page
+      setHasMoreMessages(allMessages.length > MESSAGES_PER_PAGE);
+
+      console.log(
+        `🔍 Initialized lazy loading: ${
+          recentMessages.length
+        } messages shown, ${allMessages.length} total, page: 0, hasMore: ${
+          allMessages.length > MESSAGES_PER_PAGE
+        }`
+      );
+    } else {
+      setDisplayedMessages([]);
+      setMessagePage(0);
+      setHasMoreMessages(false);
+    }
+  }, [allMessages]);
   // PayEx payment handler
   const handlePayExPayment = async (planType: string, amount: number) => {
     try {
-      console.log('Sending payment request with companyId:', companyId);
+      console.log("Sending payment request with companyId:", companyId);
       // Call your backend API to handle PayEx integration
       const response = await fetch(`${baseUrl}/api/payex/create-payment`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           planType,
           amount,
-          email: localStorage.getItem('userEmail'),
-          companyId: companyId
+          email: localStorage.getItem("userEmail"),
+          companyId: companyId,
         }),
       });
 
@@ -1413,12 +1501,14 @@ useEffect(() => {
         // The backend should already include the return URL with payment ID
         window.location.href = data.paymentUrl;
       } else {
-        console.error('Payment creation failed:', data.error);
-        toast.error(`Payment creation failed: ${data.error || 'Unknown error'}`);
+        console.error("Payment creation failed:", data.error);
+        toast.error(
+          `Payment creation failed: ${data.error || "Unknown error"}`
+        );
       }
     } catch (error) {
-      console.error('Payment error:', error);
-      toast.error('Payment error occurred. Please try again.');
+      console.error("Payment error:", error);
+      toast.error("Payment error occurred. Please try again.");
     }
   };
 
@@ -2148,7 +2238,7 @@ useEffect(() => {
           const endpoint = getApiEndpoint(mainMessage.mediaUrl, chatId);
           const body: any = {
             phoneIndex: message.phoneIndex || userData?.phone || 0,
-            userName: currentUserName|| email || "",
+            userName: currentUserName || email || "",
           };
           if (endpoint.includes("/video/")) {
             body.videoUrl = mainMessage.mediaUrl;
@@ -2179,7 +2269,7 @@ useEffect(() => {
               body: JSON.stringify({
                 message: processedMessage,
                 phoneIndex: message.phoneIndex || userData?.phone || 0,
-                userName: currentUserName|| email || "",
+                userName: currentUserName || email || "",
               }),
             }
           );
@@ -2242,38 +2332,53 @@ useEffect(() => {
 
   // ... existing code ...
 
-
-
   // Additional useEffect to fetch phone status when phone names become available
   useEffect(() => {
-    if (companyId && Object.keys(phoneNames).length > 0 && qrCodes.length === 0) {
+    if (
+      companyId &&
+      Object.keys(phoneNames).length > 0 &&
+      qrCodes.length === 0
+    ) {
       console.log("Phone names available, fetching phone status...");
       const fetchPhoneStatuses = async () => {
         try {
           const botStatusResponse = await axios.get(
             `${baseUrl}/api/bot-status/${companyId}`
           );
-          console.log("Additional phone status fetch response:", botStatusResponse);
+          console.log(
+            "Additional phone status fetch response:",
+            botStatusResponse
+          );
 
           if (botStatusResponse.status === 200) {
             const data: BotStatusResponse = botStatusResponse.data;
             console.log("Additional bot status response data:", data);
 
             if (data.phones && Array.isArray(data.phones)) {
-              const qrCodesData: QRCodeData[] = data.phones.map((phone: any) => ({
-                phoneIndex: phone.phoneIndex,
-                status: phone.status,
-                qrCode: phone.qrCode,
-              }));
-              console.log("Setting qrCodes from additional fetch:", qrCodesData);
+              const qrCodesData: QRCodeData[] = data.phones.map(
+                (phone: any) => ({
+                  phoneIndex: phone.phoneIndex,
+                  status: phone.status,
+                  qrCode: phone.qrCode,
+                })
+              );
+              console.log(
+                "Setting qrCodes from additional fetch:",
+                qrCodesData
+              );
               setQrCodes(qrCodesData);
             } else if (data.phoneCount === 1 && data.phoneInfo) {
-              const singlePhoneData = [{
-                phoneIndex: 0,
-                status: data.status,
-                qrCode: data.qrCode,
-              }];
-              console.log("Setting qrCodes for single phone from additional fetch:", singlePhoneData);
+              const singlePhoneData = [
+                {
+                  phoneIndex: 0,
+                  status: data.status,
+                  qrCode: data.qrCode,
+                },
+              ];
+              console.log(
+                "Setting qrCodes for single phone from additional fetch:",
+                singlePhoneData
+              );
               setQrCodes(singlePhoneData);
             }
           }
@@ -2286,12 +2391,10 @@ useEffect(() => {
     }
   }, [companyId, phoneNames, qrCodes.length]);
 
-
-
   // Force refresh phone status when component becomes visible (with debouncing)
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
-    
+
     const handleVisibilityChange = () => {
       if (!document.hidden && companyId) {
         // Debounce the API call to prevent excessive requests
@@ -2306,22 +2409,29 @@ useEffect(() => {
               if (botStatusResponse.status === 200) {
                 const data: BotStatusResponse = botStatusResponse.data;
                 if (data.phones && Array.isArray(data.phones)) {
-                  const qrCodesData: QRCodeData[] = data.phones.map((phone: any) => ({
-                    phoneIndex: phone.phoneIndex,
-                    status: phone.status,
-                    qrCode: phone.qrCode,
-                  }));
+                  const qrCodesData: QRCodeData[] = data.phones.map(
+                    (phone: any) => ({
+                      phoneIndex: phone.phoneIndex,
+                      status: phone.status,
+                      qrCode: phone.qrCode,
+                    })
+                  );
                   setQrCodes(qrCodesData);
                 } else if (data.phoneCount === 1 && data.phoneInfo) {
-                  setQrCodes([{
-                    phoneIndex: 0,
-                    status: data.status,
-                    qrCode: data.qrCode,
-                  }]);
+                  setQrCodes([
+                    {
+                      phoneIndex: 0,
+                      status: data.status,
+                      qrCode: data.qrCode,
+                    },
+                  ]);
                 }
               }
             } catch (error) {
-              console.error("Error refreshing phone status on visibility change:", error);
+              console.error(
+                "Error refreshing phone status on visibility change:",
+                error
+              );
             }
           };
           fetchPhoneStatuses();
@@ -2329,9 +2439,9 @@ useEffect(() => {
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       clearTimeout(timeoutId);
     };
   }, [companyId]);
@@ -2346,26 +2456,33 @@ useEffect(() => {
             `${baseUrl}/api/bot-status/${companyId}`
           );
           console.log("🔄 Force fetch response:", botStatusResponse);
-          
+
           if (botStatusResponse.status === 200) {
             const data: BotStatusResponse = botStatusResponse.data;
             console.log("🔄 Force fetch data:", data);
-            
+
             if (data.phones && Array.isArray(data.phones)) {
-              const qrCodesData: QRCodeData[] = data.phones.map((phone: any) => ({
-                phoneIndex: phone.phoneIndex,
-                status: phone.status,
-                qrCode: phone.qrCode,
-              }));
+              const qrCodesData: QRCodeData[] = data.phones.map(
+                (phone: any) => ({
+                  phoneIndex: phone.phoneIndex,
+                  status: phone.status,
+                  qrCode: phone.qrCode,
+                })
+              );
               console.log("🔄 Setting qrCodes from force fetch:", qrCodesData);
               setQrCodes(qrCodesData);
             } else if (data.phoneCount === 1 && data.phoneInfo) {
-              const singlePhoneData = [{
-                phoneIndex: 0,
-                status: data.status,
-                qrCode: data.qrCode,
-              }];
-              console.log("🔄 Setting qrCodes for single phone from force fetch:", singlePhoneData);
+              const singlePhoneData = [
+                {
+                  phoneIndex: 0,
+                  status: data.status,
+                  qrCode: data.qrCode,
+                },
+              ];
+              console.log(
+                "🔄 Setting qrCodes for single phone from force fetch:",
+                singlePhoneData
+              );
               setQrCodes(singlePhoneData);
             }
           }
@@ -2373,7 +2490,7 @@ useEffect(() => {
           console.error("🔄 Error in force phone status fetch:", error);
         }
       };
-      
+
       fetchPhoneStatuses();
     }
   }, [companyId]); // Removed phoneNames dependency to prevent excessive fetching
@@ -2444,7 +2561,7 @@ useEffect(() => {
 
       setRealLoadingProgress(90);
       const data = await contactsResponse.json();
-      console.log("contactsss",data)
+      console.log("contactsss", data);
       // Step 3: Process contacts (75%)
       setRealLoadingProgress(95);
       setLoadingSteps((prev) => ({ ...prev, contactsProcess: true }));
@@ -2506,33 +2623,54 @@ useEffect(() => {
       setLoadedPages(initialLoadedPages);
 
       // Fetch first page messages for only the first page of contacts (first 20 visible contacts)
-      console.log("Starting background message caching for first page contacts...");
+      console.log(
+        "Starting background message caching for first page contacts..."
+      );
       const contactsToCache = sortedContacts.slice(0, 20); // Only cache first 20 contacts (first page)
-      console.log(`Caching messages for ${contactsToCache.length} contacts (first page only)`);
-      
+      console.log(
+        `Caching messages for ${contactsToCache.length} contacts (first page only)`
+      );
+
       const messagePromises = contactsToCache.map(async (contact, index) => {
         try {
-          console.log(`Caching messages for contact ${index + 1}/${contactsToCache.length}: ${contact.contactName} (chat_id: ${contact.chat_id}, contact_id: ${contact.id})`);
+          console.log(
+            `Caching messages for contact ${index + 1}/${
+              contactsToCache.length
+            }: ${contact.contactName} (chat_id: ${
+              contact.chat_id
+            }, contact_id: ${contact.id})`
+          );
           // Use contact.id for cache key and contact.chat_id for API call
           await fetchFirstPageMessages(contact.contact_id, contact.chat_id);
-          console.log(`✅ Successfully cached messages for ${contact.contactName}`);
+          console.log(
+            `✅ Successfully cached messages for ${contact.contactName}`
+          );
         } catch (error) {
-          console.error(`❌ Failed to cache messages for ${contact.contactName}:`, error);
+          console.error(
+            `❌ Failed to cache messages for ${contact.contactName}:`,
+            error
+          );
         }
       });
-      
+
       // Execute all message fetching in parallel but don't wait for completion
-      Promise.allSettled(messagePromises).then(results => {
-        const successful = results.filter(r => r.status === 'fulfilled').length;
-        const failed = results.filter(r => r.status === 'rejected').length;
-        console.log(`🎉 Message caching completed: ${successful} successful, ${failed} failed`);
-        
+      Promise.allSettled(messagePromises).then((results) => {
+        const successful = results.filter(
+          (r) => r.status === "fulfilled"
+        ).length;
+        const failed = results.filter((r) => r.status === "rejected").length;
+        console.log(
+          `🎉 Message caching completed: ${successful} successful, ${failed} failed`
+        );
+
         // Log which contacts have cached messages
-        const cachedContacts = contactsToCache.filter(contact => {
+        const cachedContacts = contactsToCache.filter((contact) => {
           const cached = getCachedMessages(contact.id);
           return cached && cached.length > 0;
         });
-        console.log(`📦 ${cachedContacts.length} contacts now have cached messages`);
+        console.log(
+          `📦 ${cachedContacts.length} contacts now have cached messages`
+        );
       });
 
       // Step 4: Complete loading (100%)
@@ -3615,7 +3753,7 @@ useEffect(() => {
     let fil = filterContactsByUserRole(
       contactsToFilter,
       userRole,
-      currentUserName|| ""
+      currentUserName || ""
     );
 
     const activeTag = activeTags.length > 0 ? activeTags[0].toLowerCase() : "";
@@ -3626,14 +3764,8 @@ useEffect(() => {
     const isUsingMultiPhoneAPI =
       hasMultiplePhones && userPhone !== null && userPhone !== undefined;
 
- 
-
     // Always apply phone filtering when userPhone is set
     if (userPhone !== null && userPhone !== undefined) {
-   
-
-     
-
       const beforeFilter = fil.length;
       fil = fil.filter((contact) => {
         // Check if contact has phoneIndexes and it's not empty
@@ -3661,12 +3793,10 @@ useEffect(() => {
 
         // Debug first few contacts
         if (fil.indexOf(contact) < 3) {
-   
         }
 
         return hasPhone;
       });
-     
     } else if (!isUsingMultiPhoneAPI) {
       // Legacy filtering logic for single phone or when userPhone is not set
       let userPhoneIndex =
@@ -3691,31 +3821,37 @@ useEffect(() => {
       console.log("🔍 Available phoneNames:", phoneNames);
       console.log("🔍 Object.entries(phoneNames):", Object.entries(phoneNames));
       console.log("🔍 Active tag to match:", activeTag);
-      
+
       // Try to find a phone index that matches the active tag
       let phoneIndex = -1;
-      
+
       // First, try exact match
       phoneIndex = Object.entries(phoneNames).findIndex(
         ([_, name]) => name.toLowerCase() === activeTag.toLowerCase()
       );
       console.log("🔍 After exact match, phoneIndex:", phoneIndex);
-      
+
       // If no exact match, try partial match (e.g., "phone 1" should match "Phone 1")
       if (phoneIndex === -1) {
         phoneIndex = Object.entries(phoneNames).findIndex(
-          ([_, name]) => name.toLowerCase().includes(activeTag.toLowerCase()) || 
-                         activeTag.toLowerCase().includes(name.toLowerCase())
+          ([_, name]) =>
+            name.toLowerCase().includes(activeTag.toLowerCase()) ||
+            activeTag.toLowerCase().includes(name.toLowerCase())
         );
         console.log("🔍 After partial match, phoneIndex:", phoneIndex);
       }
-      
+
       // If still no match, try to parse the phone number from the tag
       if (phoneIndex === -1 && activeTag.toLowerCase().includes("phone")) {
         const phoneMatch = activeTag.toLowerCase().match(/phone\s*(\d+)/i);
         if (phoneMatch) {
           const phoneNum = parseInt(phoneMatch[1]) - 1; // Convert to 0-based index
-          console.log("🔍 Parsed phone number:", phoneMatch[1], "converted to index:", phoneNum);
+          console.log(
+            "🔍 Parsed phone number:",
+            phoneMatch[1],
+            "converted to index:",
+            phoneNum
+          );
           if (phoneNames[phoneNum] !== undefined) {
             phoneIndex = phoneNum;
             console.log("🔍 Found phone index from parsed number:", phoneIndex);
@@ -3724,41 +3860,57 @@ useEffect(() => {
       }
 
       if (phoneIndex !== -1) {
-        console.log("🔍 Phone filter detected:", activeTag, "phoneIndex:", phoneIndex);
-        console.log("🔍 Sample contacts before phone filter:", fil.slice(0, 3).map(c => ({ 
-          id: c.id, 
-          contactName: c.contactName, 
-          phoneIndex: c.phoneIndex, 
-          phoneIndexes: c.phoneIndexes 
-        })));
-        
+        console.log(
+          "🔍 Phone filter detected:",
+          activeTag,
+          "phoneIndex:",
+          phoneIndex
+        );
+        console.log(
+          "🔍 Sample contacts before phone filter:",
+          fil.slice(0, 3).map((c) => ({
+            id: c.id,
+            contactName: c.contactName,
+            phoneIndex: c.phoneIndex,
+            phoneIndexes: c.phoneIndexes,
+          }))
+        );
+
         const beforePhoneFilter = fil.length;
         fil = fil.filter((contact) => {
           // Check multiple ways a contact might be associated with this phone
           let hasPhone = false;
-          
+
           // Method 1: Check phoneIndexes array
           if (contact.phoneIndexes && Array.isArray(contact.phoneIndexes)) {
             hasPhone = contact.phoneIndexes.includes(phoneIndex);
           }
-          
+
           // Method 2: Check phoneIndex field
-          if (!hasPhone && contact.phoneIndex !== undefined && contact.phoneIndex !== null) {
+          if (
+            !hasPhone &&
+            contact.phoneIndex !== undefined &&
+            contact.phoneIndex !== null
+          ) {
             hasPhone = contact.phoneIndex === phoneIndex;
           }
-          
+
           // Method 3: Check if contact has messages from this phone
           if (!hasPhone && contact.chat && Array.isArray(contact.chat)) {
-            hasPhone = contact.chat.some((message: any) => 
-              message.phoneIndex === phoneIndex
+            hasPhone = contact.chat.some(
+              (message: any) => message.phoneIndex === phoneIndex
             );
           }
-          
+
           // Method 4: Check last_message phoneIndex
-          if (!hasPhone && contact.last_message && contact.last_message.phoneIndex !== undefined) {
+          if (
+            !hasPhone &&
+            contact.last_message &&
+            contact.last_message.phoneIndex !== undefined
+          ) {
             hasPhone = contact.last_message.phoneIndex === phoneIndex;
           }
-          
+
           // Debug: Log contacts that don't match the phone filter
           if (!hasPhone && beforePhoneFilter < 10) {
             console.log("🔍 Contact filtered out by phone:", {
@@ -3766,23 +3918,31 @@ useEffect(() => {
               contactName: contact.contactName,
               phoneIndex: contact.phoneIndex,
               phoneIndexes: contact.phoneIndexes,
-              expectedPhoneIndex: phoneIndex
+              expectedPhoneIndex: phoneIndex,
             });
           }
-          
+
           return hasPhone;
         });
-        console.log("🔍 Phone filter: before", beforePhoneFilter, "after", fil.length);
-        
+        console.log(
+          "🔍 Phone filter: before",
+          beforePhoneFilter,
+          "after",
+          fil.length
+        );
+
         // If phone filter resulted in 0 contacts, log more details
         if (fil.length === 0) {
           console.log("🔍 WARNING: Phone filter resulted in 0 contacts!");
-          console.log("🔍 All contacts phone data:", contacts.slice(0, 10).map(c => ({
-            id: c.id,
-            contactName: c.contactName,
-            phoneIndex: c.phoneIndex,
-            phoneIndexes: c.phoneIndexes
-          })));
+          console.log(
+            "🔍 All contacts phone data:",
+            contacts.slice(0, 10).map((c) => ({
+              id: c.id,
+              contactName: c.contactName,
+              phoneIndex: c.phoneIndex,
+              phoneIndexes: c.phoneIndexes,
+            }))
+          );
         }
       } else {
         console.log("🔍 No phone filter match found for tag:", activeTag);
@@ -3827,7 +3987,14 @@ useEffect(() => {
       console.log("🔍 Filtering by tag:", tag);
       console.log("🔍 Active tags:", activeTags);
       console.log("🔍 Current user name:", currentUserName);
-      console.log("🔍 Available tags in contacts:", new Set(contacts.flatMap(c => c.tags || []).map(t => typeof t === "string" ? t : String(t))));
+      console.log(
+        "🔍 Available tags in contacts:",
+        new Set(
+          contacts
+            .flatMap((c) => c.tags || [])
+            .map((t) => (typeof t === "string" ? t : String(t)))
+        )
+      );
 
       fil = fil.filter((contact) => {
         const isGroup = contact.chat_id?.endsWith("@g.us");
@@ -3835,8 +4002,6 @@ useEffect(() => {
           contact.tags?.map((t: string) =>
             (typeof t === "string" ? t : String(t)).toLowerCase()
           ) || [];
-
-       
 
         // First, check if contact is snoozed - if so, only show in snooze filter
         const isSnoozed = contact.tags?.includes("snooze");
@@ -3852,24 +4017,43 @@ useEffect(() => {
             : tag === "mine"
             ? (() => {
                 // Check if the user is assigned to this contact in multiple ways
-                const hasMineTag = contact.tags?.some((t: string) => 
-                  (typeof t === "string" ? t : String(t)).toLowerCase() === currentUserName.toLowerCase()
+                const hasMineTag = contact.tags?.some(
+                  (t: string) =>
+                    (typeof t === "string" ? t : String(t)).toLowerCase() ===
+                    currentUserName.toLowerCase()
                 );
-                
+
                 // Also check if the user is in the assignedTo array
-                const isAssignedToMe = contact.assignedTo?.some((assigned: string) => 
-                  assigned.toLowerCase() === currentUserName.toLowerCase()
+                const isAssignedToMe = contact.assignedTo?.some(
+                  (assigned: string) =>
+                    assigned.toLowerCase() === currentUserName.toLowerCase()
                 );
-                
+
                 const isMine = hasMineTag || isAssignedToMe;
-                
+
                 if (tag === "mine") {
-                  console.log("🔍 Mine filter - contact:", contact.contactName, "tags:", contact.tags, "assignedTo:", contact.assignedTo, "currentUserName:", currentUserName, "hasMineTag:", hasMineTag, "isAssignedToMe:", isAssignedToMe, "isMine:", isMine);
+                  console.log(
+                    "🔍 Mine filter - contact:",
+                    contact.contactName,
+                    "tags:",
+                    contact.tags,
+                    "assignedTo:",
+                    contact.assignedTo,
+                    "currentUserName:",
+                    currentUserName,
+                    "hasMineTag:",
+                    hasMineTag,
+                    "isAssignedToMe:",
+                    isAssignedToMe,
+                    "isMine:",
+                    isMine
+                  );
                 }
                 return !isSnoozed && isMine;
               })()
             : tag === "unassigned"
-            ? !isSnoozed && !contact.tags?.some((t: string) =>
+            ? !isSnoozed &&
+              !contact.tags?.some((t: string) =>
                 employeeList.some(
                   (e) =>
                     (e.name?.toLowerCase() || "") ===
@@ -3889,17 +4073,24 @@ useEffect(() => {
                 const hasStopBotTag = contact.tags?.includes("stop bot");
                 const isActiveBot = !hasStopBotTag;
                 if (tag === "active bot") {
-                  console.log("🔍 Active Bot filter - contact:", contact.contactName, "tags:", contact.tags, "hasStopBotTag:", hasStopBotTag, "isActiveBot:", isActiveBot);
+                  console.log(
+                    "🔍 Active Bot filter - contact:",
+                    contact.contactName,
+                    "tags:",
+                    contact.tags,
+                    "hasStopBotTag:",
+                    hasStopBotTag,
+                    "isActiveBot:",
+                    isActiveBot
+                  );
                 }
                 return !isSnoozed && isActiveBot;
               })()
             : !isSnoozed && contactTags.includes(tag);
 
-       // console.log("🔍 Contact matches tag:", matchesTag);
+        // console.log("🔍 Contact matches tag:", matchesTag);
         return matchesTag;
       });
-
-
     }
 
     // Sort by timestamp (works for both APIs)
@@ -3926,10 +4117,8 @@ useEffect(() => {
     selectedEmployee,
   ]);
 
-      // Debug: Log the filtered results
+  // Debug: Log the filtered results
   useEffect(() => {
-
-   
     // Debug: Log all available tags from contacts
     const allTags = new Set<string>();
     contacts.forEach((contact) => {
@@ -3941,7 +4130,6 @@ useEffect(() => {
         });
       }
     });
-   
 
     if (filteredContactsSearch.length > 0) {
       console.log("📊 SORTING - First 10 contacts sorted by timestamp:");
@@ -4151,7 +4339,6 @@ useEffect(() => {
   let totalChats = 0;
 
   const openDeletePopup = () => {
-  
     setIsDeletePopupOpen(true);
   };
   const closeDeletePopup = () => {
@@ -4170,7 +4357,7 @@ useEffect(() => {
         baseUrl: apiUrl,
         userData: uData,
       } = await getCompanyData();
-      
+
       if (!uData) {
         console.error("No authenticated user");
         toast.error("Authentication error. Please try logging in again.");
@@ -4185,41 +4372,41 @@ useEffect(() => {
         for (const message of selectedMessages) {
           try {
             // Skip temporary messages
-            if (!message.id || message.id.startsWith('temp_')) {
+            if (!message.id || message.id.startsWith("temp_")) {
               continue;
             }
 
             // Determine the message type and content
-            let messageType = 'text';
-            let messageContent = '';
-            let mediaUrl = '';
-            let caption = '';
+            let messageType = "text";
+            let messageContent = "";
+            let mediaUrl = "";
+            let caption = "";
 
             if (message.text?.body) {
-              messageType = 'text';
+              messageType = "text";
               messageContent = message.text.body;
             } else if (message.image?.link) {
-              messageType = 'image';
+              messageType = "image";
               mediaUrl = message.image.link;
-              caption = message.image.caption || '';
+              caption = message.image.caption || "";
             } else if (message.video?.link) {
-              messageType = 'video';
+              messageType = "video";
               mediaUrl = message.video.link;
-              caption = message.video.caption || '';
+              caption = message.video.caption || "";
             } else if (message.document?.link) {
-              messageType = 'document';
+              messageType = "document";
               mediaUrl = message.document.link;
-              caption = message.document.caption || '';
+              caption = message.document.caption || "";
             } else if (message.audio?.link) {
-              messageType = 'audio';
+              messageType = "audio";
               mediaUrl = message.audio.link;
-              caption = message.audio.caption || '';
+              caption = message.audio.caption || "";
             } else if (message.voice?.link) {
-              messageType = 'audio';
+              messageType = "audio";
               mediaUrl = message.voice.link;
-              caption = message.voice.caption || '';
+              caption = message.voice.caption || "";
             } else if (message.sticker?.link) {
-              messageType = 'sticker';
+              messageType = "sticker";
               mediaUrl = message.sticker.link;
             }
 
@@ -4228,95 +4415,126 @@ useEffect(() => {
             const chatId = contact.chat_id || contact.contact_id;
 
             if (!chatId) {
-              console.error('No valid chat ID for contact:', contact);
+              console.error("No valid chat ID for contact:", contact);
               failureCount++;
               continue;
             }
 
             switch (messageType) {
-              case 'text':
-                response = await fetch(`${apiUrl}/api/v2/messages/text/${cId}/${chatId}`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    message: messageContent,
-                    phoneIndex: contact.phoneIndex || 0
-                  })
-                });
+              case "text":
+                response = await fetch(
+                  `${apiUrl}/api/v2/messages/text/${cId}/${chatId}`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      message: messageContent,
+                      phoneIndex: contact.phoneIndex || 0,
+                    }),
+                  }
+                );
                 break;
 
-              case 'image':
-                response = await fetch(`${apiUrl}/api/v2/messages/image/${cId}/${chatId}`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    imageUrl: mediaUrl,
-                    caption: caption,
-                    phoneIndex: contact.phoneIndex || 0
-                  })
-                });
+              case "image":
+                response = await fetch(
+                  `${apiUrl}/api/v2/messages/image/${cId}/${chatId}`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      imageUrl: mediaUrl,
+                      caption: caption,
+                      phoneIndex: contact.phoneIndex || 0,
+                    }),
+                  }
+                );
                 break;
 
-              case 'video':
-                response = await fetch(`${apiUrl}/api/v2/messages/video/${cId}/${chatId}`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    videoUrl: mediaUrl,
-                    caption: caption,
-                    phoneIndex: contact.phoneIndex || 0
-                  })
-                });
+              case "video":
+                response = await fetch(
+                  `${apiUrl}/api/v2/messages/video/${cId}/${chatId}`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      videoUrl: mediaUrl,
+                      caption: caption,
+                      phoneIndex: contact.phoneIndex || 0,
+                    }),
+                  }
+                );
                 break;
 
-              case 'document':
-                response = await fetch(`${apiUrl}/api/v2/messages/document/${cId}/${chatId}`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    documentUrl: mediaUrl,
-                    caption: caption,
-                    phoneIndex: contact.phoneIndex || 0
-                  })
-                });
+              case "document":
+                response = await fetch(
+                  `${apiUrl}/api/v2/messages/document/${cId}/${chatId}`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      documentUrl: mediaUrl,
+                      caption: caption,
+                      phoneIndex: contact.phoneIndex || 0,
+                    }),
+                  }
+                );
                 break;
 
-              case 'audio':
-                response = await fetch(`${apiUrl}/api/v2/messages/audio/${cId}/${chatId}`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    audioUrl: mediaUrl,
-                    caption: caption,
-                    phoneIndex: contact.phoneIndex || 0
-                  })
-                });
+              case "audio":
+                response = await fetch(
+                  `${apiUrl}/api/v2/messages/audio/${cId}/${chatId}`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      audioUrl: mediaUrl,
+                      caption: caption,
+                      phoneIndex: contact.phoneIndex || 0,
+                    }),
+                  }
+                );
                 break;
 
-              case 'sticker':
-                response = await fetch(`${apiUrl}/api/v2/messages/sticker/${cId}/${chatId}`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    stickerUrl: mediaUrl,
-                    phoneIndex: contact.phoneIndex || 0
-                  })
-                });
+              case "sticker":
+                response = await fetch(
+                  `${apiUrl}/api/v2/messages/sticker/${cId}/${chatId}`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      stickerUrl: mediaUrl,
+                      phoneIndex: contact.phoneIndex || 0,
+                    }),
+                  }
+                );
                 break;
 
               default:
-                console.warn('Unsupported message type for forwarding:', messageType);
+                console.warn(
+                  "Unsupported message type for forwarding:",
+                  messageType
+                );
                 continue;
             }
 
             if (response.ok) {
               successCount++;
             } else {
-              console.error(`Failed to forward ${messageType} message to ${contact.contactName || contact.firstName}:`, response.status);
+              console.error(
+                `Failed to forward ${messageType} message to ${
+                  contact.contactName || contact.firstName
+                }:`,
+                response.status
+              );
               failureCount++;
             }
           } catch (error) {
-            console.error(`Error forwarding message to ${contact.contactName || contact.firstName}:`, error);
+            console.error(
+              `Error forwarding message to ${
+                contact.contactName || contact.firstName
+              }:`,
+              error
+            );
             failureCount++;
           }
         }
@@ -4360,16 +4578,16 @@ useEffect(() => {
       console.log(selectedMessages);
       for (const message of selectedMessages) {
         // Skip temporary messages that don't have a real message_id
-        if (!message.id || message.id.startsWith('temp_')) {
-          console.log('Skipping temporary message:', message.id);
+        if (!message.id || message.id.startsWith("temp_")) {
+          console.log("Skipping temporary message:", message.id);
           continue;
         }
-        
+
         try {
-          console.log('msg',message);
+          console.log("msg", message);
           // Construct the proper chat ID format: companyId-phoneNumber
           // Extract phone number from the corrupted chat_id or use contact phone
-          let phoneNumber = '';
+          let phoneNumber = "";
           if (selectedContact?.chat_id) {
             // Try to extract phone from the corrupted chat_id
             const match = selectedContact.chat_id.match(/(\d+)@c\.us/);
@@ -4377,50 +4595,53 @@ useEffect(() => {
               phoneNumber = match[1];
             }
           }
-          
+
           // Fallback to contact phone if extraction failed
           if (!phoneNumber && selectedContact?.phone) {
-            phoneNumber = selectedContact.phone.replace('+', '');
+            phoneNumber = selectedContact.phone.replace("+", "");
           }
-          
+
           if (!phoneNumber) {
-            console.error('No valid phone number found for deletion');
+            console.error("No valid phone number found for deletion");
             failureCount++;
             continue;
           }
-          
+
           // Construct chat ID in format: companyId-phoneNumber
           const chatId = `${cId}-${phoneNumber}`;
-          
+
           // Debug: Log the full message object to see what fields are available
-          console.log('Full message object:', message);
-          console.log('Available message fields:', Object.keys(message));
-          console.log('message.message_id:', message.message_id);
-          console.log('message.id:', message.id);
-          
+          console.log("Full message object:", message);
+          console.log("Available message fields:", Object.keys(message));
+          console.log("message.message_id:", message.message_id);
+          console.log("message.id:", message.id);
+
           // Use the message.id field which contains the WhatsApp message ID
           let cleanMessageId = message.id;
-          console.log('Initial cleanMessageId:', cleanMessageId);
-          
+          console.log("Initial cleanMessageId:", cleanMessageId);
+
           // Extract the actual message ID part from the WhatsApp message_id
-          if (typeof cleanMessageId === 'string' && cleanMessageId.includes('@c.us_')) {
-            const parts = cleanMessageId.split('@c.us_');
+          if (
+            typeof cleanMessageId === "string" &&
+            cleanMessageId.includes("@c.us_")
+          ) {
+            const parts = cleanMessageId.split("@c.us_");
             if (parts.length > 1) {
               cleanMessageId = parts[1];
             }
           }
-          
-          console.log('Final cleanMessageId:', cleanMessageId);
-          
-          console.log('Using chat ID for deletion:', chatId);
-          console.log('Using message ID for deletion:', cleanMessageId);
 
-          console.log('Sending delete request with:', {
+          console.log("Final cleanMessageId:", cleanMessageId);
+
+          console.log("Using chat ID for deletion:", chatId);
+          console.log("Using message ID for deletion:", cleanMessageId);
+
+          console.log("Sending delete request with:", {
             companyId: cId,
             chatId: chatId,
             messageId: cleanMessageId,
             phoneIndex: phoneIndex,
-            deleteForEveryone: true
+            deleteForEveryone: true,
           });
 
           const response = await axios.delete(
@@ -4458,7 +4679,7 @@ useEffect(() => {
               status: error.response.status,
               statusText: error.response.statusText,
               data: error.response.data,
-              headers: error.response.headers
+              headers: error.response.headers,
             });
           } else {
             console.error("Non-Axios error:", error);
@@ -4469,16 +4690,15 @@ useEffect(() => {
 
       if (successCount > 0) {
         toast.success(`Successfully deleted ${successCount} message(s)`);
-        
+
         // Remove deleted messages from the current messages state immediately
-        setMessages((prevMessages) => 
-          prevMessages.filter((msg) => 
-            !selectedMessages.some(selectedMsg => 
-              selectedMsg.id === msg.id
-            )
+        setMessages((prevMessages) =>
+          prevMessages.filter(
+            (msg) =>
+              !selectedMessages.some((selectedMsg) => selectedMsg.id === msg.id)
           )
         );
-        
+
         // Refresh the chat to ensure WhatsApp changes are reflected
         await fetchMessages(selectedChatId!, whapiToken!);
       }
@@ -4495,8 +4715,6 @@ useEffect(() => {
     }
   };
 
-
-
   useEffect(() => {
     console.log("userRole changed:", userRole);
   }, [userRole]);
@@ -4507,13 +4725,12 @@ useEffect(() => {
       // Add a small delay to ensure messages are rendered before scrolling
       setTimeout(() => {
         if (messageListRef.current) {
-          messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+          messageListRef.current.scrollTop =
+            messageListRef.current.scrollHeight;
         }
       }, 100);
     }
   }, [selectedChatId]);
-
-
 
   useEffect(() => {
     fetchConfigFromDatabase().catch((error) => {
@@ -4987,8 +5204,7 @@ useEffect(() => {
             if (data.type === "new_message") {
               console.log("📨 [WEBSOCKET] Received new_message:", data);
               handleNewMessage(data);
-            }
-            else if (data.type === "contact_assignment_update") {
+            } else if (data.type === "contact_assignment_update") {
               console.log(
                 "👤 [WEBSOCKET] Received contact_assignment_update:",
                 data
@@ -5244,11 +5460,10 @@ useEffect(() => {
         data.companyData.plan === "enterprise" ||
         data.companyData.plan === "free"
       ) {
-     
       }
       setAiMessageUsage(data.messageUsage.aiMessages || 0);
       setBlastedMessageUsage(data.messageUsage.blastedMessages || 0);
-      setQuotaAIMessage(data.usageQuota.aiMessages || 0)
+      setQuotaAIMessage(data.usageQuota.aiMessages || 0);
       var quota = 0;
       if (data.companyData.plan === "enterprise") {
         quota = (data.usageQuota.aiMessages || 0) + 5000;
@@ -5257,7 +5472,12 @@ useEffect(() => {
       } else {
         quota = (data.usageQuota.aiMessages || 0) + 100;
       }
-      setQuotaData({ limit: quota, used: data.messageUsage.aiMessages || 0, remaining: quota - (data.messageUsage.aiMessages || 0), percentageUsed: ((data.messageUsage.aiMessages || 0) / quota) * 100 });
+      setQuotaData({
+        limit: quota,
+        used: data.messageUsage.aiMessages || 0,
+        remaining: quota - (data.messageUsage.aiMessages || 0),
+        percentageUsed: ((data.messageUsage.aiMessages || 0) / quota) * 100,
+      });
       console.log("AI Message Usage:", data.messageUsage.aiMessages);
       console.log("Blasted Message Usage:", data.messageUsage.blastedMessages);
       console.log("Quota AI Message:", currentPlanLimits.aiMessages);
@@ -5447,7 +5667,6 @@ useEffect(() => {
         setSelectedChatId(chatId);
         setIsChatActive(true);
 
-
         // Immediately reset unread count in local state
         const resetUnreadCount = (contactItem: Contact) => {
           const contactMatches =
@@ -5511,7 +5730,7 @@ useEffect(() => {
                 body: JSON.stringify({ company_id: companyId }),
               }
             );
-      
+
             if (!response.ok) {
               console.error("Failed to update unread count in Neon");
             }
@@ -5519,7 +5738,6 @@ useEffect(() => {
             console.error("Error updating unread count in Neon:", error);
           }
         }
-
 
         // Restore scroll position after a short delay to allow rendering
         setTimeout(() => {
@@ -5904,7 +6122,10 @@ useEffect(() => {
   };
 
   // Function to fetch first page messages for a contact
-  const fetchFirstPageMessages = async (contactId: string, whatsappChatId: string) => {
+  const fetchFirstPageMessages = async (
+    contactId: string,
+    whatsappChatId: string
+  ) => {
     try {
       // Get user data and company info from SQL (same as fetchMessages)
       const userEmail = localStorage.getItem("userEmail");
@@ -5921,38 +6142,50 @@ useEffect(() => {
       );
 
       if (!userResponse.ok) {
-        console.error(`Failed to fetch user data for contact ${contactId}: ${userResponse.status}`);
+        console.error(
+          `Failed to fetch user data for contact ${contactId}: ${userResponse.status}`
+        );
         return;
       }
 
       const userData = await userResponse.json();
       const companyId = userData.company_id;
-      
-      console.log(`🔍 Fetching messages for contact ${contactId} (WhatsApp: ${whatsappChatId}) with companyId ${companyId}`);
+
+      console.log(
+        `🔍 Fetching messages for contact ${contactId} (WhatsApp: ${whatsappChatId}) with companyId ${companyId}`
+      );
       const apiUrl = `${baseUrl}/api/message-pages?chatId=${contactId}&companyId=${companyId}&limit=${MESSAGES_PER_PAGE}&offset=0`;
       console.log(`📡 API URL: ${apiUrl}`);
-      
+
       const messagesResponse = await fetch(apiUrl, {
         credentials: "include",
       });
 
       if (!messagesResponse.ok) {
-        console.error(`❌ Failed to fetch messages for contact ${contactId}: ${messagesResponse.status} ${messagesResponse.statusText}`);
+        console.error(
+          `❌ Failed to fetch messages for contact ${contactId}: ${messagesResponse.status} ${messagesResponse.statusText}`
+        );
         return;
       }
 
       const responseData = await messagesResponse.json();
       const messages = responseData.messages || [];
-      console.log(`📨 Received ${messages.length} messages for contact ${contactId}`);
-      
+      console.log(
+        `📨 Received ${messages.length} messages for contact ${contactId}`
+      );
+
       if (messages.length > 0) {
         // Process and format messages (simplified version of the main processing logic)
         const formattedMessages: any[] = [];
-        
+
         messages.forEach((message: any) => {
           if (message.message_type !== "action") {
             const formattedMessage: any = {
-              id: message.message_id || `main-${message.chat_id}-${message.timestamp}-${Math.random().toString(36).substr(2, 9)}`,
+              id:
+                message.message_id ||
+                `main-${message.chat_id}-${message.timestamp}-${Math.random()
+                  .toString(36)
+                  .substr(2, 9)}`,
               message_id: message.message_id,
               from_me: message.from_me,
               from_name: message.author,
@@ -6006,7 +6239,9 @@ useEffect(() => {
                 formattedMessage.audio = {
                   link: message.media_url,
                   data: message.media_data,
-                  mimetype: message.media_metadata?.mimetype || "audio/ogg; codecs=opus",
+                  mimetype:
+                    message.media_metadata?.mimetype ||
+                    "audio/ogg; codecs=opus",
                 };
                 break;
               case "document":
@@ -6039,20 +6274,29 @@ useEffect(() => {
 
         // Cache the formatted messages using contactId
         setCachedMessages(contactId, formattedMessages);
-        console.log(`💾 Cached ${formattedMessages.length} messages for contact ${contactId}`);
-        
+        console.log(
+          `💾 Cached ${formattedMessages.length} messages for contact ${contactId}`
+        );
+
         // Verify the cache was set correctly
         const cached = getCachedMessages(contactId);
         if (cached && cached.length > 0) {
-          console.log(`✅ Cache verification successful for contact ${contactId}: ${cached.length} messages cached`);
+          console.log(
+            `✅ Cache verification successful for contact ${contactId}: ${cached.length} messages cached`
+          );
         } else {
-          console.error(`❌ Cache verification failed for contact ${contactId}`);
+          console.error(
+            `❌ Cache verification failed for contact ${contactId}`
+          );
         }
       } else {
         console.log(`📭 No messages found for contact ${contactId}`);
       }
     } catch (error) {
-      console.error(`❌ Error fetching first page messages for contact ${contactId}:`, error);
+      console.error(
+        `❌ Error fetching first page messages for contact ${contactId}:`,
+        error
+      );
     }
   };
   useEffect(() => {
@@ -6102,13 +6346,19 @@ useEffect(() => {
       setMessages(allMessages);
     }
   }, [allMessages, userPhone, phoneNames]);
-  async function fetchMessages(selectedChatId: string, whapiToken: string, page: number = 0) {
+  async function fetchMessages(
+    selectedChatId: string,
+    whapiToken: string,
+    page: number = 0
+  ) {
     // Check if we have cached messages for the first page
-    console.log("selectedchatid",selectedChatId);
+    console.log("selectedchatid", selectedChatId);
     if (page === 0) {
       const cachedMessages = getCachedMessages(selectedChatId);
       if (cachedMessages && cachedMessages.length > 0) {
-        console.log(`🚀 Using cached messages for chat ${selectedChatId}: ${cachedMessages.length} messages loaded instantly`);
+        console.log(
+          `🚀 Using cached messages for chat ${selectedChatId}: ${cachedMessages.length} messages loaded instantly`
+        );
         setAllMessages(cachedMessages);
         setDisplayedMessages(cachedMessages);
         setMessagePage(0);
@@ -6116,7 +6366,9 @@ useEffect(() => {
         setLoading(false);
         return;
       } else {
-        console.log(`📭 No cached messages found for chat ${selectedChatId}, fetching from API...`);
+        console.log(
+          `📭 No cached messages found for chat ${selectedChatId}, fetching from API...`
+        );
       }
     }
 
@@ -6161,7 +6413,7 @@ useEffect(() => {
       const offset = page * MESSAGES_PER_PAGE;
       const apiUrl = `${baseUrl}/api/message-pages?chatId=${selectedChatId}&companyId=${companyId}&limit=${MESSAGES_PER_PAGE}&offset=${offset}`;
       console.log(`📡 Working fetchMessages API URL: ${apiUrl}`);
-      
+
       const messagesResponse = await fetch(apiUrl, {
         credentials: "include",
       });
@@ -6173,21 +6425,29 @@ useEffect(() => {
       const responseData = await messagesResponse.json();
       const messages = responseData.messages || [];
       console.log("messages:", messages);
-      
+
       // Debug: Log all action messages to see their structure
-      const actionMessages = messages.filter((msg: any) => msg.message_type === "action");
+      const actionMessages = messages.filter(
+        (msg: any) => msg.message_type === "action"
+      );
       console.log("Action messages found:", actionMessages);
-      
+
       // Debug: Log all messages with reactions
-      const messagesWithReactions = messages.filter((msg: any) => msg.reaction && msg.reaction_timestamp);
+      const messagesWithReactions = messages.filter(
+        (msg: any) => msg.reaction && msg.reaction_timestamp
+      );
       console.log("Messages with reactions:", messagesWithReactions);
-      
+
       const formattedMessages: any[] = [];
       const reactionsMap: Record<string, any[]> = {};
-      
+
       // First pass: collect reactions from messages that have them directly attached
       messagesWithReactions.forEach((message: any) => {
-        console.log("Processing message with reaction:", message.message_id, message.reaction);
+        console.log(
+          "Processing message with reaction:",
+          message.message_id,
+          message.reaction
+        );
         if (!reactionsMap[message.message_id]) {
           reactionsMap[message.message_id] = [];
         }
@@ -6195,7 +6455,11 @@ useEffect(() => {
           emoji: message.reaction,
           from_name: message.author || message.from_name,
         });
-        console.log("Added reaction to map for message:", message.message_id, reactionsMap[message.message_id]);
+        console.log(
+          "Added reaction to map for message:",
+          message.message_id,
+          reactionsMap[message.message_id]
+        );
       });
 
       messages.forEach(async (message: any) => {
@@ -6204,17 +6468,21 @@ useEffect(() => {
           try {
             // Parse the content to extract reaction information
             let reactionData = null;
-            if (typeof message.content === 'string') {
+            if (typeof message.content === "string") {
               reactionData = JSON.parse(message.content);
             } else if (message.content) {
               reactionData = message.content;
             }
-            
+
             // Check if this is a reaction message
-            if (reactionData && (reactionData.type === "reaction" || reactionData.reaction)) {
-              const targetMessageId = reactionData.target || reactionData.message_id;
+            if (
+              reactionData &&
+              (reactionData.type === "reaction" || reactionData.reaction)
+            ) {
+              const targetMessageId =
+                reactionData.target || reactionData.message_id;
               const emoji = reactionData.emoji || reactionData.reaction;
-              
+
               if (targetMessageId && emoji) {
                 if (!reactionsMap[targetMessageId]) {
                   reactionsMap[targetMessageId] = [];
@@ -6399,7 +6667,10 @@ useEffect(() => {
       formattedMessages.forEach((message) => {
         if (reactionsMap[message.id]) {
           message.reactions = reactionsMap[message.id];
-          console.log(`Added reactions to message ${message.id}:`, message.reactions); // Debug log
+          console.log(
+            `Added reactions to message ${message.id}:`,
+            message.reactions
+          ); // Debug log
         }
       });
 
@@ -6412,16 +6683,23 @@ useEffect(() => {
 
       // Preserve temporary messages when merging with fetched messages
       const currentMessages = getMessagesFromLocalStorage(selectedChatId) || [];
-      const tempMessages = currentMessages.filter(msg => msg.id && msg.id.startsWith('temp_'));
-      
+      const tempMessages = currentMessages.filter(
+        (msg) => msg.id && msg.id.startsWith("temp_")
+      );
+
       // Merge temporary messages with fetched messages, avoiding duplicates
       const mergedMessages = [...formattedMessages];
-      tempMessages.forEach(tempMsg => {
+      tempMessages.forEach((tempMsg) => {
         // Check if we already have a message with this temp ID (in case it was updated)
-        const existingIndex = mergedMessages.findIndex(msg => msg.id === tempMsg.id);
+        const existingIndex = mergedMessages.findIndex(
+          (msg) => msg.id === tempMsg.id
+        );
         if (existingIndex >= 0) {
           // Update existing temp message with fetched data if available
-          mergedMessages[existingIndex] = { ...tempMsg, ...mergedMessages[existingIndex] };
+          mergedMessages[existingIndex] = {
+            ...tempMsg,
+            ...mergedMessages[existingIndex],
+          };
         } else {
           // Add temp message if it doesn't exist in fetched messages
           mergedMessages.push(tempMsg);
@@ -6436,20 +6714,20 @@ useEffect(() => {
       });
 
       console.log("formattedMessages:", mergedMessages);
-      
+
       if (page === 0) {
         // Initial load - replace all messages and cache them
         setAllMessages(mergedMessages);
         setDisplayedMessages(mergedMessages);
         setMessagePage(0);
         setHasMoreMessages(mergedMessages.length === MESSAGES_PER_PAGE);
-        
+
         // Cache the first page messages
         setCachedMessages(selectedChatId, mergedMessages);
       } else {
         // Load more - append to existing messages
-        setAllMessages(prev => [...prev, ...mergedMessages]);
-        setDisplayedMessages(prev => [...prev, ...mergedMessages]);
+        setAllMessages((prev) => [...prev, ...mergedMessages]);
+        setDisplayedMessages((prev) => [...prev, ...mergedMessages]);
         setMessagePage(page);
         setHasMoreMessages(mergedMessages.length === MESSAGES_PER_PAGE);
       }
@@ -6516,11 +6794,15 @@ useEffect(() => {
         // Format new messages using the same logic as fetchMessages
         const formattedNewMessages: any[] = [];
         const reactionsMap: Record<string, any[]> = {};
-        
+
         // First pass: collect reactions from messages that have them directly attached
         newMessages.forEach((message: any) => {
           if (message.reaction && message.reaction_timestamp) {
-            console.log("Poll: Found message with reaction:", message.message_id, message.reaction);
+            console.log(
+              "Poll: Found message with reaction:",
+              message.message_id,
+              message.reaction
+            );
             if (!reactionsMap[message.message_id]) {
               reactionsMap[message.message_id] = [];
             }
@@ -6537,17 +6819,21 @@ useEffect(() => {
             try {
               // Parse the content to extract reaction information
               let reactionData = null;
-              if (typeof message.content === 'string') {
+              if (typeof message.content === "string") {
                 reactionData = JSON.parse(message.content);
               } else if (message.content) {
                 reactionData = message.content;
               }
-              
+
               // Check if this is a reaction message
-              if (reactionData && (reactionData.type === "reaction" || reactionData.reaction)) {
-                const targetMessageId = reactionData.target || reactionData.message_id;
+              if (
+                reactionData &&
+                (reactionData.type === "reaction" || reactionData.reaction)
+              ) {
+                const targetMessageId =
+                  reactionData.target || reactionData.message_id;
                 const emoji = reactionData.emoji || reactionData.reaction;
-                
+
                 if (targetMessageId && emoji) {
                   if (!reactionsMap[targetMessageId]) {
                     reactionsMap[targetMessageId] = [];
@@ -6759,17 +7045,25 @@ useEffect(() => {
             ];
 
             // Preserve temporary messages when merging with updated messages
-            const currentMessages = getMessagesFromLocalStorage(selectedChatId) || [];
-            const tempMessages = currentMessages.filter(msg => msg.id && msg.id.startsWith('temp_'));
-            
+            const currentMessages =
+              getMessagesFromLocalStorage(selectedChatId) || [];
+            const tempMessages = currentMessages.filter(
+              (msg) => msg.id && msg.id.startsWith("temp_")
+            );
+
             // Merge temporary messages with updated messages, avoiding duplicates
             const mergedMessages = [...updatedAllMessages];
-            tempMessages.forEach(tempMsg => {
+            tempMessages.forEach((tempMsg) => {
               // Check if we already have a message with this temp ID (in case it was updated)
-              const existingIndex = mergedMessages.findIndex(msg => msg.id === tempMsg.id);
+              const existingIndex = mergedMessages.findIndex(
+                (msg) => msg.id === tempMsg.id
+              );
               if (existingIndex >= 0) {
                 // Update existing temp message with fetched data if available
-                mergedMessages[existingIndex] = { ...tempMsg, ...mergedMessages[existingIndex] };
+                mergedMessages[existingIndex] = {
+                  ...tempMsg,
+                  ...mergedMessages[existingIndex],
+                };
               } else {
                 // Add temp message if it doesn't exist in updated messages
                 mergedMessages.push(tempMsg);
@@ -6788,7 +7082,9 @@ useEffect(() => {
 
             // Cache the updated messages for faster loading
             setCachedMessages(selectedChatId, mergedMessages);
-            console.log(`💾 Cached ${mergedMessages.length} messages for chat ${selectedChatId} (polling update)`);
+            console.log(
+              `💾 Cached ${mergedMessages.length} messages for chat ${selectedChatId} (polling update)`
+            );
 
             // Update last message timestamp only for unique new messages
             const latestMessage =
@@ -6878,11 +7174,15 @@ useEffect(() => {
 
       const formattedMessages: any[] = [];
       const reactionsMap: Record<string, any[]> = {};
-      
+
       // First pass: collect reactions from messages that have them directly attached
       messages.forEach((message: any) => {
         if (message.reaction && message.reaction_timestamp) {
-          console.log("Third instance: Found message with reaction:", message.message_id, message.reaction);
+          console.log(
+            "Third instance: Found message with reaction:",
+            message.message_id,
+            message.reaction
+          );
           if (!reactionsMap[message.message_id]) {
             reactionsMap[message.message_id] = [];
           }
@@ -6899,17 +7199,21 @@ useEffect(() => {
           try {
             // Parse the content to extract reaction information
             let reactionData = null;
-            if (typeof message.content === 'string') {
+            if (typeof message.content === "string") {
               reactionData = JSON.parse(message.content);
             } else if (message.content) {
               reactionData = message.content;
             }
-            
+
             // Check if this is a reaction message
-            if (reactionData && (reactionData.type === "reaction" || reactionData.reaction)) {
-              const targetMessageId = reactionData.target || reactionData.message_id;
+            if (
+              reactionData &&
+              (reactionData.type === "reaction" || reactionData.reaction)
+            ) {
+              const targetMessageId =
+                reactionData.target || reactionData.message_id;
               const emoji = reactionData.emoji || reactionData.reaction;
-              
+
               if (targetMessageId && emoji) {
                 if (!reactionsMap[targetMessageId]) {
                   reactionsMap[targetMessageId] = [];
@@ -7098,16 +7402,23 @@ useEffect(() => {
 
       // Preserve temporary messages when merging with fetched messages
       const currentMessages = getMessagesFromLocalStorage(selectedChatId) || [];
-      const tempMessages = currentMessages.filter(msg => msg.id && msg.id.startsWith('temp_'));
-      
+      const tempMessages = currentMessages.filter(
+        (msg) => msg.id && msg.id.startsWith("temp_")
+      );
+
       // Merge temporary messages with fetched messages, avoiding duplicates
       const mergedMessages = [...formattedMessages];
-      tempMessages.forEach(tempMsg => {
+      tempMessages.forEach((tempMsg) => {
         // Check if we already have a message with this temp ID (in case it was updated)
-        const existingIndex = mergedMessages.findIndex(msg => msg.id === tempMsg.id);
+        const existingIndex = mergedMessages.findIndex(
+          (msg) => msg.id === tempMsg.id
+        );
         if (existingIndex >= 0) {
           // Update existing temp message with fetched data if available
-          mergedMessages[existingIndex] = { ...tempMsg, ...mergedMessages[existingIndex] };
+          mergedMessages[existingIndex] = {
+            ...tempMsg,
+            ...mergedMessages[existingIndex],
+          };
         } else {
           // Add temp message if it doesn't exist in fetched messages
           mergedMessages.push(tempMsg);
@@ -7136,7 +7447,7 @@ useEffect(() => {
     try {
       // Get user info from localStorage or state
       const userEmail = localStorage.getItem("userEmail") || userData?.email;
-      const from = currentUserName|| userEmail || "";
+      const from = currentUserName || userEmail || "";
       const companyIdToUse = companyId || userData?.companyId;
 
       if (!companyIdToUse || !selectedChatId || !from) {
@@ -7285,7 +7596,7 @@ useEffect(() => {
         message: messageText,
         quotedMessageId: replyToMessage?.id || null,
         phoneIndex: phoneIndex,
-        userName: currentUserName|| "",
+        userName: currentUserName || "",
       };
 
       const response = await fetch(url, {
@@ -8726,7 +9037,10 @@ useEffect(() => {
 
   useEffect(() => {
     // Reset to first page if current page is beyond the available filtered contacts
-    const maxPage = Math.max(0, Math.ceil(filteredContactsSearch.length / contactsPerPage) - 1);
+    const maxPage = Math.max(
+      0,
+      Math.ceil(filteredContactsSearch.length / contactsPerPage) - 1
+    );
     if (currentPage > maxPage && filteredContactsSearch.length > 0) {
       setCurrentPage(0);
       return;
@@ -8806,7 +9120,7 @@ useEffect(() => {
       ]);
     }
     setSearchQuery("");
-    
+
     // Reset to first page when filtering
     setCurrentPage(0);
 
@@ -9069,7 +9383,7 @@ useEffect(() => {
   };
 
   const handleSelectMessage = (message: Message) => {
-    console.log('messageaa',message);
+    console.log("messageaa", message);
     setSelectedMessages((prevSelectedMessages) =>
       prevSelectedMessages.includes(message)
         ? prevSelectedMessages.filter((m) => m.id !== message.id)
@@ -9394,12 +9708,17 @@ useEffect(() => {
           throw new Error(`API failed with status ${response.status}`);
       } catch (error) {
         console.error("Error sending image:", error);
-        
+
         // Update the temporary message to failed status
         setMessages((prevMessages) =>
           prevMessages.map((msg) =>
             msg.id === tempMessage.id
-              ? { ...msg, status: "failed", error: error instanceof Error ? error.message : 'Unknown error' }
+              ? {
+                  ...msg,
+                  status: "failed",
+                  error:
+                    error instanceof Error ? error.message : "Unknown error",
+                }
               : msg
           )
         );
@@ -9407,7 +9726,12 @@ useEffect(() => {
         setAllMessages((prevAllMessages) =>
           prevAllMessages.map((msg) =>
             msg.id === tempMessage.id
-              ? { ...msg, status: "failed", error: error instanceof Error ? error.message : 'Unknown error' }
+              ? {
+                  ...msg,
+                  status: "failed",
+                  error:
+                    error instanceof Error ? error.message : "Unknown error",
+                }
               : msg
           )
         );
@@ -9416,11 +9740,15 @@ useEffect(() => {
         const currentMessages = getMessagesFromLocalStorage(chatId) || [];
         const updatedMessages = currentMessages.map((msg) =>
           msg.id === tempMessage.id
-            ? { ...msg, status: "failed", error: error instanceof Error ? error.message : 'Unknown error' }
+            ? {
+                ...msg,
+                status: "failed",
+                error: error instanceof Error ? error.message : "Unknown error",
+              }
             : msg
         );
         storeMessagesInLocalStorage(chatId, updatedMessages);
-        
+
         throw error;
       }
 
@@ -9431,7 +9759,11 @@ useEffect(() => {
         setMessages((prevMessages) =>
           prevMessages.map((msg) =>
             msg.id === tempMessage.id
-              ? { ...msg, id: data.message_id || tempMessage.id, status: "sent" }
+              ? {
+                  ...msg,
+                  id: data.message_id || tempMessage.id,
+                  status: "sent",
+                }
               : msg
           )
         );
@@ -9439,7 +9771,11 @@ useEffect(() => {
         setAllMessages((prevAllMessages) =>
           prevAllMessages.map((msg) =>
             msg.id === tempMessage.id
-              ? { ...msg, id: data.message_id || tempMessage.id, status: "sent" }
+              ? {
+                  ...msg,
+                  id: data.message_id || tempMessage.id,
+                  status: "sent",
+                }
               : msg
           )
         );
@@ -9454,7 +9790,7 @@ useEffect(() => {
         storeMessagesInLocalStorage(chatId, updatedMessages);
 
         // Fetch updated messages in the background to ensure consistency
-        fetchMessages(chatId, '');
+        fetchMessages(chatId, "");
       }
     } catch (error) {
       console.error("Error sending image message:", error);
@@ -9551,12 +9887,17 @@ useEffect(() => {
           throw new Error(`API failed with status ${response.status}`);
       } catch (error) {
         console.error("Error sending document:", error);
-        
+
         // Update the temporary message to failed status
         setMessages((prevMessages) =>
           prevMessages.map((msg) =>
             msg.id === tempMessage.id
-              ? { ...msg, status: "failed", error: error instanceof Error ? error.message : 'Unknown error' }
+              ? {
+                  ...msg,
+                  status: "failed",
+                  error:
+                    error instanceof Error ? error.message : "Unknown error",
+                }
               : msg
           )
         );
@@ -9564,7 +9905,12 @@ useEffect(() => {
         setAllMessages((prevAllMessages) =>
           prevAllMessages.map((msg) =>
             msg.id === tempMessage.id
-              ? { ...msg, status: "failed", error: error instanceof Error ? error.message : 'Unknown error' }
+              ? {
+                  ...msg,
+                  status: "failed",
+                  error:
+                    error instanceof Error ? error.message : "Unknown error",
+                }
               : msg
           )
         );
@@ -9573,11 +9919,15 @@ useEffect(() => {
         const currentMessages = getMessagesFromLocalStorage(chatId) || [];
         const updatedMessages = currentMessages.map((msg) =>
           msg.id === tempMessage.id
-            ? { ...msg, status: "failed", error: error instanceof Error ? error.message : 'Unknown error' }
+            ? {
+                ...msg,
+                status: "failed",
+                error: error instanceof Error ? error.message : "Unknown error",
+              }
             : msg
         );
         storeMessagesInLocalStorage(chatId, updatedMessages);
-        
+
         throw error;
       }
 
@@ -9588,7 +9938,11 @@ useEffect(() => {
         setMessages((prevMessages) =>
           prevMessages.map((msg) =>
             msg.id === tempMessage.id
-              ? { ...msg, id: data.message_id || tempMessage.id, status: "sent" }
+              ? {
+                  ...msg,
+                  id: data.message_id || tempMessage.id,
+                  status: "sent",
+                }
               : msg
           )
         );
@@ -9596,7 +9950,11 @@ useEffect(() => {
         setAllMessages((prevAllMessages) =>
           prevAllMessages.map((msg) =>
             msg.id === tempMessage.id
-              ? { ...msg, id: data.message_id || tempMessage.id, status: "sent" }
+              ? {
+                  ...msg,
+                  id: data.message_id || tempMessage.id,
+                  status: "sent",
+                }
               : msg
           )
         );
@@ -9611,7 +9969,7 @@ useEffect(() => {
         storeMessagesInLocalStorage(chatId, updatedMessages);
 
         // Fetch updated messages in the background to ensure consistency
-       fetchMessages(chatId, '');
+        fetchMessages(chatId, "");
       }
     } catch (error) {
       console.error("Error sending document message:", error);
@@ -9628,7 +9986,7 @@ useEffect(() => {
   const togglePinConversation = async (chatId: string) => {
     try {
       console.log("togglePinConversation called with chatId:", chatId);
-      
+
       // Find the contact to toggle
       const contactToToggle = contacts.find(
         (contact) => contact.chat_id === chatId
@@ -9646,7 +10004,7 @@ useEffect(() => {
       console.log("userData:", userData);
       console.log("companyId state:", companyId);
       console.log("Using companyId:", cId);
-      
+
       if (!cId) {
         console.error("Company ID is missing");
         console.error("userData:", userData);
@@ -9662,8 +10020,11 @@ useEffect(() => {
       // Call the backend API to update pinned status
       const apiUrl = `${baseUrl}/api/contacts/${contactToToggle.contact_id}/pinned`;
       console.log("Making API call to:", apiUrl);
-      console.log("Request payload:", { companyId: cId, pinned: newPinnedStatus });
-      
+      console.log("Request payload:", {
+        companyId: cId,
+        pinned: newPinnedStatus,
+      });
+
       const response = await fetch(apiUrl, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -9680,12 +10041,17 @@ useEffect(() => {
       if (!response.ok) {
         const errorText = await response.text();
         console.error("API error response:", errorText);
-        throw new Error(`Failed to update pin status: ${response.status} ${errorText}`);
+        throw new Error(
+          `Failed to update pin status: ${response.status} ${errorText}`
+        );
       }
 
-      console.log("Updating local state with new pinned status:", newPinnedStatus);
+      console.log(
+        "Updating local state with new pinned status:",
+        newPinnedStatus
+      );
       console.log("Looking for contact with chat_id:", contactToToggle.chat_id);
-      
+
       // Helper function to update contact pinned status
       const updateContactPinnedStatus = (contact: Contact) => {
         if (contact.chat_id === contactToToggle.chat_id) {
@@ -9716,7 +10082,9 @@ useEffect(() => {
       // Update loadedContacts if it exists
       setLoadedContacts((prevLoadedContacts) => {
         if (prevLoadedContacts && prevLoadedContacts.length > 0) {
-          const updatedLoadedContacts = prevLoadedContacts.map(updateContactPinnedStatus);
+          const updatedLoadedContacts = prevLoadedContacts.map(
+            updateContactPinnedStatus
+          );
           const sortedLoadedContacts = sortContacts(updatedLoadedContacts);
           console.log("Updated and sorted loaded contacts state");
           return sortedLoadedContacts;
@@ -9727,7 +10095,9 @@ useEffect(() => {
       // Update filteredContacts if it exists
       setFilteredContacts((prevFilteredContacts) => {
         if (prevFilteredContacts && prevFilteredContacts.length > 0) {
-          const updatedFilteredContacts = prevFilteredContacts.map(updateContactPinnedStatus);
+          const updatedFilteredContacts = prevFilteredContacts.map(
+            updateContactPinnedStatus
+          );
           const sortedFilteredContacts = sortContacts(updatedFilteredContacts);
           console.log("Updated and sorted filtered contacts state");
           return sortedFilteredContacts;
@@ -9736,28 +10106,30 @@ useEffect(() => {
       });
 
       console.log("Successfully updated pinned status to:", newPinnedStatus);
-      
+
       // Force a re-render by updating a timestamp
       setContacts((prevContacts) => {
-        const updatedContacts = prevContacts.map(contact => 
-          contact.chat_id === contactToToggle.chat_id 
+        const updatedContacts = prevContacts.map((contact) =>
+          contact.chat_id === contactToToggle.chat_id
             ? { ...contact, pinned: newPinnedStatus, _lastUpdated: Date.now() }
             : contact
         );
         return updatedContacts;
       });
-      
+
       toast.success(`Conversation ${newPinnedStatus ? "pinned" : "unpinned"}`);
-      
+
       // Log the final state for debugging
       setTimeout(() => {
         console.log("Final contacts state after pin update:");
-        console.log(contacts.map(c => ({ 
-          name: c.name, 
-          chat_id: c.chat_id, 
-          pinned: c.pinned,
-          _lastUpdated: (c as any)._lastUpdated 
-        })));
+        console.log(
+          contacts.map((c) => ({
+            name: c.name,
+            chat_id: c.chat_id,
+            pinned: c.pinned,
+            _lastUpdated: (c as any)._lastUpdated,
+          }))
+        );
       }, 100);
     } catch (error) {
       console.error("Error toggling chat pin state:", error);
@@ -10274,11 +10646,8 @@ useEffect(() => {
 
     fetchCompanyStopBot();
 
-  
-
     return () => {
       isMounted = false;
- 
     };
   }, []);
 
@@ -10458,7 +10827,7 @@ useEffect(() => {
       }
 
       const result = await response.json();
-      console.log("readddding",result);
+      console.log("readddding", result);
       if (result.success) {
         // Update the contact's unread count in the local state
         setContacts((prevContacts) =>
@@ -10796,8 +11165,6 @@ useEffect(() => {
     };
   }, []);
 
-
-
   const handleGenerateAIResponse = async () => {
     if (messages.length === 0) return;
 
@@ -11105,7 +11472,8 @@ useEffect(() => {
       updateData.companyId = companyIdToUse;
       // Ensure both name and contactName are set correctly
       updateData.name = editedContact.contactName || editedContact.name || "";
-      updateData.contactName = editedContact.contactName || editedContact.name || "";
+      updateData.contactName =
+        editedContact.contactName || editedContact.name || "";
 
       const response = await fetch(`${baseUrl}/api/contacts/${contact_id}`, {
         method: "PUT",
@@ -11125,27 +11493,36 @@ useEffect(() => {
         ...editedContact,
         ...updateData,
         // Ensure contactName and name are properly set and synchronized
-        contactName: editedContact.contactName || editedContact.name || selectedContact.contactName,
-        name: editedContact.contactName || editedContact.name || selectedContact.contactName,
+        contactName:
+          editedContact.contactName ||
+          editedContact.name ||
+          selectedContact.contactName,
+        name:
+          editedContact.contactName ||
+          editedContact.name ||
+          selectedContact.contactName,
         // Also ensure firstName is updated if contactName is set
-        firstName: editedContact.contactName || editedContact.name || selectedContact.firstName,
+        firstName:
+          editedContact.contactName ||
+          editedContact.name ||
+          selectedContact.firstName,
       };
-      
+
       setSelectedContact(updatedContact);
-      
+
       // Also update the contacts list to reflect the changes immediately
-      setContacts(prevContacts => 
-        prevContacts.map(contact => 
+      setContacts((prevContacts) =>
+        prevContacts.map((contact) =>
           contact.contact_id === contact_id ? updatedContact : contact
         )
       );
-      
-      setFilteredContacts(prevContacts => 
-        prevContacts.map(contact => 
+
+      setFilteredContacts((prevContacts) =>
+        prevContacts.map((contact) =>
           contact.contact_id === contact_id ? updatedContact : contact
         )
       );
-      
+
       setIsEditing(false);
       setEditedContact(null);
       toast.success("Contact updated successfully!");
@@ -11193,34 +11570,29 @@ useEffect(() => {
               onClick={() => setShowPhoneModal(true)}
               className="flex items-center space-x-1.5 text-sm font-bold opacity-75 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md hover:bg-white dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100/50 focus:ring-blue-500/50 transition-all duration-300 border border-white/30 dark:border-gray-600/50"
             >
-                    <Lucide
-                      icon="Phone"
-                      className="w-3 h-3 text-gray-800 dark:text-white"
-                    />
-                    <span className="text-gray-800 font-bold dark:text-white">
-                      {userData?.phone !== undefined &&
-                      phoneNames[userData.phone]
-                        ? phoneNames[userData.phone]
-                        : Object.keys(phoneNames).length === 1
-                        ? Object.values(phoneNames)[0]
-                        : Object.keys(phoneNames).length > 1
-                        ? "Select phone"
-                        : ``}
-                    </span>
-                    <Lucide
-                      icon="ChevronDown"
-                      className="w-2.5 h-2.5 text-gray-500"
-                    />
-                            </button>
-
-         
+              <Lucide
+                icon="Phone"
+                className="w-3 h-3 text-gray-800 dark:text-white"
+              />
+              <span className="text-gray-800 font-bold dark:text-white">
+                {userData?.phone !== undefined && phoneNames[userData.phone]
+                  ? phoneNames[userData.phone]
+                  : Object.keys(phoneNames).length === 1
+                  ? Object.values(phoneNames)[0]
+                  : Object.keys(phoneNames).length > 1
+                  ? "Select phone"
+                  : ``}
+              </span>
+              <Lucide
+                icon="ChevronDown"
+                className="w-2.5 h-2.5 text-gray-500"
+              />
+            </button>
 
             {/* WebSocket Status - Clickable to disconnect */}
             <div className="flex items-center gap-1.5 w-full">
               <button
-                onClick={() => {
-                
-                }}
+                onClick={() => {}}
                 className={`flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg shadow-md border transition-all duration-300 ease-out hover:scale-105 active:scale-95 cursor-pointer w-full backdrop-blur-sm ${
                   wsConnected
                     ? "bg-white/90 dark:bg-gray-800/90 border-white/30 dark:border-gray-600/50 hover:bg-white dark:hover:bg-gray-700"
@@ -11234,7 +11606,6 @@ useEffect(() => {
                     <span className="text-xs font-bold text-green-600 dark:text-green-400">
                       Live
                     </span>
-               
                   </>
                 ) : (
                   <>
@@ -11279,7 +11650,7 @@ useEffect(() => {
                   {wsReconnectAttempts >= maxReconnectAttempts
                     ? "Max retries"
                     : "Reconnect"}
-                </button> 
+                </button>
               )}
             </div>
           </div>
@@ -11291,125 +11662,159 @@ useEffect(() => {
               onClick={openUsageDashboard}
               title="Click to view detailed usage analytics"
             >
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <Lucide icon="Sparkles" className="w-2.5 h-2.5 text-primary" />
-                AI Messages
-              </span>
-              <div className="flex items-center gap-2">
-                {quotaLoading ? (
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    Loading...
-                  </span>
-                ) : (
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                  <Lucide
+                    icon="Sparkles"
+                    className="w-2.5 h-2.5 text-primary"
+                  />
+                  AI Messages
+                </span>
+                <div className="flex items-center gap-2">
+                  {quotaLoading ? (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      Loading...
+                    </span>
+                  ) : (
+                    <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
+                      {aiMessageUsage || 0}
+                      <span className="opacity-70 font-normal">
+                        /{quotaData?.limit || currentPlanLimits.aiMessages}
+                      </span>
+                    </span>
+                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsTopUpModalOpen(true);
+                    }}
+                    className="px-2 py-1 text-xs bg-primary/90 hover:bg-primary backdrop-blur-sm text-white rounded-lg transition-all duration-300 ease-out hover:scale-105 active:scale-95 font-medium border border-primary/50 shadow-sm hover:shadow-md"
+                  >
+                    Top-up
+                  </button>
+                </div>
+              </div>
+
+              <div className="w-full h-1.5 rounded-full bg-gradient-to-r from-primary/10 to-gray-200 dark:from-primary/20 dark:to-gray-700 mb-1 overflow-hidden">
+                <div
+                  className={`h-1.5 rounded-full transition-all duration-500 ease-in-out ${
+                    (aiMessageUsage || 0) >
+                    (quotaData?.limit || currentPlanLimits.aiMessages || 0)
+                      ? "bg-gradient-to-r from-red-600 to-red-800"
+                      : (quotaData?.limit ||
+                          currentPlanLimits.aiMessages ||
+                          0) -
+                          (aiMessageUsage || 0) <
+                        (quotaData?.limit ||
+                          currentPlanLimits.aiMessages ||
+                          0) *
+                          0.1
+                      ? "bg-gradient-to-r from-red-500 to-red-700"
+                      : (quotaData?.limit ||
+                          currentPlanLimits.aiMessages ||
+                          0) -
+                          (aiMessageUsage || 0) <
+                        (quotaData?.limit ||
+                          currentPlanLimits.aiMessages ||
+                          0) *
+                          0.3
+                      ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
+                      : "bg-gradient-to-r from-green-500 to-green-700"
+                  }`}
+                  style={{
+                    width: `${Math.min(
+                      Math.max(
+                        (((quotaData?.limit ||
+                          currentPlanLimits.aiMessages ||
+                          1) -
+                          (aiMessageUsage || 0)) /
+                          (quotaData?.limit ||
+                            currentPlanLimits.aiMessages ||
+                            1)) *
+                          100,
+                        0
+                      ),
+                      100
+                    )}%`,
+                  }}
+                ></div>
+                {(aiMessageUsage || 0) >
+                  (quotaData?.limit || currentPlanLimits.aiMessages || 0) && (
+                  <div className="text-xs text-red-600 dark:text-red-400 text-center mt-0.5 font-medium">
+                    ⚠️ Limit exceeded by{" "}
+                    {(aiMessageUsage || 0) -
+                      (quotaData?.limit ||
+                        currentPlanLimits.aiMessages ||
+                        0)}{" "}
+                    responses
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                  <Lucide icon="Contact" className="w-2.5 h-2.5 text-primary" />
+                  Contacts
+                </span>
+                <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
-                    {aiMessageUsage || 0}
+                    {contacts.length}
                     <span className="opacity-70 font-normal">
-                      /{quotaData?.limit || currentPlanLimits.aiMessages}
+                      /{currentPlanLimits.contacts || 0}
                     </span>
                   </span>
-                )}
+                </div>
+              </div>
+
+              <div className="w-full h-1.5 rounded-full bg-gradient-to-r from-emerald-400/10 to-gray-200 dark:from-emerald-400/20 dark:to-gray-700 overflow-hidden">
+                <div
+                  className={`h-1.5 rounded-full transition-all duration-500 ease-in-out ${
+                    contacts.length > (currentPlanLimits.contacts || 0)
+                      ? "bg-gradient-to-r from-red-600 to-red-800"
+                      : (currentPlanLimits.contacts || 0) - contacts.length <
+                        (currentPlanLimits.contacts || 0) * 0.1
+                      ? "bg-gradient-to-r from-red-500 to-red-700"
+                      : (currentPlanLimits.contacts || 0) - contacts.length <
+                        (currentPlanLimits.contacts || 0) * 0.3
+                      ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
+                      : "bg-gradient-to-r from-emerald-500 to-emerald-700"
+                  }`}
+                  style={{
+                    width: `${Math.min(
+                      Math.max(
+                        (((currentPlanLimits.contacts || 1) - contacts.length) /
+                          (currentPlanLimits.contacts || 1)) *
+                          100,
+                        0
+                      ),
+                      100
+                    )}%`,
+                  }}
+                ></div>
+              </div>
+              <div className="flex items-center justify-between mt-1"></div>
+              {contacts.length > (currentPlanLimits.contacts || 0) && (
+                <div className="mt-1 text-center">
+                  <span className="text-xs text-orange-600 dark:text-orange-400 font-medium bg-orange-100 dark:bg-orange-900/30 px-2 py-0.5 rounded-full">
+                    ⚠️ Contact limit exceeded - upgrade plan for more contacts
+                  </span>
+                </div>
+              )}
+
+              {/* Analytics button */}
+              <div className="flex items-center justify-center mt-1 pt-1 border-t border-gray-200 dark:border-gray-600">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    setIsTopUpModalOpen(true);
+                    openUsageDashboard();
                   }}
-                  className="px-2 py-1 text-xs bg-primary/90 hover:bg-primary backdrop-blur-sm text-white rounded-lg transition-all duration-300 ease-out hover:scale-105 active:scale-95 font-medium border border-primary/50 shadow-sm hover:shadow-md"
+                  className="text-xs text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary flex items-center gap-1 transition-all duration-300 ease-out hover:scale-105 active:scale-95 font-medium bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm rounded-lg px-2 py-1 hover:bg-white/30 dark:hover:bg-gray-800/30 border border-white/20 dark:border-gray-600/30"
                 >
-                  Top-up
+                  <Lucide icon="BarChart3" className="w-3 h-3" />
+                  View Analytics
                 </button>
               </div>
             </div>
-
-            <div className="w-full h-1.5 rounded-full bg-gradient-to-r from-primary/10 to-gray-200 dark:from-primary/20 dark:to-gray-700 mb-1 overflow-hidden">
-              <div
-                className={`h-1.5 rounded-full transition-all duration-500 ease-in-out ${
-                  (aiMessageUsage || 0) > (quotaData?.limit || currentPlanLimits.aiMessages || 0)
-                    ? "bg-gradient-to-r from-red-600 to-red-800"
-                    : (quotaData?.limit || currentPlanLimits.aiMessages || 0) - (aiMessageUsage || 0) < (quotaData?.limit || currentPlanLimits.aiMessages || 0) * 0.1
-                    ? "bg-gradient-to-r from-red-500 to-red-700"
-                    : (quotaData?.limit || currentPlanLimits.aiMessages || 0) - (aiMessageUsage || 0) < (quotaData?.limit || currentPlanLimits.aiMessages || 0) * 0.3
-                    ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
-                    : "bg-gradient-to-r from-green-500 to-green-700"
-                }`}
-                style={{
-                  width: `${Math.min(
-                    Math.max(
-                      ((quotaData?.limit || currentPlanLimits.aiMessages || 1) - (aiMessageUsage || 0)) / (quotaData?.limit || currentPlanLimits.aiMessages || 1) * 100,
-                      0
-                    ),
-                    100
-                  )}%`,
-                }}
-              ></div>
-                                {(aiMessageUsage || 0) > (quotaData?.limit || currentPlanLimits.aiMessages || 0) && (
-                    <div className="text-xs text-red-600 dark:text-red-400 text-center mt-0.5 font-medium">
-                      ⚠️ Limit exceeded by{" "}
-                      {(aiMessageUsage || 0) - (quotaData?.limit || currentPlanLimits.aiMessages || 0)} responses
-                    </div>
-                  )}
-            </div>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <Lucide icon="Contact" className="w-2.5 h-2.5 text-primary" />
-                Contacts
-              </span>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
-                  {contacts.length}
-                  <span className="opacity-70 font-normal">
-                    /{currentPlanLimits.contacts || 0}
-                  </span>
-                </span>
-              </div>
-            </div>
-
-            <div className="w-full h-1.5 rounded-full bg-gradient-to-r from-emerald-400/10 to-gray-200 dark:from-emerald-400/20 dark:to-gray-700 overflow-hidden">
-              <div
-                className={`h-1.5 rounded-full transition-all duration-500 ease-in-out ${
-                  contacts.length > (currentPlanLimits.contacts || 0)
-                    ? "bg-gradient-to-r from-red-600 to-red-800"
-                    : (currentPlanLimits.contacts || 0) - contacts.length < (currentPlanLimits.contacts || 0) * 0.1
-                    ? "bg-gradient-to-r from-red-500 to-red-700"
-                    : (currentPlanLimits.contacts || 0) - contacts.length < (currentPlanLimits.contacts || 0) * 0.3
-                    ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
-                    : "bg-gradient-to-r from-emerald-500 to-emerald-700"
-                }`}
-                style={{
-                  width: `${Math.min(
-                    Math.max(
-                      ((currentPlanLimits.contacts || 1) - contacts.length) / (currentPlanLimits.contacts || 1) * 100,
-                      0
-                    ),
-                    100
-                  )}%`,
-                }}
-              ></div>
-            </div>
-            <div className="flex items-center justify-between mt-1"></div>
-            {contacts.length > (currentPlanLimits.contacts || 0) && (
-              <div className="mt-1 text-center">
-                <span className="text-xs text-orange-600 dark:text-orange-400 font-medium bg-orange-100 dark:bg-orange-900/30 px-2 py-0.5 rounded-full">
-                  ⚠️ Contact limit exceeded - upgrade plan for more contacts
-                </span>
-              </div>
-            )}
-
-            {/* Analytics button */}
-            <div className="flex items-center justify-center mt-1 pt-1 border-t border-gray-200 dark:border-gray-600">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openUsageDashboard();
-                }}
-                className="text-xs text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary flex items-center gap-1 transition-all duration-300 ease-out hover:scale-105 active:scale-95 font-medium bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm rounded-lg px-2 py-1 hover:bg-white/30 dark:hover:bg-gray-800/30 border border-white/20 dark:border-gray-600/30"
-              >
-                <Lucide icon="BarChart3" className="w-3 h-3" />
-                View Analytics
-              </button>
-            </div>
           </div>
-        </div>
         )}
         <div className="sticky top-20 bg-white/10 dark:bg-gray-900/20 backdrop-blur-sm p-2 z-30 border-b border-white/20 dark:border-gray-700/30">
           <div className="flex items-center space-x-2">
@@ -11580,9 +11985,11 @@ useEffect(() => {
             </div>
           </div>
         </div>
-        <div className={`mt-2 mb-1 px-3 py-2 pr-6 mr-2 transition-all duration-300 ease-in-out ${
-          isTagsExpanded ? 'max-h-96 pb-2' : 'max-h-20'
-        } overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent  backdrop-blur-sm rounded-xl  shadow-sm`}>
+        <div
+          className={`mt-2 mb-1 px-3 py-2 pr-6 mr-2 transition-all duration-300 ease-in-out ${
+            isTagsExpanded ? "max-h-96 pb-2" : "max-h-20"
+          } overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent  backdrop-blur-sm rounded-xl  shadow-sm`}
+        >
           <div className="flex flex-wrap gap-2 justify-center">
             {[
               "Mine",
@@ -11633,20 +12040,21 @@ useEffect(() => {
                 const isSnoozed = contact.tags?.includes("snooze");
                 // Try to find a phone index that matches the tag
                 let phoneIndex = -1;
-                
+
                 // First, try exact match
                 phoneIndex = Object.entries(phoneNames).findIndex(
                   ([_, name]) => name.toLowerCase() === tagLower
                 );
-                
+
                 // If no exact match, try partial match
                 if (phoneIndex === -1) {
                   phoneIndex = Object.entries(phoneNames).findIndex(
-                    ([_, name]) => name.toLowerCase().includes(tagLower) || 
-                                   tagLower.includes(name.toLowerCase())
+                    ([_, name]) =>
+                      name.toLowerCase().includes(tagLower) ||
+                      tagLower.includes(name.toLowerCase())
                   );
                 }
-                
+
                 // If still no match, try to parse the phone number from the tag
                 if (phoneIndex === -1 && tagLower.includes("phone")) {
                   const phoneMatch = tagLower.match(/phone\s*(\d+)/i);
@@ -11662,27 +12070,39 @@ useEffect(() => {
                   (tagLower === "all"
                     ? !isGroup && !isSnoozed
                     : tagLower === "unread"
-                    ? !isSnoozed && contact.unreadCount && contact.unreadCount > 0
+                    ? !isSnoozed &&
+                      contact.unreadCount &&
+                      contact.unreadCount > 0
                     : tagLower === "mine"
                     ? (() => {
                         // Check if the user is assigned to this contact in multiple ways
-                        const hasMineTag = contact.tags?.some((t) => 
-                          (typeof t === "string" ? t : String(t)).toLowerCase() === currentUserName.toLowerCase()
+                        const hasMineTag = contact.tags?.some(
+                          (t) =>
+                            (typeof t === "string"
+                              ? t
+                              : String(t)
+                            ).toLowerCase() === currentUserName.toLowerCase()
                         );
-                        
+
                         // Also check if the user is in the assignedTo array
-                        const isAssignedToMe = contact.assignedTo?.some((assigned: string) => 
-                          assigned.toLowerCase() === currentUserName.toLowerCase()
+                        const isAssignedToMe = contact.assignedTo?.some(
+                          (assigned: string) =>
+                            assigned.toLowerCase() ===
+                            currentUserName.toLowerCase()
                         );
-                        
+
                         return !isSnoozed && (hasMineTag || isAssignedToMe);
                       })()
                     : tagLower === "unassigned"
-                    ? !isSnoozed && !contact.tags?.some((t: string) =>
+                    ? !isSnoozed &&
+                      !contact.tags?.some((t: string) =>
                         employeeList.some(
                           (e) =>
                             (e.name?.toLowerCase() || "") ===
-                            (typeof t === "string" ? t : String(t)).toLowerCase()
+                            (typeof t === "string"
+                              ? t
+                              : String(t)
+                            ).toLowerCase()
                         )
                       )
                     : tagLower === "snooze"
@@ -11699,29 +12119,45 @@ useEffect(() => {
                     ? (() => {
                         // Check multiple ways a contact might be associated with this phone
                         let hasPhone = false;
-                        
+
                         // Method 1: Check phoneIndexes array
-                        if (contact.phoneIndexes && Array.isArray(contact.phoneIndexes)) {
+                        if (
+                          contact.phoneIndexes &&
+                          Array.isArray(contact.phoneIndexes)
+                        ) {
                           hasPhone = contact.phoneIndexes.includes(phoneIndex);
                         }
-                        
+
                         // Method 2: Check phoneIndex field
-                        if (!hasPhone && contact.phoneIndex !== undefined && contact.phoneIndex !== null) {
+                        if (
+                          !hasPhone &&
+                          contact.phoneIndex !== undefined &&
+                          contact.phoneIndex !== null
+                        ) {
                           hasPhone = contact.phoneIndex === phoneIndex;
                         }
-                        
+
                         // Method 3: Check if contact has messages from this phone
-                        if (!hasPhone && contact.chat && Array.isArray(contact.chat)) {
-                          hasPhone = contact.chat.some((message: any) => 
-                            message.phoneIndex === phoneIndex
+                        if (
+                          !hasPhone &&
+                          contact.chat &&
+                          Array.isArray(contact.chat)
+                        ) {
+                          hasPhone = contact.chat.some(
+                            (message: any) => message.phoneIndex === phoneIndex
                           );
                         }
-                        
+
                         // Method 4: Check last_message phoneIndex
-                        if (!hasPhone && contact.last_message && contact.last_message.phoneIndex !== undefined) {
-                          hasPhone = contact.last_message.phoneIndex === phoneIndex;
+                        if (
+                          !hasPhone &&
+                          contact.last_message &&
+                          contact.last_message.phoneIndex !== undefined
+                        ) {
+                          hasPhone =
+                            contact.last_message.phoneIndex === phoneIndex;
                         }
-                        
+
                         return hasPhone;
                       })()
                     : contactTags.includes(tagLower)) &&
@@ -11894,11 +12330,13 @@ useEffect(() => {
                 >
                   <div className="flex items-center space-x-1.5">
                     <div className="relative flex-shrink-0">
-                      <div className={`w-10 h-10 bg-white/30 dark:bg-gray-600/90 backdrop-blur-md rounded-full flex items-center justify-center text-gray-600 dark:text-gray-300 overflow-hidden border shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl group-hover:shadow-blue-500/20 dark:group-hover:shadow-blue-400/20 group-hover:border-blue-300/50 dark:group-hover:border-blue-500/50 ${
-                        selectedChatId === contact.contact_id
-                          ? "border-2 border-blue-400/80 dark:border-blue-500/80 shadow-xl shadow-blue-500/40 dark:shadow-blue-400/40 scale-110 ring-4 ring-blue-500/30 dark:ring-blue-400/30"
-                          : "border-white/40 dark:border-gray-500/60 shadow-white/20 dark:shadow-gray-500/20"
-                      }`}>
+                      <div
+                        className={`w-10 h-10 bg-white/30 dark:bg-gray-600/90 backdrop-blur-md rounded-full flex items-center justify-center text-gray-600 dark:text-gray-300 overflow-hidden border shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl group-hover:shadow-blue-500/20 dark:group-hover:shadow-blue-400/20 group-hover:border-blue-300/50 dark:group-hover:border-blue-500/50 ${
+                          selectedChatId === contact.contact_id
+                            ? "border-2 border-blue-400/80 dark:border-blue-500/80 shadow-xl shadow-blue-500/40 dark:shadow-blue-400/40 scale-110 ring-4 ring-blue-500/30 dark:ring-blue-400/30"
+                            : "border-white/40 dark:border-gray-500/60 shadow-white/20 dark:shadow-gray-500/20"
+                        }`}
+                      >
                         {contact &&
                           (contact.chat_id &&
                           contact.chat_id.includes("@g.us") ? (
@@ -11952,11 +12390,13 @@ useEffect(() => {
                       <div className="flex flex-col space-y-0.5">
                         <div className="flex justify-between items-start">
                           <div className="flex-1 min-w-0">
-                            <h3 className={`text-sm font-semibold truncate mb-0 transition-all duration-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:font-bold ${
-                              selectedChatId === contact.contact_id
-                                ? "text-blue-700 dark:text-blue-300 font-bold text-base"
-                                : "text-gray-900 dark:text-gray-100"
-                            }`}>
+                            <h3
+                              className={`text-sm font-semibold truncate mb-0 transition-all duration-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:font-bold ${
+                                selectedChatId === contact.contact_id
+                                  ? "text-blue-700 dark:text-blue-300 font-bold text-base"
+                                  : "text-gray-900 dark:text-gray-100"
+                              }`}
+                            >
                               {(
                                 contact.contactName ??
                                 contact.firstName ??
@@ -12084,18 +12524,25 @@ useEffect(() => {
                                               <span
                                                 key={tagIndex}
                                                 className={`text-[10px] font-medium px-1 py-0.5 rounded-full flex items-center backdrop-blur-sm border shadow-sm flex-shrink-0 transition-all duration-300 group-hover:scale-105 group-hover:shadow-md group-hover:shadow-blue-500/20 dark:group-hover:shadow-blue-400/20 group-hover:bg-blue-200/90 dark:group-hover:bg-blue-500/50 ${
-                                                  selectedChatId === contact.contact_id
+                                                  selectedChatId ===
+                                                  contact.contact_id
                                                     ? "bg-blue-200/90 dark:bg-blue-500/60 text-blue-800 dark:text-blue-200 border-blue-300/70 dark:border-blue-400/70 shadow-md shadow-blue-500/30 dark:shadow-blue-400/30 scale-105"
                                                     : "bg-blue-100/80 dark:bg-blue-600/40 text-blue-700 dark:text-blue-300 border-blue-200/50 dark:border-blue-500/30"
                                                 }`}
-                                                title={typeof tag === "string" ? tag : String(tag)}
+                                                title={
+                                                  typeof tag === "string"
+                                                    ? tag
+                                                    : String(tag)
+                                                }
                                               >
                                                 <Lucide
                                                   icon="Tag"
                                                   className="w-3 h-3 inline-block mr-0.5"
                                                 />
                                                 <span className="truncate max-w-[60px]">
-                                                  {typeof tag === "string" ? tag : String(tag)}
+                                                  {typeof tag === "string"
+                                                    ? tag
+                                                    : String(tag)}
                                                 </span>
                                               </span>
                                             ))}
@@ -12107,7 +12554,8 @@ useEffect(() => {
                                               ).toLowerCase() !== "stop bot"
                                           ).length > 3 && (
                                             <span className="bg-blue-100/80 dark:bg-blue-600/40 text-blue-700 dark:text-blue-300 text-[10px] font-medium px-1 py-0.5 rounded-full backdrop-blur-sm border border-blue-200/50 dark:border-blue-500/30 shadow-sm flex-shrink-0">
-                                              +{uniqueTags.filter(
+                                              +
+                                              {uniqueTags.filter(
                                                 (tag) =>
                                                   (typeof tag === "string"
                                                     ? tag
@@ -12120,34 +12568,43 @@ useEffect(() => {
                                       )}
                                       {employeeTags.length > 0 && (
                                         <div className="flex flex-nowrap gap-1 mr-1 overflow-hidden">
-                                          {employeeTags.slice(0, 2).map((tag, tagIndex) => (
-                                            <span
-                                              key={tagIndex}
-                                              className={`text-[10px] font-medium px-1 py-0.5 rounded-full flex items-center backdrop-blur-sm border shadow-sm flex-shrink-0 transition-all duration-300 group-hover:scale-105 group-hover:shadow-md group-hover:shadow-green-500/20 dark:group-hover:shadow-green-400/20 group-hover:bg-green-200/90 dark:group-hover:bg-green-500/50 ${
-                                                selectedChatId === contact.contact_id
-                                                  ? "bg-green-200/90 dark:bg-green-500/60 text-green-800 dark:text-green-200 border-green-300/70 dark:border-green-400/70 shadow-md shadow-green-500/30 dark:shadow-green-400/30 scale-105"
-                                                  : "bg-green-100/80 dark:bg-green-600/40 text-green-700 dark:text-green-300 border-green-200/50 dark:border-green-500/30"
-                                              }`}
-                                              title={typeof tag === "string" ? tag : String(tag)}
-                                            >
-                                              <Lucide
-                                                icon="Users"
-                                                className="w-3 h-3 inline-block mr-0.5"
-                                              />
-                                              <span className="truncate max-w-[60px]">
-                                                {employeeList.find(
-                                                  (e) =>
-                                                    (e.name?.toLowerCase() ||
-                                                      "") ===
+                                          {employeeTags
+                                            .slice(0, 2)
+                                            .map((tag, tagIndex) => (
+                                              <span
+                                                key={tagIndex}
+                                                className={`text-[10px] font-medium px-1 py-0.5 rounded-full flex items-center backdrop-blur-sm border shadow-sm flex-shrink-0 transition-all duration-300 group-hover:scale-105 group-hover:shadow-md group-hover:shadow-green-500/20 dark:group-hover:shadow-green-400/20 group-hover:bg-green-200/90 dark:group-hover:bg-green-500/50 ${
+                                                  selectedChatId ===
+                                                  contact.contact_id
+                                                    ? "bg-green-200/90 dark:bg-green-500/60 text-green-800 dark:text-green-200 border-green-300/70 dark:border-green-400/70 shadow-md shadow-green-500/30 dark:shadow-green-400/30 scale-105"
+                                                    : "bg-green-100/80 dark:bg-green-600/40 text-green-700 dark:text-green-300 border-green-200/50 dark:border-green-500/30"
+                                                }`}
+                                                title={
+                                                  typeof tag === "string"
+                                                    ? tag
+                                                    : String(tag)
+                                                }
+                                              >
+                                                <Lucide
+                                                  icon="Users"
+                                                  className="w-3 h-3 inline-block mr-0.5"
+                                                />
+                                                <span className="truncate max-w-[60px]">
+                                                  {employeeList.find(
+                                                    (e) =>
+                                                      (e.name?.toLowerCase() ||
+                                                        "") ===
+                                                      (typeof tag === "string"
+                                                        ? tag
+                                                        : String(tag)
+                                                      ).toLowerCase()
+                                                  )?.employeeId ||
                                                     (typeof tag === "string"
                                                       ? tag
-                                                      : String(tag)
-                                                    ).toLowerCase()
-                                                )?.employeeId ||
-                                                (typeof tag === "string" ? tag : String(tag))}
+                                                      : String(tag))}
+                                                </span>
                                               </span>
-                                            </span>
-                                          ))}
+                                            ))}
                                           {employeeTags.length > 2 && (
                                             <span className="bg-green-100/80 dark:bg-green-600/40 text-green-700 dark:text-green-300 text-[10px] font-medium px-1 py-0.5 rounded-full backdrop-blur-sm border border-green-200/50 dark:border-green-500/30 shadow-sm flex-shrink-0">
                                               +{employeeTags.length - 2}
@@ -12187,11 +12644,13 @@ useEffect(() => {
                         <div className="flex justify-between items-start">
                           <div className="flex-1 min-w-0">
                             <div className="mt-0.5">
-                              <span className={`text-sm truncate block transition-all duration-300 group-hover:text-gray-800 dark:group-hover:text-gray-200 group-hover:font-medium ${
-                                selectedChatId === contact.contact_id
-                                  ? "text-blue-600 dark:text-blue-400 font-semibold"
-                                  : "text-gray-700 dark:text-gray-400"
-                              }`}>
+                              <span
+                                className={`text-sm truncate block transition-all duration-300 group-hover:text-gray-800 dark:group-hover:text-gray-200 group-hover:font-medium ${
+                                  selectedChatId === contact.contact_id
+                                    ? "text-blue-600 dark:text-blue-400 font-semibold"
+                                    : "text-gray-700 dark:text-gray-400"
+                                }`}
+                              >
                                 {contact.last_message ? (
                                   <>
                                     {contact.last_message.from_me && (
@@ -12314,7 +12773,6 @@ useEffect(() => {
                         </div>
                       </div>
                     </div>
-              
                   </div>
                 </div>
               </React.Fragment>
@@ -12334,7 +12792,9 @@ useEffect(() => {
               onPageChange={isLoadingMoreContacts ? () => {} : handlePageChange}
               pageRangeDisplayed={2}
               marginPagesDisplayed={2}
-              pageCount={Math.ceil(filteredContactsSearch.length / contactsPerPage)}
+              pageCount={Math.ceil(
+                filteredContactsSearch.length / contactsPerPage
+              )}
               previousLabel="Previous"
               renderOnZeroPageCount={null}
               containerClassName="flex justify-center items-center flex-wrap gap-0.5 p-1.5 rounded-xl bg-white/10 dark:bg-gray-800/20 backdrop-blur-xl border border-white/20 dark:border-gray-600/30 shadow-lg"
@@ -12368,7 +12828,7 @@ useEffect(() => {
       <div className="flex flex-col w-full sm:w-3/4 relative flex-1 overflow-hidden bg-gradient-to-br from-white/5 to-white/10 dark:from-gray-800/10 dark:to-gray-800/15 backdrop-blur-sm">
         {selectedChatId ? (
           <>
-            <div 
+            <div
               className="flex items-center justify-between p-3 bg-white/10 dark:bg-gray-900/20 backdrop-blur-xl border-b border-white/20 dark:border-gray-700/30 shadow-lg shadow-black/5 dark:shadow-black/20 cursor-pointer transition-all duration-300 hover:bg-white/15 dark:hover:bg-gray-800/25"
               onClick={handleEyeClick}
             >
@@ -12380,36 +12840,39 @@ useEffect(() => {
                   }}
                   className="p-2 hover:bg-white/20 dark:hover:bg-gray-800/40 rounded-xl transition-all duration-300 backdrop-blur-sm border border-white/20 dark:border-gray-600/30 hover:scale-105 hover:shadow-lg hover:shadow-blue-500/20 dark:hover:shadow-blue-400/20"
                 >
-                  <Lucide icon="ChevronLeft" className="w-4 h-4 text-gray-700 dark:text-gray-300" />
+                  <Lucide
+                    icon="ChevronLeft"
+                    className="w-4 h-4 text-gray-700 dark:text-gray-300"
+                  />
                 </button>
-                
+
                 <div className="relative group profile-pic-container">
                   <div className="w-9 h-9 overflow-hidden rounded-full shadow-lg bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center text-white border-2 border-white/40 dark:border-gray-500/40 transition-all duration-300 hover:scale-110 hover:shadow-xl hover:shadow-purple-500/30 relative">
                     {/* Animated gradient background */}
                     <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 animate-pulse opacity-80"></div>
                     <div className="absolute inset-0 bg-gradient-to-tr from-white/20 via-transparent to-transparent"></div>
-                    
-                  {selectedContact?.profilePicUrl ? (
-                    <img
-                      src={selectedContact.profilePicUrl}
-                      alt={selectedContact.contactName || "Profile"}
+
+                    {selectedContact?.profilePicUrl ? (
+                      <img
+                        src={selectedContact.profilePicUrl}
+                        alt={selectedContact.contactName || "Profile"}
                         className="w-9 h-9 rounded-full object-cover relative z-10 transition-all duration-300 group-hover:scale-105"
-                    />
-                  ) : (
+                      />
+                    ) : (
                       <span className="text-sm font-bold relative z-10">
-                      {selectedContact?.contactName
-                        ? selectedContact.contactName.charAt(0).toUpperCase()
-                        : "?"}
-                    </span>
-                  )}
-                    
+                        {selectedContact?.contactName
+                          ? selectedContact.contactName.charAt(0).toUpperCase()
+                          : "?"}
+                      </span>
+                    )}
+
                     {/* Glowing ring effect */}
                     <div className="absolute inset-0 rounded-full ring-2 ring-white/30 dark:ring-gray-400/30 group-hover:ring-4 group-hover:ring-purple-400/50 dark:group-hover:ring-purple-300/50 transition-all duration-300"></div>
-                </div>
+                  </div>
 
                   {/* Online status indicator with enhanced effects */}
                   <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full animate-pulse shadow-lg shadow-green-500/50 group-hover:scale-125 group-hover:shadow-xl group-hover:shadow-green-500/70 transition-all duration-300 status-indicator"></div>
-                  
+
                   {/* Subtle glow effect */}
                   <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-400/20 via-purple-400/20 to-pink-400/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 scale-150"></div>
                 </div>
@@ -12465,8 +12928,6 @@ useEffect(() => {
                       Add Tag
                     </div>
                   </button>
-
-
 
                   {/* Message Search Button */}
                   <button
@@ -12540,9 +13001,7 @@ useEffect(() => {
                           icon={isMessageSearchOpen ? "X" : "Search"}
                           className="w-4 h-4 mr-2.5 text-gray-700 dark:text-gray-300"
                         />
-                        <span
-                          className="text-gray-700 dark:text-gray-300 font-medium"
-                        >
+                        <span className="text-gray-700 dark:text-gray-300 font-medium">
                           {isMessageSearchOpen ? "Close" : "Open"} Search
                         </span>
                       </button>
@@ -12559,33 +13018,36 @@ useEffect(() => {
                 backgroundRepeat: "no-repeat",
               }}
               ref={messageListRef}
-       
             >
-
               {selectedChatId && (
                 <>
-                 {/* Lazy loading indicator */}
-{hasMoreMessages && (
-  <div className="flex justify-center py-4">
-    <button
-      onClick={handleLoadMoreMessages}
-      disabled={isLoadingMoreMessages}
-      className="relative overflow-hidden px-6 py-3 rounded-xl bg-white/10 dark:bg-gray-800/20 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 text-gray-700 dark:text-gray-200 font-medium text-sm transition-all duration-300 hover:bg-white/20 dark:hover:bg-gray-800/30 hover:border-white/30 dark:hover:border-gray-600/40 hover:shadow-lg hover:shadow-black/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white/10 disabled:hover:border-white/20"
-    >
-      {isLoadingMoreMessages ? (
-        <>
-          <LoadingIcon icon="rings" className="w-4 h-4 mr-2 inline-block" />
-          Loading...
-        </>
-      ) : (
-        <>
-          <span className="relative z-10">Load More Messages</span>
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent transform -skew-x-12 -translate-x-full animate-shimmer"></div>
-        </>
-      )}
-    </button>
-  </div>
-)}
+                  {/* Lazy loading indicator */}
+                  {hasMoreMessages && (
+                    <div className="flex justify-center py-4">
+                      <button
+                        onClick={handleLoadMoreMessages}
+                        disabled={isLoadingMoreMessages}
+                        className="relative overflow-hidden px-6 py-3 rounded-xl bg-white/10 dark:bg-gray-800/20 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 text-gray-700 dark:text-gray-200 font-medium text-sm transition-all duration-300 hover:bg-white/20 dark:hover:bg-gray-800/30 hover:border-white/30 dark:hover:border-gray-600/40 hover:shadow-lg hover:shadow-black/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white/10 disabled:hover:border-white/20"
+                      >
+                        {isLoadingMoreMessages ? (
+                          <>
+                            <LoadingIcon
+                              icon="rings"
+                              className="w-4 h-4 mr-2 inline-block"
+                            />
+                            Loading...
+                          </>
+                        ) : (
+                          <>
+                            <span className="relative z-10">
+                              Load More Messages
+                            </span>
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent transform -skew-x-12 -translate-x-full animate-shimmer"></div>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
                   {displayedMessages
                     .filter(
                       (message) =>
@@ -12667,33 +13129,33 @@ useEffect(() => {
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-2xl"></div>
                                 {/* Content with relative positioning */}
                                 <span className="relative z-10">
-                                {(() => {
-                                  const messageDate = new Date(
-                                    (message.timestamp ||
-                                      message.createdAt ||
-                                      0) * 1000
-                                  );
-                                  const today = new Date();
-
-                                  if (isSameDay(messageDate, today)) {
-                                    return "Today";
-                                  } else if (
-                                    isSameDay(
-                                      messageDate,
-                                      new Date(
-                                        today.getTime() - 24 * 60 * 60 * 1000
-                                      )
-                                    )
-                                  ) {
-                                    return "Yesterday";
-                                  } else {
-                                    return formatDateHeader(
-                                      message.timestamp ||
+                                  {(() => {
+                                    const messageDate = new Date(
+                                      (message.timestamp ||
                                         message.createdAt ||
-                                        ""
+                                        0) * 1000
                                     );
-                                  }
-                                })()}
+                                    const today = new Date();
+
+                                    if (isSameDay(messageDate, today)) {
+                                      return "Today";
+                                    } else if (
+                                      isSameDay(
+                                        messageDate,
+                                        new Date(
+                                          today.getTime() - 24 * 60 * 60 * 1000
+                                        )
+                                      )
+                                    ) {
+                                      return "Yesterday";
+                                    } else {
+                                      return formatDateHeader(
+                                        message.timestamp ||
+                                          message.createdAt ||
+                                          ""
+                                      );
+                                    }
+                                  })()}
                                 </span>
                                 {/* Enhanced border glow */}
                                 <div className="absolute inset-0 rounded-2xl ring-2 ring-blue-400/20 dark:ring-blue-300/30 group-hover:ring-4 group-hover:ring-blue-400/40 dark:group-hover:ring-blue-300/50 transition-all duration-500"></div>
@@ -12708,33 +13170,37 @@ useEffect(() => {
                                   ? privateNoteClass
                                   : messageClass
                               } relative backdrop-blur-3xl border transition-all duration-500 rounded-2xl hover:scale-[1.01] ${
-                                message.from_me 
-                                  ? "border-white/20 dark:border-gray-500/30 shadow-lg hover:shadow-2xl shadow-blue-500/15 dark:shadow-blue-400/20 hover:shadow-blue-500/25 dark:hover:shadow-blue-400/30" 
+                                message.from_me
+                                  ? "border-white/20 dark:border-gray-500/30 shadow-lg hover:shadow-2xl shadow-blue-500/15 dark:shadow-blue-400/20 hover:shadow-blue-500/25 dark:hover:shadow-blue-400/30"
                                   : "border-white/40 dark:border-gray-500/30 shadow-lg hover:shadow-2xl shadow-gray-400/15 dark:shadow-gray-500/20 hover:shadow-gray-400/25 dark:hover:shadow-gray-500/30"
                               }`}
-                                                              style={{
-                                  maxWidth:
-                                    message.type === "document" ? "75%" : 
-                                    message.type === "image" ? "85%" : "60%",
-                                  width: `${
-                                    message.type === "document"
-                                      ? "350"
-                                      : message.type === "image"
-                                      ? "400"
-                                      : message.type !== "text"
-                                      ? "280"
-                                      : message.text?.body
-                                      ? Math.min(
-                                          Math.max(
-                                            message.text.body.length,
-                                            message.text?.context?.quoted_content
-                                              ?.body?.length || 0
-                                          ) * 16,
-                                          300
-                                        )
-                                      : "160"
-                                  }px`,
-                                  minWidth: message.type === "image" ? "300px" : "180px",
+                              style={{
+                                maxWidth:
+                                  message.type === "document"
+                                    ? "75%"
+                                    : message.type === "image"
+                                    ? "85%"
+                                    : "60%",
+                                width: `${
+                                  message.type === "document"
+                                    ? "350"
+                                    : message.type === "image"
+                                    ? "400"
+                                    : message.type !== "text"
+                                    ? "280"
+                                    : message.text?.body
+                                    ? Math.min(
+                                        Math.max(
+                                          message.text.body.length,
+                                          message.text?.context?.quoted_content
+                                            ?.body?.length || 0
+                                        ) * 16,
+                                        300
+                                      )
+                                    : "160"
+                                }px`,
+                                minWidth:
+                                  message.type === "image" ? "300px" : "180px",
                                 backgroundColor: message.from_me
                                   ? "rgba(59, 130, 246, 0.08)"
                                   : "rgba(255, 255, 255, 0.15)",
@@ -12749,28 +13215,53 @@ useEffect(() => {
                             >
                               {/* Sender name display */}
                               {!message.isPrivateNote && (
-                                <div className={`text-xs font-medium mb-1 opacity-95 backdrop-blur-sm ${
-                                  message.from_me
-                                    ? "text-slate-800 dark:text-white/95"
-                                    : "text-gray-700 dark:text-white/95"
-                                }`}>
-                                  {message.from_me
-                                    ? (message.author && !/^\d+/.test(message.author) ? message.author : "Me")
-                                    : selectedContact?.contactName ||
-                                      selectedContact?.firstName ||
-                                      selectedContact?.phone ||
-                                      "Contact"}
+                                <div
+                                  className={`relative mb-1 -mx-3 -mt-2 px-3 py-1.5 rounded-t-2xl flex items-center ${
+                                    message.from_me
+                                      ? "bg-gradient-to-r from-blue-500/15 via-blue-400/10 to-transparent dark:from-blue-400/20 dark:via-blue-300/15 dark:to-transparent"
+                                      : "bg-gradient-to-r from-gray-400/15 via-gray-300/10 to-transparent dark:from-gray-500/20 dark:via-gray-400/15 dark:to-transparent"
+                                  }`}
+                                  style={{ minHeight: '24px' }}
+                                >
+                                  <div
+                                    className={`text-xs font-semibold ${
+                                      message.from_me
+                                        ? "text-blue-700 dark:text-blue-300"
+                                        : "text-gray-700 dark:text-gray-300"
+                                    }`}
+                                  >
+                                    {message.from_me
+                                      ? message.author &&
+                                        !/^\d+/.test(message.author)
+                                        ? message.author
+                                        : "Me"
+                                      : selectedContact?.contactName ||
+                                        selectedContact?.firstName ||
+                                        selectedContact?.phone ||
+                                        "Contact"}
+                                  </div>
+                                  {/* Subtle bottom border */}
+                                  <div
+                                    className={`absolute bottom-0 left-0 right-0 h-px ${
+                                      message.from_me
+                                        ? "bg-gradient-to-r from-blue-300/30 via-blue-200/20 to-transparent dark:from-blue-400/40 dark:via-blue-300/25 dark:to-transparent"
+                                        : "bg-gradient-to-r from-gray-300/30 via-gray-200/20 to-transparent dark:from-gray-400/40 dark:via-gray-300/25 dark:to-transparent"
+                                    }`}
+                                  />
                                 </div>
                               )}
                               {message.isPrivateNote && (
                                 <div className="flex items-center mb-1 p-1.5 bg-amber-500/15 dark:bg-amber-400/25 rounded-lg border border-amber-400/30 dark:border-amber-300/40 shadow-md backdrop-blur-2xl">
-                                  <Lock size={10} className="mr-1.5 text-amber-500 dark:text-amber-400" />
+                                  <Lock
+                                    size={10}
+                                    className="mr-1.5 text-amber-500 dark:text-amber-400"
+                                  />
                                   <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
                                     Private Note
                                   </span>
                                 </div>
                               )}
-                          
+
                               {message.type === "text" &&
                                 message.text?.context && (
                                   <div
@@ -12830,7 +13321,6 @@ useEffect(() => {
                                       }
                                     }}
                                   >
-                               
                                     <div className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1">
                                       {message.text.context.from || "You"}
                                     </div>
@@ -12878,12 +13368,12 @@ useEffect(() => {
                                           ? `${myMessageTextClass}`
                                           : `${otherMessageTextClass}`
                                       }`}
-                                                                              style={{
-                                          wordBreak: "break-word",
-                                          overflowWrap: "break-word",
-                                          lineHeight: "1.4",
-                                          letterSpacing: "0.01em",
-                                        }}
+                                      style={{
+                                        wordBreak: "break-word",
+                                        overflowWrap: "break-word",
+                                        lineHeight: "1.4",
+                                        letterSpacing: "0.01em",
+                                      }}
                                     >
                                       {formatText(message.text.body)}
                                     </div>
@@ -12904,20 +13394,29 @@ useEffect(() => {
                                           message.image.data &&
                                           message.image.mimetype
                                         ) {
-                                     
                                           return `data:${message.image.mimetype};base64,${message.image.data}`;
                                         }
                                         if (message.image.url) {
-                                          const fullUrl = getFullImageUrl(message.image.url);
-                                          console.log("Using image URL:", fullUrl);
+                                          const fullUrl = getFullImageUrl(
+                                            message.image.url
+                                          );
+                                          console.log(
+                                            "Using image URL:",
+                                            fullUrl
+                                          );
                                           return fullUrl;
                                         }
                                         if (message.image.link) {
-                                          const fullUrl = getFullImageUrl(message.image.link);
-                                          console.log("Using image link:", fullUrl);
+                                          const fullUrl = getFullImageUrl(
+                                            message.image.link
+                                          );
+                                          console.log(
+                                            "Using image link:",
+                                            fullUrl
+                                          );
                                           return fullUrl;
                                         }
-                                      
+
                                         return logoImage; // Fallback to placeholder
                                       })()}
                                       alt="Image"
@@ -12987,10 +13486,10 @@ useEffect(() => {
                               {message.type === "order" && message.order && (
                                 <div className="p-0 message-content">
                                   <div className="flex items-center space-x-2.5 bg-emerald-800 rounded-lg p-2.5">
-                                                                            <img
-                                          src={`data:image/jpeg;base64,${message.order.thumbnail}`}
-                                          alt="Order"
-                                          className="w-5 h-5 rounded-lg object-cover"
+                                    <img
+                                      src={`data:image/jpeg;base64,${message.order.thumbnail}`}
+                                      alt="Order"
+                                      className="w-5 h-5 rounded-lg object-cover"
                                       onError={(e) => {
                                         const originalSrc = e.currentTarget.src;
                                         console.error(
@@ -13065,9 +13564,9 @@ useEffect(() => {
                                       src={message.gif.link}
                                       alt="GIF"
                                       className="rounded-lg message-image cursor-pointer"
-                                      style={{ 
+                                      style={{
                                         maxWidth: "200px",
-                                        maxHeight: "200px"
+                                        maxHeight: "200px",
                                       }}
                                       onClick={() =>
                                         openImageModal(message.gif?.link || "")
@@ -13099,7 +13598,7 @@ useEffect(() => {
                                 message.type === "ptt") &&
                                 (message.audio || message.ptt) && (
                                   <>
-                                                               <div className="message-content">
+                                    <div className="message-content">
                                       <audio
                                         controls
                                         className="max-w-full"
@@ -13177,37 +13676,44 @@ useEffect(() => {
                                     <div className="document-content flex flex-col items-center p-8 rounded-2xl shadow-xl bg-white dark:bg-gray-800">
                                       {/* Document Header */}
                                       <div className="flex items-center p-3 bg-gray-100 dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600 mb-3 w-full">
-                                        <svg className="w-6 h-6 text-gray-500 dark:text-gray-400 mr-2.5" fill="currentColor" viewBox="0 0 20 20">
-                                          <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                                        <svg
+                                          className="w-6 h-6 text-gray-500 dark:text-gray-400 mr-2.5"
+                                          fill="currentColor"
+                                          viewBox="0 0 20 20"
+                                        >
+                                          <path
+                                            fillRule="evenodd"
+                                            d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z"
+                                            clipRule="evenodd"
+                                          />
                                         </svg>
-                                          <div className="flex-1">
+                                        <div className="flex-1">
                                           <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                              {message.document.file_name ||
-                                                message.document.filename ||
-                                                "Document"}
+                                            {message.document.file_name ||
+                                              message.document.filename ||
+                                              "Document"}
                                           </p>
                                           <div className="text-xs text-gray-500 dark:text-gray-400">
-                                              {message.document.page_count &&
-                                                `${
-                                                  message.document.page_count
-                                                } page${
-                                                  message.document.page_count >
-                                                  1
-                                                    ? "s"
-                                                    : ""
-                                                } • `}
-                                              {message.document.mimetype ||
-                                                "Unknown"}{" "}
-                                              •{" "}
-                                              {(
-                                                (message.document.file_size ||
-                                                  message.document.fileSize ||
-                                                  0) /
-                                                (1024 * 1024)
-                                              ).toFixed(2)}{" "}
-                                              MB
-                                            </div>
+                                            {message.document.page_count &&
+                                              `${
+                                                message.document.page_count
+                                              } page${
+                                                message.document.page_count > 1
+                                                  ? "s"
+                                                  : ""
+                                              } • `}
+                                            {message.document.mimetype ||
+                                              "Unknown"}{" "}
+                                            •{" "}
+                                            {(
+                                              (message.document.file_size ||
+                                                message.document.fileSize ||
+                                                0) /
+                                              (1024 * 1024)
+                                            ).toFixed(2)}{" "}
+                                            MB
                                           </div>
+                                        </div>
                                         <button
                                           onClick={() => {
                                             if (message.document) {
@@ -13217,10 +13723,14 @@ useEffect(() => {
                                                   ? `data:${message.document.mimetype};base64,${message.document.data}`
                                                   : null);
                                               if (docUrl) {
-                                                const documentName = message.document.file_name ||
+                                                const documentName =
+                                                  message.document.file_name ||
                                                   message.document.filename ||
                                                   "Document";
-                                                openPDFModal(docUrl, documentName);
+                                                openPDFModal(
+                                                  docUrl,
+                                                  documentName
+                                                );
                                               }
                                             }
                                           }}
@@ -13229,34 +13739,60 @@ useEffect(() => {
                                           View
                                         </button>
                                       </div>
-                                      
+
                                       {/* Document Content Preview */}
                                       <div className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden w-full">
                                         {(() => {
                                           // Debug logging to understand document structure
-                                      
-                                          
-                                          const docUrl = message.document.link ||
+
+                                          const docUrl =
+                                            message.document.link ||
                                             (message.document.data
                                               ? `data:${message.document.mimetype};base64,${message.document.data}`
                                               : null);
-                                          
+
                                           // Check if it's a PDF based on MIME type or file extension
-                                          const isPDF = message.document.mimetype?.includes('pdf') || 
-                                                       docUrl?.toLowerCase().includes('.pdf') ||
-                                                       message.document.file_name?.toLowerCase().includes('.pdf') ||
-                                                       message.document.filename?.toLowerCase().includes('.pdf');
-                                          
+                                          const isPDF =
+                                            message.document.mimetype?.includes(
+                                              "pdf"
+                                            ) ||
+                                            docUrl
+                                              ?.toLowerCase()
+                                              .includes(".pdf") ||
+                                            message.document.file_name
+                                              ?.toLowerCase()
+                                              .includes(".pdf") ||
+                                            message.document.filename
+                                              ?.toLowerCase()
+                                              .includes(".pdf");
+
                                           // Check if it's an image based on MIME type or file extension
-                                          const isImage = message.document.mimetype?.startsWith('image/') ||
-                                                         docUrl?.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/i) ||
-                                                         message.document.file_name?.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/i) ||
-                                                         message.document.filename?.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/i);
-                                          
+                                          const isImage =
+                                            message.document.mimetype?.startsWith(
+                                              "image/"
+                                            ) ||
+                                            docUrl
+                                              ?.toLowerCase()
+                                              .match(
+                                                /\.(jpg|jpeg|png|gif|webp)$/i
+                                              ) ||
+                                            message.document.file_name
+                                              ?.toLowerCase()
+                                              .match(
+                                                /\.(jpg|jpeg|png|gif|webp)$/i
+                                              ) ||
+                                            message.document.filename
+                                              ?.toLowerCase()
+                                              .match(
+                                                /\.(jpg|jpeg|png|gif|webp)$/i
+                                              );
+
                                           if (isPDF && docUrl) {
                                             // Try multiple PDF viewing methods
-                                            const googleDocsViewer = `https://docs.google.com/viewer?url=${encodeURIComponent(docUrl)}&embedded=true`;
-                                            
+                                            const googleDocsViewer = `https://docs.google.com/viewer?url=${encodeURIComponent(
+                                              docUrl
+                                            )}&embedded=true`;
+
                                             return (
                                               <div className="relative">
                                                 {/* Primary PDF viewer */}
@@ -13266,12 +13802,15 @@ useEffect(() => {
                                                   height="400"
                                                   title="PDF Document Preview"
                                                   className="border-0"
-                                                  style={{ minHeight: '400px' }}
+                                                  style={{ minHeight: "400px" }}
                                                   onError={(e) => {
-                                                    console.log('PDF preview error:', e);
+                                                    console.log(
+                                                      "PDF preview error:",
+                                                      e
+                                                    );
                                                   }}
                                                 />
-                                                
+
                                                 {/* Google Docs viewer as fallback */}
                                                 <div className="mt-2">
                                                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 text-center">
@@ -13279,13 +13818,23 @@ useEffect(() => {
                                                   </p>
                                                   <div className="flex gap-2 justify-center">
                                                     <button
-                                                      onClick={() => window.open(docUrl, '_blank')}
+                                                      onClick={() =>
+                                                        window.open(
+                                                          docUrl,
+                                                          "_blank"
+                                                        )
+                                                      }
                                                       className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs transition-colors"
                                                     >
                                                       Open in New Tab
                                                     </button>
                                                     <button
-                                                      onClick={() => window.open(googleDocsViewer, '_blank')}
+                                                      onClick={() =>
+                                                        window.open(
+                                                          googleDocsViewer,
+                                                          "_blank"
+                                                        )
+                                                      }
                                                       className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded text-xs transition-colors"
                                                     >
                                                       Google Docs Viewer
@@ -13301,7 +13850,10 @@ useEffect(() => {
                                                 alt="Image Document Preview"
                                                 className="w-full h-auto max-h-96 object-contain"
                                                 onError={(e) => {
-                                                  console.log('Image preview error:', e);
+                                                  console.log(
+                                                    "Image preview error:",
+                                                    e
+                                                  );
                                                 }}
                                               />
                                             );
@@ -13309,14 +13861,23 @@ useEffect(() => {
                                             // For other document types, try to show a preview if possible
                                             return (
                                               <div className="p-4 text-center">
-                                                <svg className="w-16 h-16 mx-auto text-gray-400 dark:text-gray-500 mb-2" fill="currentColor" viewBox="0 0 20 20">
-                                                  <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                                                <svg
+                                                  className="w-16 h-16 mx-auto text-gray-400 dark:text-gray-500 mb-2"
+                                                  fill="currentColor"
+                                                  viewBox="0 0 20 20"
+                                                >
+                                                  <path
+                                                    fillRule="evenodd"
+                                                    d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z"
+                                                    clipRule="evenodd"
+                                                  />
                                                 </svg>
                                                 <p className="text-gray-600 dark:text-gray-400 text-sm">
                                                   Document preview not available
                                                 </p>
                                                 <p className="text-gray-500 dark:text-gray-500 text-xs mt-1">
-                                                  Click View to open this document
+                                                  Click View to open this
+                                                  document
                                                 </p>
                                               </div>
                                             );
@@ -13324,14 +13885,23 @@ useEffect(() => {
                                             // No URL available
                                             return (
                                               <div className="p-4 text-center">
-                                                <svg className="w-16 h-16 mx-auto text-gray-400 dark:text-gray-500 mb-2" fill="currentColor" viewBox="0 0 20 20">
-                                                  <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                                                <svg
+                                                  className="w-16 h-16 mx-auto text-gray-400 dark:text-gray-500 mb-2"
+                                                  fill="currentColor"
+                                                  viewBox="0 0 20 20"
+                                                >
+                                                  <path
+                                                    fillRule="evenodd"
+                                                    d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z"
+                                                    clipRule="evenodd"
+                                                  />
                                                 </svg>
                                                 <p className="text-gray-600 dark:text-gray-400 text-sm">
                                                   Document not available
                                                 </p>
                                                 <p className="text-gray-500 dark:text-gray-500 text-xs mt-1">
-                                                  Document data could not be loaded
+                                                  Document data could not be
+                                                  loaded
                                                 </p>
                                               </div>
                                             );
@@ -13360,34 +13930,13 @@ useEffect(() => {
                                     )}
                                   </>
                                 )}
-                              {message.type === "link_preview" &&
-                                message.link_preview && (
-                                  <div className="link-preview-content p-0 message-content image-message rounded-lg overflow-hidden text-gray-800 dark:text-gray-200">
-                                    <a
-                                      href={message.link_preview.body}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="block"
-                                    >
-                                      <img
-                                        src={message.link_preview.preview}
-                                        alt="Preview"
-                                        className="w-full"
-                                      />
-                                      <div className="p-2.5">
-                                        <div className="font-bold text-lg mb-1.5">
-                                          {message.link_preview.title}
-                                        </div>
-                                        <div className="text-sm text-gray-800 dark:text-gray-200 mb-1.5">
-                                          {message.link_preview.description}
-                                        </div>
-                                        <div className="text-blue-500 text-sm">
-                                          {message.link_preview.body}
-                                        </div>
-                                      </div>
-                                    </a>
+                              {message.type === "revoked" && (
+                                <div className="revoked-content p-0 message-content image-message rounded-lg overflow-hidden text-gray-800 dark:text-gray-200">
+                                  <div className="p-2.5 italic">
+                                    This message was deleted and is unavailable.
                                   </div>
-                                )}
+                                </div>
+                              )}
                               {message.type === "sticker" &&
                                 message.sticker && (
                                   <div className="sticker-content p-0 message-content image-message">
@@ -13514,12 +14063,14 @@ useEffect(() => {
                                     <div className="flex items-center gap-0.5 mt-2 -mb-1 ml-auto">
                                       {reactions.map(
                                         (reaction: any, index: number) => (
-                                          <span 
-                                            key={index} 
+                                          <span
+                                            key={index}
                                             className="text-sm bg-white/80 dark:bg-gray-700/80 rounded-full p-1 shadow-sm border border-white/30 dark:border-gray-600/30 backdrop-blur-sm"
                                             style={{
-                                              transform: `translateX(${index * -8}px)`,
-                                              zIndex: reactions.length - index
+                                              transform: `translateX(${
+                                                index * -8
+                                              }px)`,
+                                              zIndex: reactions.length - index,
                                             }}
                                           >
                                             {reaction.emoji}
@@ -13623,11 +14174,13 @@ useEffect(() => {
                                           `Phone ${message.phoneIndex + 1}`}
                                       </div>
                                     )}
-                                    <span className={`text-xs ${
-                                      message.from_me
-                                        ? "text-slate-700 dark:text-white/90"
-                                        : "text-slate-700 dark:text-white/90"
-                                    }`}>
+                                    <span
+                                      className={`text-xs ${
+                                        message.from_me
+                                          ? "text-slate-700 dark:text-white/90"
+                                          : "text-slate-700 dark:text-white/90"
+                                      }`}
+                                    >
                                       {formatTimestamp(
                                         message.createdAt ||
                                           message.dateAdded ||
@@ -13667,10 +14220,12 @@ useEffect(() => {
                                         ) : message.status === "sending" ? (
                                           <div className="flex items-center space-x-2">
                                             <LoadingIcon
-                    icon="spinning-circles"
-                    className="w-12 h-12 text-blue-500 dark:text-blue-400"
-                  />
-                                            <span className="text-xs text-blue-500">Sending...</span>
+                                              icon="spinning-circles"
+                                              className="w-12 h-12 text-blue-500 dark:text-blue-400"
+                                            />
+                                            <span className="text-xs text-blue-500">
+                                              Sending...
+                                            </span>
                                           </div>
                                         ) : null}
                                       </div>
@@ -13728,10 +14283,18 @@ useEffect(() => {
                       />
                     )}
                     {replyToMessage.type === "audio" && (
-                      <audio controls src={replyToMessage.audio?.link} className="rounded-lg" />
+                      <audio
+                        controls
+                        src={replyToMessage.audio?.link}
+                        className="rounded-lg"
+                      />
                     )}
                     {replyToMessage.type === "voice" && (
-                      <audio controls src={replyToMessage.voice?.link} className="rounded-lg" />
+                      <audio
+                        controls
+                        src={replyToMessage.voice?.link}
+                        className="rounded-lg"
+                      />
                     )}
                     {replyToMessage.type === "document" && (
                       <iframe
@@ -13772,7 +14335,7 @@ useEffect(() => {
                     )}
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => setReplyToMessage(null)}
                   className="p-1.5 hover:bg-gray-700/60 dark:hover:bg-gray-800/80 rounded-lg transition-all duration-200 hover:scale-110 ml-2"
                 >
@@ -13784,8 +14347,8 @@ useEffect(() => {
               </div>
             )}
             <div className="absolute bottom-0 left-0 right-0 mx-2 mb-2">
-                              <div className="flex items-center w-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl pl-3 pr-3 py-2 rounded-3xl border-0 shadow-lg shadow-black/10 dark:shadow-slate-900/20">
-                                <button
+              <div className="flex items-center w-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl pl-3 pr-3 py-2 rounded-3xl border-0 shadow-lg shadow-black/10 dark:shadow-slate-900/20">
+                <button
                   className="p-2 m-0 hover:bg-white/20 dark:hover:bg-slate-700/40 rounded-xl transition-all duration-200 hover:scale-105 group border-0"
                   onClick={() => setEmojiPickerOpen(!isEmojiPickerOpen)}
                 >
@@ -13821,9 +14384,7 @@ useEffect(() => {
                     />
                   </span>
                 </button>
-                
-      
-             
+
                 {userData?.company === "Juta Software" && (
                   <button
                     className="p-2 m-0 !box ml-2"
@@ -13974,7 +14535,7 @@ useEffect(() => {
                   }}
                   disabled={userRole === "3"}
                 />
-   <button
+                <button
                   className="p-2 m-0 hover:bg-white/20 dark:hover:bg-white/20 rounded-xl transition-all duration-200 hover:scale-105 group"
                   onClick={toggleRecordingPopup}
                 >
@@ -13985,8 +14546,6 @@ useEffect(() => {
                     />
                   </span>
                 </button>
-
-
               </div>
               {isEmojiPickerOpen && (
                 <div className="absolute bottom-20 left-2 z-10">
@@ -14039,14 +14598,20 @@ useEffect(() => {
                 <div className="flex flex-col sm:flex-row gap-6 text-sm text-gray-600 dark:text-gray-300">
                   <div className="flex items-center space-x-3 p-4 bg-white/40 dark:bg-gray-700/40 rounded-2xl backdrop-blur-xl border border-white/50 dark:border-gray-600/60 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
                     <div className="w-3 h-3 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full shadow-lg"></div>
-                    <span className="font-medium">Click on any contact to start chatting</span>
+                    <span className="font-medium">
+                      Click on any contact to start chatting
+                    </span>
                   </div>
                   <div className="flex items-center space-x-3 p-4 bg-white/40 dark:bg-gray-700/40 rounded-2xl backdrop-blur-xl border border-white/50 dark:border-gray-600/60 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
                     <div className="w-3 h-3 bg-gradient-to-r from-green-400 to-green-600 rounded-full shadow-lg"></div>
-                    <span className="font-medium">Use search to find specific contacts</span>
+                    <span className="font-medium">
+                      Use search to find specific contacts
+                    </span>
                   </div>
                   <div className="flex items-center space-x-3 p-4 bg-white/40 dark:bg-gray-700/40 rounded-2xl backdrop-blur-xl border border-white/50 dark:border-gray-600/60 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-                    <span className="font-medium">Create new conversations anytime</span>
+                    <span className="font-medium">
+                      Create new conversations anytime
+                    </span>
                   </div>
                 </div>
               </div>
@@ -14067,7 +14632,10 @@ useEffect(() => {
                 </div>
                 {/* Animated rings */}
                 <div className="absolute inset-0 rounded-full border-2 border-blue-400/20 dark:border-blue-300/20 animate-ping"></div>
-                <div className="absolute inset-0 rounded-full border-2 border-purple-500/20 dark:border-purple-400/20 animate-ping" style={{ animationDelay: '0.5s' }}></div>
+                <div
+                  className="absolute inset-0 rounded-full border-2 border-purple-500/20 dark:border-purple-400/20 animate-ping"
+                  style={{ animationDelay: "0.5s" }}
+                ></div>
               </div>
               <div className="text-center">
                 <p className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">
@@ -14081,113 +14649,123 @@ useEffect(() => {
           </div>
         </div>
       )}
-                      {isRecordingPopupOpen && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center">
-                    {/* Backdrop */}
-                    <div 
-                      className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-                      onClick={() => setIsRecordingPopupOpen(false)}
-                    />
-                    
-                    {/* Modal Content */}
-                    <div className="relative w-full max-w-md mx-4 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl shadow-2xl rounded-3xl border-0 overflow-hidden">
-                      {/* Header */}
-                      <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/30">
-                              <Lucide icon="Mic" className="w-5 h-5 text-white" />
-                            </div>
-                            <div>
-                              <h2 className="text-xl font-bold text-white">Voice Message</h2>
-                              <p className="text-red-100 text-sm">Record and send voice messages</p>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => setIsRecordingPopupOpen(false)}
-                            className="p-2 hover:bg-white/20 rounded-xl transition-all duration-200 border border-white/30"
-                          >
-                            <Lucide icon="X" className="w-5 h-5 text-white" />
-                          </button>
-                        </div>
-                      </div>
+      {isRecordingPopupOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setIsRecordingPopupOpen(false)}
+          />
 
-                      {/* Recording Controls */}
-                      <div className="p-6 space-y-4">
-                        <div className="flex items-center justify-center mb-4">
-                          <button
-                            className={`p-4 rounded-full transition-all duration-200 ${
-                              isRecording
-                                ? "bg-red-500 hover:bg-red-600 text-white shadow-lg"
-                                : "bg-blue-500 hover:bg-blue-600 text-white shadow-lg"
-                            }`}
-                            onClick={toggleRecording}
-                          >
-                            <Lucide
-                              icon={isRecording ? "StopCircle" : "Mic"}
-                              className="w-8 h-8"
-                            />
-                          </button>
-                        </div>
-                        
-                        <div className="flex justify-center mb-4">
-                          <ReactMicComponent
-                            record={isRecording}
-                            className="w-full rounded-xl h-12"
-                            onStop={onStop}
-                            strokeColor="#0000CD"
-                            backgroundColor="#FFFFFF"
-                            mimeType="audio/webm"
-                          />
-                        </div>
-                        
-                        {audioBlob && (
-                          <div className="space-y-4">
-                            <div className="bg-white/20 dark:bg-slate-700/40 rounded-xl p-4">
-                              <audio
-                                src={URL.createObjectURL(audioBlob)}
-                                controls
-                                className="w-full h-10 mb-3"
-                              />
-                              <div className="flex justify-between gap-3">
-                                <button
-                                  className="flex-1 px-4 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white font-medium transition-all duration-200"
-                                  onClick={() => setAudioBlob(null)}
-                                >
-                                  Remove
-                                </button>
-                                <button
-                                  className="flex-1 px-4 py-2 rounded-xl bg-green-500 hover:bg-green-600 text-white font-medium transition-all duration-200"
-                                  onClick={sendVoiceMessage}
-                                >
-                                  Send
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+          {/* Modal Content */}
+          <div className="relative w-full max-w-md mx-4 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl shadow-2xl rounded-3xl border-0 overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/30">
+                    <Lucide icon="Mic" className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">
+                      Voice Message
+                    </h2>
+                    <p className="text-red-100 text-sm">
+                      Record and send voice messages
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsRecordingPopupOpen(false)}
+                  className="p-2 hover:bg-white/20 rounded-xl transition-all duration-200 border border-white/30"
+                >
+                  <Lucide icon="X" className="w-5 h-5 text-white" />
+                </button>
+              </div>
+            </div>
+
+            {/* Recording Controls */}
+            <div className="p-6 space-y-4">
+              <div className="flex items-center justify-center mb-4">
+                <button
+                  className={`p-4 rounded-full transition-all duration-200 ${
+                    isRecording
+                      ? "bg-red-500 hover:bg-red-600 text-white shadow-lg"
+                      : "bg-blue-500 hover:bg-blue-600 text-white shadow-lg"
+                  }`}
+                  onClick={toggleRecording}
+                >
+                  <Lucide
+                    icon={isRecording ? "StopCircle" : "Mic"}
+                    className="w-8 h-8"
+                  />
+                </button>
+              </div>
+
+              <div className="flex justify-center mb-4">
+                <ReactMicComponent
+                  record={isRecording}
+                  className="w-full rounded-xl h-12"
+                  onStop={onStop}
+                  strokeColor="#0000CD"
+                  backgroundColor="#FFFFFF"
+                  mimeType="audio/webm"
+                />
+              </div>
+
+              {audioBlob && (
+                <div className="space-y-4">
+                  <div className="bg-white/20 dark:bg-slate-700/40 rounded-xl p-4">
+                    <audio
+                      src={URL.createObjectURL(audioBlob)}
+                      controls
+                      className="w-full h-10 mb-3"
+                    />
+                    <div className="flex justify-between gap-3">
+                      <button
+                        className="flex-1 px-4 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white font-medium transition-all duration-200"
+                        onClick={() => setAudioBlob(null)}
+                      >
+                        Remove
+                      </button>
+                      <button
+                        className="flex-1 px-4 py-2 rounded-xl bg-green-500 hover:bg-green-600 text-white font-medium transition-all duration-200"
+                        onClick={sendVoiceMessage}
+                      >
+                        Send
+                      </button>
                     </div>
                   </div>
-                )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {selectedMessages.length > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/30 dark:border-gray-600/30 p-6 mx-4 max-w-sm w-full animate-in zoom-in-95 duration-200">
             {/* Header */}
             <div className="text-center mb-6">
               <div className="w-12 h-12 bg-blue-100/80 dark:bg-blue-600/40 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-3">
-                <Lucide icon="MessageSquare" className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                <Lucide
+                  icon="MessageSquare"
+                  className="w-6 h-6 text-blue-600 dark:text-blue-400"
+                />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 Message Actions
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                {selectedMessages.length} message{selectedMessages.length !== 1 ? 's' : ''} selected
+                {selectedMessages.length} message
+                {selectedMessages.length !== 1 ? "s" : ""} selected
               </p>
             </div>
 
             {/* Check if all messages are temporary */}
-            {selectedMessages.every(msg => !msg.id || msg.id.startsWith('temp_')) ? (
+            {selectedMessages.every(
+              (msg) => !msg.id || msg.id.startsWith("temp_")
+            ) ? (
               // Show loading state while refreshing messages
               <div className="text-center space-y-4">
                 <div className="w-16 h-16 bg-blue-100/80 dark:bg-blue-600/40 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-3">
@@ -14221,7 +14799,7 @@ useEffect(() => {
                   <Lucide icon="Share" className="w-4 h-4" />
                   Forward
                 </button>
-                
+
                 <button
                   className="w-full bg-gradient-to-r from-red-600 to-red-700 dark:from-red-500 dark:to-red-600 text-white px-4 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm border border-red-500/30 dark:border-red-400/30 hover:scale-[1.02] active:scale-98 font-medium flex items-center justify-center gap-2"
                   onClick={openDeletePopup}
@@ -14229,7 +14807,7 @@ useEffect(() => {
                   <Lucide icon="Trash2" className="w-4 h-4" />
                   Delete
                 </button>
-                
+
                 <button
                   className="w-full bg-gradient-to-r from-gray-500 to-gray-600 dark:from-gray-400 dark:to-gray-500 text-white px-4 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm border border-gray-400/30 dark:border-gray-300/30 hover:scale-[1.02] active:scale-98 font-medium flex items-center justify-center gap-2"
                   onClick={() => setSelectedMessages([])}
@@ -14242,221 +14820,238 @@ useEffect(() => {
             )}
 
             {/* Close on backdrop click */}
-            <div 
-              className="absolute inset-0 -z-10" 
+            <div
+              className="absolute inset-0 -z-10"
               onClick={() => setSelectedMessages([])}
             />
           </div>
         </div>
       )}
-       {/* Glassmorphic Phone Selection Modal */}
-    {showPhoneModal && (
-      <div 
-        className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') {
-            setShowPhoneModal(false);
-          }
-        }}
-        tabIndex={-1}
-      >
-        {/* Backdrop */}
-        <div 
-          className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm"
-          onClick={() => setShowPhoneModal(false)}
-        />
-        
-        {/* Modal */}
-        <div 
-          className="relative w-full max-w-md transform transition-all duration-300 ease-out"
-          data-phone-modal
+      {/* Glassmorphic Phone Selection Modal */}
+      {showPhoneModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              setShowPhoneModal(false);
+            }
+          }}
           tabIndex={-1}
         >
-          {/* Glassmorphic Container */}
-          <div className="relative overflow-hidden rounded-xl bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border border-gray-200/50 dark:border-gray-600/50 shadow-2xl dark:shadow-black/20">
-            {/* Subtle gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 via-transparent to-purple-50/30 dark:from-blue-900/20 dark:via-transparent dark:to-purple-900/20" />
-            
-            {/* Content */}
-            <div className="relative p-6">
-              {/* Header */}
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                    <Lucide
-                      icon="Phone"
-                      className="w-5 h-5 text-blue-600 dark:text-blue-400"
-                    />
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowPhoneModal(false)}
+          />
+
+          {/* Modal */}
+          <div
+            className="relative w-full max-w-md transform transition-all duration-300 ease-out"
+            data-phone-modal
+            tabIndex={-1}
+          >
+            {/* Glassmorphic Container */}
+            <div className="relative overflow-hidden rounded-xl bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border border-gray-200/50 dark:border-gray-600/50 shadow-2xl dark:shadow-black/20">
+              {/* Subtle gradient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 via-transparent to-purple-50/30 dark:from-blue-900/20 dark:via-transparent dark:to-purple-900/20" />
+
+              {/* Content */}
+              <div className="relative p-6">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                      <Lucide
+                        icon="Phone"
+                        className="w-5 h-5 text-blue-600 dark:text-blue-400"
+                      />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        Select Phone
+                      </h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                        Choose your active phone number
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      Select Phone
-                    </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                      Choose your active phone number
+                  <button
+                    onClick={() => setShowPhoneModal(false)}
+                    className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
+                  >
+                    <Lucide icon="X" className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Phone List */}
+                <div className="space-y-2.5 max-h-64 overflow-y-auto custom-scrollbar">
+                  {Object.entries(phoneNames).map(
+                    ([index, phoneName], itemIndex) => {
+                      const phoneStatus =
+                        qrCodes[parseInt(index)]?.status || "unknown";
+                      const isConnected =
+                        phoneStatus === "ready" ||
+                        phoneStatus === "authenticated";
+                      const isCurrentPhone =
+                        userData?.phone === parseInt(index);
+
+                      return (
+                        <button
+                          key={index}
+                          onClick={() => {
+                            handlePhoneChange(parseInt(index));
+                            setShowPhoneModal(false);
+                          }}
+                          className={`w-full p-3.5 rounded-lg border transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] ${
+                            isCurrentPhone
+                              ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700/50 shadow-sm"
+                              : "bg-white dark:bg-gray-700/50 border-gray-200 dark:border-gray-600/50 hover:bg-gray-50 dark:hover:bg-gray-600/50 hover:border-blue-300 dark:hover:border-blue-500/50"
+                          }`}
+                          style={{
+                            animationDelay: `${itemIndex * 75}ms`,
+                            animation: "slideInUp 0.4s ease-out forwards",
+                          }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div
+                                className={`p-2 rounded-md ${
+                                  isCurrentPhone
+                                    ? "bg-blue-100 dark:bg-blue-800/50"
+                                    : "bg-gray-100 dark:bg-gray-600/50"
+                                }`}
+                              >
+                                <Lucide
+                                  icon="Smartphone"
+                                  className={`w-4 h-4 ${
+                                    isCurrentPhone
+                                      ? "text-blue-600 dark:text-blue-400"
+                                      : "text-gray-600 dark:text-gray-400"
+                                  }`}
+                                />
+                              </div>
+                              <div className="text-left">
+                                <div
+                                  className={`font-medium ${
+                                    isCurrentPhone
+                                      ? "text-blue-900 dark:text-blue-100"
+                                      : "text-gray-900 dark:text-white"
+                                  }`}
+                                >
+                                  {phoneName}
+                                </div>
+                                {isCurrentPhone && (
+                                  <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                                    Current Phone
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col items-end space-y-2">
+                              <span
+                                className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                  isConnected
+                                    ? "bg-green-100 text-green-700 dark:bg-green-800/50 dark:text-green-300"
+                                    : "bg-red-100 text-red-700 dark:bg-red-800/50 dark:text-red-300"
+                                }`}
+                              >
+                                {isConnected ? "Connected" : "Not Connected"}
+                              </span>
+
+                              {isCurrentPhone && (
+                                <div className="w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full animate-pulse" />
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    }
+                  )}
+                </div>
+
+                {/* Footer */}
+                <div className="mt-5 pt-4 border-t border-gray-200 dark:border-gray-600/50">
+                  <div className="text-center">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {Object.keys(phoneNames).length} phone
+                      {Object.keys(phoneNames).length !== 1 ? "s" : ""}{" "}
+                      available
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setShowPhoneModal(false)}
-                  className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
-                >
-                  <Lucide
-                    icon="X"
-                    className="w-4 h-4"
-                  />
-                </button>
-              </div>
-
-              {/* Phone List */}
-              <div className="space-y-2.5 max-h-64 overflow-y-auto custom-scrollbar">
-                {Object.entries(phoneNames).map(([index, phoneName], itemIndex) => {
-                  const phoneStatus =
-                    qrCodes[parseInt(index)]?.status || "unknown";
-                  const isConnected =
-                    phoneStatus === "ready" ||
-                    phoneStatus === "authenticated";
-                  const isCurrentPhone = userData?.phone === parseInt(index);
-
-                  return (
-                    <button
-                      key={index}
-                      onClick={() => {
-                        handlePhoneChange(parseInt(index));
-                        setShowPhoneModal(false);
-                      }}
-                      className={`w-full p-3.5 rounded-lg border transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] ${
-                        isCurrentPhone
-                          ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700/50 shadow-sm"
-                          : "bg-white dark:bg-gray-700/50 border-gray-200 dark:border-gray-600/50 hover:bg-gray-50 dark:hover:bg-gray-600/50 hover:border-blue-300 dark:hover:border-blue-500/50"
-                      }`}
-                      style={{
-                        animationDelay: `${itemIndex * 75}ms`,
-                        animation: 'slideInUp 0.4s ease-out forwards'
-                      }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className={`p-2 rounded-md ${
-                            isCurrentPhone
-                              ? "bg-blue-100 dark:bg-blue-800/50"
-                              : "bg-gray-100 dark:bg-gray-600/50"
-                          }`}>
-                            <Lucide
-                              icon="Smartphone"
-                              className={`w-4 h-4 ${
-                                isCurrentPhone
-                                  ? "text-blue-600 dark:text-blue-400"
-                                  : "text-gray-600 dark:text-gray-400"
-                              }`}
-                            />
-                          </div>
-                          <div className="text-left">
-                            <div className={`font-medium ${
-                              isCurrentPhone
-                                ? "text-blue-900 dark:text-blue-100"
-                                : "text-gray-900 dark:text-white"
-                            }`}>
-                              {phoneName}
-                            </div>
-                            {isCurrentPhone && (
-                              <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                                Current Phone
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <div className="flex flex-col items-end space-y-2">
-                          <span
-                            className={`text-xs px-2 py-1 rounded-full font-medium ${
-                              isConnected
-                                ? "bg-green-100 text-green-700 dark:bg-green-800/50 dark:text-green-300"
-                                : "bg-red-100 text-red-700 dark:bg-red-800/50 dark:text-red-300"
-                            }`}
-                          >
-                            {isConnected ? "Connected" : "Not Connected"}
-                          </span>
-                          
-                          {isCurrentPhone && (
-                            <div className="w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full animate-pulse" />
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Footer */}
-              <div className="mt-5 pt-4 border-t border-gray-200 dark:border-gray-600/50">
-                <div className="text-center">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {Object.keys(phoneNames).length} phone{Object.keys(phoneNames).length !== 1 ? 's' : ''} available
-                  </p>
-                </div>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-    )}
-      {/* Fallback popup for still-temporary messages after refresh */}
-      {selectedMessages.length > 0 && 
-       !isRefreshingMessages && 
-       selectedMessages.every(msg => !msg.id || msg.id.startsWith('temp_')) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/30 dark:border-gray-600/30 p-6 mx-4 max-w-sm w-full animate-in zoom-in-95 duration-200">
-            {/* Header */}
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-amber-100/80 dark:bg-amber-600/40 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4">
-                <Lucide icon="AlertTriangle" className="w-8 h-8 text-amber-600 dark:text-amber-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                Messages Still Loading
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                These messages are still being processed. Please try again later.
-              </p>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                className="flex-1 bg-gradient-to-r from-amber-500 to-amber-600 dark:from-amber-400 dark:to-amber-500 text-white px-4 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm border border-amber-400/30 dark:border-amber-300/30 hover:scale-[1.02] active:scale-98 font-medium flex items-center justify-center gap-2"
-                onClick={() => {
-                  setSelectedMessages([]);
-                  if (selectedChatId && whapiToken) {
-                    setIsRefreshingMessages(true);
-                    fetchMessages(selectedChatId, whapiToken).then(() => {
-                      setTimeout(() => setIsRefreshingMessages(false), 1000);
-                    }).catch(() => {
-                      setIsRefreshingMessages(false);
-                    });
-                  }
-                }}
-              >
-                <Lucide icon="RefreshCw" className="w-4 h-4" />
-                Try Again
-              </button>
-              
-              <button
-                className="flex-1 bg-gradient-to-r from-gray-500 to-gray-600 dark:from-gray-400 dark:to-gray-500 text-white px-4 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm border border-gray-400/30 dark:border-gray-300/30 hover:scale-[1.02] active:scale-98 font-medium flex items-center justify-center gap-2"
-                onClick={() => setSelectedMessages([])}
-              >
-                <Lucide icon="X" className="w-4 h-4" />
-                Cancel
-              </button>
-            </div>
-
-            {/* Close on backdrop click */}
-            <div 
-              className="absolute inset-0 -z-10" 
-              onClick={() => setSelectedMessages([])}
-            />
           </div>
         </div>
       )}
+      {/* Fallback popup for still-temporary messages after refresh */}
+      {selectedMessages.length > 0 &&
+        !isRefreshingMessages &&
+        selectedMessages.every(
+          (msg) => !msg.id || msg.id.startsWith("temp_")
+        ) && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/30 dark:border-gray-600/30 p-6 mx-4 max-w-sm w-full animate-in zoom-in-95 duration-200">
+              {/* Header */}
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 bg-amber-100/80 dark:bg-amber-600/40 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Lucide
+                    icon="AlertTriangle"
+                    className="w-8 h-8 text-amber-600 dark:text-amber-400"
+                  />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                  Messages Still Loading
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  These messages are still being processed. Please try again
+                  later.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  className="flex-1 bg-gradient-to-r from-amber-500 to-amber-600 dark:from-amber-400 dark:to-amber-500 text-white px-4 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm border border-amber-400/30 dark:border-amber-300/30 hover:scale-[1.02] active:scale-98 font-medium flex items-center justify-center gap-2"
+                  onClick={() => {
+                    setSelectedMessages([]);
+                    if (selectedChatId && whapiToken) {
+                      setIsRefreshingMessages(true);
+                      fetchMessages(selectedChatId, whapiToken)
+                        .then(() => {
+                          setTimeout(
+                            () => setIsRefreshingMessages(false),
+                            1000
+                          );
+                        })
+                        .catch(() => {
+                          setIsRefreshingMessages(false);
+                        });
+                    }
+                  }}
+                >
+                  <Lucide icon="RefreshCw" className="w-4 h-4" />
+                  Try Again
+                </button>
+
+                <button
+                  className="flex-1 bg-gradient-to-r from-gray-500 to-gray-600 dark:from-gray-400 dark:to-gray-500 text-white px-4 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm border border-gray-400/30 dark:border-gray-300/30 hover:scale-[1.02] active:scale-98 font-medium flex items-center justify-center gap-2"
+                  onClick={() => setSelectedMessages([])}
+                >
+                  <Lucide icon="X" className="w-4 h-4" />
+                  Cancel
+                </button>
+              </div>
+
+              {/* Close on backdrop click */}
+              <div
+                className="absolute inset-0 -z-10"
+                onClick={() => setSelectedMessages([])}
+              />
+            </div>
+          </div>
+        )}
 
       {/* Delete Confirmation Modal */}
       {isDeletePopupOpen && (
@@ -14465,13 +15060,18 @@ useEffect(() => {
             {/* Header */}
             <div className="text-center mb-6">
               <div className="w-16 h-16 bg-red-100/80 dark:bg-red-600/40 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4">
-                <Lucide icon="AlertTriangle" className="w-8 h-8 text-red-600 dark:text-red-400" />
+                <Lucide
+                  icon="AlertTriangle"
+                  className="w-8 h-8 text-red-600 dark:text-red-400"
+                />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
                 Delete Messages
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Are you sure you want to delete {selectedMessages.length} message{selectedMessages.length !== 1 ? 's' : ''}? This action cannot be undone.
+                Are you sure you want to delete {selectedMessages.length}{" "}
+                message{selectedMessages.length !== 1 ? "s" : ""}? This action
+                cannot be undone.
               </p>
             </div>
 
@@ -14484,7 +15084,7 @@ useEffect(() => {
                 <Lucide icon="Trash2" className="w-4 h-4" />
                 Delete
               </button>
-              
+
               <button
                 className="flex-1 bg-gradient-to-r from-gray-500 to-gray-600 dark:from-gray-400 dark:to-gray-500 text-white px-4 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm border border-gray-400/30 dark:border-gray-300/30 hover:scale-[1.02] active:scale-98 font-medium flex items-center justify-center gap-2"
                 onClick={closeDeletePopup}
@@ -14495,8 +15095,8 @@ useEffect(() => {
             </div>
 
             {/* Close on backdrop click */}
-            <div 
-              className="absolute inset-0 -z-10" 
+            <div
+              className="absolute inset-0 -z-10"
               onClick={closeDeletePopup}
             />
           </div>
@@ -14510,13 +15110,17 @@ useEffect(() => {
             {/* Header */}
             <div className="text-center mb-6">
               <div className="w-16 h-16 bg-blue-100/80 dark:bg-blue-600/40 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4">
-                <Lucide icon="Share" className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                <Lucide
+                  icon="Share"
+                  className="w-8 h-8 text-blue-600 dark:text-blue-400"
+                />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
                 Forward Messages
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Select contacts to forward {selectedMessages.length} message{selectedMessages.length !== 1 ? 's' : ''} to
+                Select contacts to forward {selectedMessages.length} message
+                {selectedMessages.length !== 1 ? "s" : ""} to
               </p>
             </div>
 
@@ -14535,24 +15139,26 @@ useEffect(() => {
                   </button>
                 </div>
               </div>
-              
+
               {/* Tag Filter */}
               <div className="mb-3">
                 <div className="flex flex-wrap gap-2">
-                  {Array.from(new Set(contacts.flatMap(c => c.tags || []))).map((tag) => (
+                  {Array.from(
+                    new Set(contacts.flatMap((c) => c.tags || []))
+                  ).map((tag) => (
                     <button
                       key={tag}
                       onClick={() => {
-                        setForwardDialogTags(prev => 
-                          prev.includes(tag) 
-                            ? prev.filter(t => t !== tag)
+                        setForwardDialogTags((prev) =>
+                          prev.includes(tag)
+                            ? prev.filter((t) => t !== tag)
                             : [...prev, tag]
                         );
                       }}
                       className={`px-3 py-1 text-xs rounded-lg transition-colors ${
                         forwardDialogTags.includes(tag)
-                          ? 'bg-blue-100 dark:bg-blue-600/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          ? "bg-blue-100 dark:bg-blue-600/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30"
+                          : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                       }`}
                     >
                       {tag}
@@ -14564,42 +15170,61 @@ useEffect(() => {
               {/* Contact List */}
               <div className="max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg p-2 bg-gray-50 dark:bg-gray-800">
                 {contacts
-                  .filter(contact => 
-                    forwardDialogTags.length === 0 ||
-                    contact.tags?.some(tag => forwardDialogTags.includes(tag))
+                  .filter(
+                    (contact) =>
+                      forwardDialogTags.length === 0 ||
+                      contact.tags?.some((tag) =>
+                        forwardDialogTags.includes(tag)
+                      )
                   )
                   .map((contact) => (
                     <div
                       key={contact.id}
                       className={`flex items-center p-2 rounded-lg cursor-pointer transition-colors ${
-                        selectedContactsForForwarding.some(c => c.id === contact.id)
-                          ? 'bg-blue-100 dark:bg-blue-600/40 border border-blue-200 dark:border-blue-500/30'
-                          : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                        selectedContactsForForwarding.some(
+                          (c) => c.id === contact.id
+                        )
+                          ? "bg-blue-100 dark:bg-blue-600/40 border border-blue-200 dark:border-blue-500/30"
+                          : "hover:bg-gray-100 dark:hover:bg-gray-700"
                       }`}
                       onClick={() => {
-                        setSelectedContactsForForwarding(prev => 
-                          prev.some(c => c.id === contact.id)
-                            ? prev.filter(c => c.id !== contact.id)
+                        setSelectedContactsForForwarding((prev) =>
+                          prev.some((c) => c.id === contact.id)
+                            ? prev.filter((c) => c.id !== contact.id)
                             : [...prev, contact]
                         );
                       }}
                     >
                       <div className="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center mr-3">
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          {contact.contactName?.[0] || contact.firstName?.[0] || contact.lastName?.[0] || '?'}
+                          {contact.contactName?.[0] ||
+                            contact.firstName?.[0] ||
+                            contact.lastName?.[0] ||
+                            "?"}
                         </span>
                       </div>
                       <div className="flex-1">
                         <div className="font-medium text-gray-900 dark:text-gray-100">
-                          {contact.contactName || `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || 'Unknown Contact'}
+                          {contact.contactName ||
+                            `${contact.firstName || ""} ${
+                              contact.lastName || ""
+                            }`.trim() ||
+                            "Unknown Contact"}
                         </div>
                         <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {contact.phone || contact.customer_phone || 'No phone'}
+                          {contact.phone ||
+                            contact.customer_phone ||
+                            "No phone"}
                         </div>
                       </div>
                       <div className="ml-2">
-                        {selectedContactsForForwarding.some(c => c.id === contact.id) && (
-                          <Lucide icon="Check" className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        {selectedContactsForForwarding.some(
+                          (c) => c.id === contact.id
+                        ) && (
+                          <Lucide
+                            icon="Check"
+                            className="w-5 h-5 text-blue-600 dark:text-blue-400"
+                          />
                         )}
                       </div>
                     </div>
@@ -14612,11 +15237,13 @@ useEffect(() => {
               <button
                 className={`flex-1 px-4 py-3 rounded-xl shadow-lg transition-all duration-300 backdrop-blur-sm border font-medium flex items-center justify-center gap-2 ${
                   isForwarding
-                    ? 'bg-gray-500 dark:bg-gray-600 text-white border-gray-400/30 dark:border-gray-500/30 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-500 dark:to-blue-600 text-white border-blue-500/30 dark:border-blue-400/30 hover:shadow-xl hover:scale-[1.02] active:scale-98'
+                    ? "bg-gray-500 dark:bg-gray-600 text-white border-gray-400/30 dark:border-gray-500/30 cursor-not-allowed"
+                    : "bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-500 dark:to-blue-600 text-white border-blue-500/30 dark:border-blue-400/30 hover:shadow-xl hover:scale-[1.02] active:scale-98"
                 }`}
                 onClick={handleForwardMessages}
-                disabled={selectedContactsForForwarding.length === 0 || isForwarding}
+                disabled={
+                  selectedContactsForForwarding.length === 0 || isForwarding
+                }
               >
                 {isForwarding ? (
                   <>
@@ -14626,11 +15253,12 @@ useEffect(() => {
                 ) : (
                   <>
                     <Lucide icon="Send" className="w-4 h-4" />
-                    Forward to {selectedContactsForForwarding.length} Contact{selectedContactsForForwarding.length !== 1 ? 's' : ''}
+                    Forward to {selectedContactsForForwarding.length} Contact
+                    {selectedContactsForForwarding.length !== 1 ? "s" : ""}
                   </>
                 )}
               </button>
-              
+
               <button
                 className="flex-1 bg-gradient-to-r from-gray-500 to-gray-600 dark:from-gray-400 dark:to-gray-500 text-white px-4 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm border border-gray-400/30 dark:border-gray-300/30 hover:scale-[1.02] active:scale-98 font-medium flex items-center justify-center gap-2"
                 onClick={() => {
@@ -14644,8 +15272,8 @@ useEffect(() => {
             </div>
 
             {/* Close on backdrop click */}
-            <div 
-              className="absolute inset-0 -z-10" 
+            <div
+              className="absolute inset-0 -z-10"
               onClick={() => {
                 setIsForwardDialogOpen(false);
                 setSelectedContactsForForwarding([]);
@@ -14698,7 +15326,7 @@ useEffect(() => {
           </div>
         </div>
       )}
-         {isTabOpen && (
+      {isTabOpen && (
         <div className="absolute top-0 right-0 h-full w-full md:w-1/3 lg:w-2/5 bg-white/60 dark:bg-gray-800/60 backdrop-blur-3xl border-l border-white/30 dark:border-gray-600/40 overflow-y-auto z-50 shadow-2xl transition-all duration-500 ease-in-out">
           <div className="flex flex-col h-full">
             <div className="flex items-center justify-between p-4 border-b border-white/30 dark:border-gray-600/40 bg-gradient-to-r from-white/50 via-white/30 to-white/20 dark:from-gray-800/60 dark:via-gray-800/40 dark:to-gray-800/20 backdrop-blur-2xl">
@@ -14725,13 +15353,13 @@ useEffect(() => {
             </div>
             {/* Enhanced Content Area */}
             <div className="flex-grow overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-white/10 via-white/5 to-transparent dark:from-gray-800/10 dark:via-gray-800/5 dark:to-transparent backdrop-blur-2xl">
-                            {/* Profile Header Section - Enhanced Glassmorphic */}
+              {/* Profile Header Section - Enhanced Glassmorphic */}
               <div className="bg-gradient-to-br from-white/30 via-white/20 to-white/10 dark:from-gray-800/40 dark:via-gray-700/30 dark:to-gray-800/20 backdrop-blur-3xl rounded-2xl shadow-2xl overflow-hidden border border-white/40 dark:border-gray-600/50 p-4 relative group hover:scale-[1.02] transition-all duration-500">
                 {/* Animated gradient overlay */}
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-pink-500/5 dark:from-blue-400/10 dark:via-purple-400/10 dark:to-pink-400/10 animate-pulse opacity-60"></div>
                 {/* Subtle inner glow */}
                 <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-2xl"></div>
-                
+
                 <div className="text-center relative z-10">
                   {/* Profile Picture */}
                   <div className="w-16 h-16 mx-auto mb-3 relative group/profile-pic">
@@ -14743,22 +15371,28 @@ useEffect(() => {
                       />
                     ) : (
                       <div className="w-full h-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-xl border-2 border-white/60 dark:border-gray-500/60 transition-all duration-500 group-hover/profile-pic:scale-110">
-                        {selectedContact?.contactName?.charAt(0)?.toUpperCase() || 
-                         selectedContact?.firstName?.charAt(0)?.toUpperCase() || 
-                         selectedContact?.phone?.charAt(0) || "?"}
+                        {selectedContact?.contactName
+                          ?.charAt(0)
+                          ?.toUpperCase() ||
+                          selectedContact?.firstName
+                            ?.charAt(0)
+                            ?.toUpperCase() ||
+                          selectedContact?.phone?.charAt(0) ||
+                          "?"}
                       </div>
                     )}
                     {/* Enhanced border glow */}
                     <div className="absolute inset-0 rounded-full ring-2 ring-blue-400/30 dark:ring-blue-300/40 group-hover/profile-pic:ring-4 group-hover/profile-pic:ring-blue-400/50 dark:group-hover/profile-pic:ring-blue-300/60 transition-all duration-500"></div>
                   </div>
-                  
+
                   {/* Contact Name */}
                   <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2 bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
-                    {selectedContact?.contactName || 
-                     selectedContact?.firstName || 
-                     selectedContact?.phone || "Contact Name"}
+                    {selectedContact?.contactName ||
+                      selectedContact?.firstName ||
+                      selectedContact?.phone ||
+                      "Contact Name"}
                   </h2>
-                  
+
                   {/* Company Information */}
                   {selectedContact?.companyName && (
                     <div className="bg-white/20 dark:bg-gray-800/40 backdrop-blur-sm rounded-xl p-2 mb-2 border border-white/30 dark:border-gray-600/50">
@@ -14774,17 +15408,36 @@ useEffect(() => {
               </div>
 
               {/* Contact Information Card */}
-              <div className="bg-white/40 dark:bg-gray-800/40 backdrop-blur-3xl rounded-2xl shadow-2xl overflow-hidden border border-white/50 dark:border-gray-600/60 hover:shadow-3xl transition-all duration-500 hover:scale-[1.02] relative group">
-                {/* Animated gradient overlay */}
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10 dark:from-blue-400/20 dark:via-purple-400/20 dark:to-pink-400/20 animate-pulse opacity-40"></div>
-                {/* Subtle inner glow */}
-                <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-2xl"></div>
-                
-                <div className="bg-gradient-to-r from-blue-500/30 to-purple-500/30 dark:from-blue-500/40 dark:to-purple-500/40 px-4 py-3 border-b border-white/40 dark:border-gray-500/60 backdrop-blur-2xl relative z-10">
+              <div className="bg-white/10 dark:bg-gray-900/10 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-white/20 dark:border-white/10 hover:shadow-3xl transition-all duration-700 hover:scale-[1.02] relative group">
+                {/* Enhanced animated gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-purple-500/5 to-pink-500/5 dark:from-blue-400/10 dark:via-purple-400/10 dark:to-pink-400/10 animate-pulse opacity-60"></div>
+                {/* Refined inner glow */}
+                <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent rounded-3xl"></div>
+                {/* Subtle border glow */}
+                <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-pink-500/20 blur-sm opacity-30 group-hover:opacity-50 transition-opacity duration-700"></div>
+
+                <div className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 dark:from-blue-500/15 dark:to-purple-500/15 px-6 py-4 border-b border-white/20 dark:border-white/10 backdrop-blur-xl relative z-10">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
-                      Contact Information
-                    </h3>
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-gradient-to-br from-blue-500/30 to-purple-500/30 rounded-xl backdrop-blur-sm">
+                        <svg
+                          className="w-5 h-5 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                          />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-bold text-white/90 drop-shadow-sm">
+                        Contact Information
+                      </h3>
+                    </div>
                     <div className="flex space-x-2">
                       {!isEditing ? (
                         <>
@@ -14793,206 +15446,24 @@ useEffect(() => {
                               setIsEditing(true);
                               setEditedContact({ ...selectedContact });
                             }}
-                            className="px-3 py-2 bg-gradient-to-r from-primary/80 to-primary-dark/80 backdrop-blur-2xl text-white rounded-xl hover:from-primary to-primary-dark transition-all duration-300 text-sm font-bold shadow-xl hover:shadow-2xl hover:scale-105 border border-white/30 dark:border-white/20"
+                            className="px-4 py-2 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all duration-300 text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105 border border-white/30"
                           >
                             Edit
                           </button>
 
-                          <Menu
-                            as="div"
-                            className="relative inline-block text-left"
+                          <button
+                            onClick={() =>
+                              setSyncDropdownOpen(!syncDropdownOpen)
+                            }
+                            className="px-4 py-2 bg-blue-500/30 backdrop-blur-sm text-white rounded-xl hover:bg-blue-500/40 transition-all duration-300 text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105 border border-blue-300/30"
                           >
-                            <Menu.Button className="px-3 py-2 bg-gradient-to-r from-blue-500/80 to-blue-600/80 backdrop-blur-2xl text-white rounded-xl hover:from-blue-600 to-blue-700 transition-all duration-300 text-sm font-bold shadow-xl hover:shadow-2xl hover:scale-105 border border-white/30 dark:border-white/20">
-                              Sync
-                            </Menu.Button>
-                            <Menu.Items className="absolute right-0 mt-2 w-28 bg-white/80 dark:bg-gray-800/80 backdrop-blur-2xl shadow-2xl rounded-2xl p-2 z-10 border border-white/40 dark:border-gray-600/60">
-                              <Menu.Item>
-                                {({ active }) => (
-                                  <button
-                                    className={`w-full text-left px-3 py-1 rounded-md ${
-                                      active
-                                        ? "bg-blue-100 dark:bg-blue-700"
-                                        : ""
-                                    }`}
-                                    onClick={async () => {
-                                      try {
-                                        if (!selectedContact.phone) {
-                                          toast.error(
-                                            "Contact phone number is required for syncing"
-                                          );
-                                          return;
-                                        }
-                                        const userEmail =
-                                          localStorage.getItem("userEmail");
-                                        if (!userEmail) {
-                                          toast.error("User not authenticated");
-                                          return;
-                                        }
-                                        // Get user/company info from your backend
-                                        const userRes = await fetch(
-                                          `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
-                                            userEmail
-                                          )}`
-                                        );
-                                        if (!userRes.ok) {
-                                          toast.error(
-                                            "Failed to fetch user/company data"
-                                          );
-                                          return;
-                                        }
-                                        const { userData, companyData } =
-                                          await userRes.json();
-                                        const companyId = userData.companyId;
-                                        const apiUrl =
-                                          companyData.apiUrl || baseUrl;
-                                        const phoneNumber =
-                                          selectedContact.phone.replace(
-                                            /\D/g,
-                                            ""
-                                          );
-                                        const response = await fetch(
-                                          `${apiUrl}/api/sync-single-contact-name/${companyId}`,
-                                          {
-                                            method: "POST",
-                                            headers: {
-                                              "Content-Type":
-                                                "application/json",
-                                            },
-                                            body: JSON.stringify({
-                                              companyId,
-                                              contactPhone: phoneNumber,
-                                              phoneIndex:
-                                                selectedContact.phoneIndex ?? 0,
-                                            }),
-                                          }
-                                        );
-                                        if (response.ok) {
-                                          toast.success(
-                                            "Contact name synced successfully!"
-                                          );
-                                        } else {
-                                          const errorText =
-                                            await response.text();
-                                          console.error(
-                                            "Sync failed:",
-                                            errorText
-                                          );
-                                          toast.error(
-                                            "Failed to sync contact name"
-                                          );
-                                        }
-                                      } catch (error) {
-                                        console.error(
-                                          "Error syncing contact:",
-                                          error
-                                        );
-                                        toast.error(
-                                          "An error occurred while syncing contact name"
-                                        );
-                                      }
-                                    }}
-                                  >
-                                    Sync Name
-                                  </button>
-                                )}
-                              </Menu.Item>
-                              <Menu.Item>
-                                {({ active }) => (
-                                  <button
-                                    className={`w-full text-left px-3 py-1 rounded-md ${
-                                      active
-                                        ? "bg-blue-100 dark:bg-blue-700"
-                                        : ""
-                                    }`}
-                                    onClick={async () => {
-                                      try {
-                                        if (!selectedContact.phone) {
-                                          toast.error(
-                                            "Contact phone number is required for sync"
-                                          );
-                                          return;
-                                        }
-                                        const userEmail =
-                                          localStorage.getItem("userEmail");
-                                        if (!userEmail) {
-                                          toast.error("User not authenticated");
-                                          return;
-                                        }
-                                        // Get user/company info from your backend
-                                        const userRes = await fetch(
-                                          `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
-                                            userEmail
-                                          )}`
-                                        );
-                                        if (!userRes.ok) {
-                                          toast.error(
-                                            "Failed to fetch user/company data"
-                                          );
-                                          return;
-                                        }
-                                        const { userData, companyData } =
-                                          await userRes.json();
-                                        const companyId = userData.companyId;
-                                        const apiUrl =
-                                          companyData.apiUrl || baseUrl;
-                                        const phoneNumber =
-                                          selectedContact.phone.replace(
-                                            /\D/g,
-                                            ""
-                                          );
-                                        const response = await fetch(
-                                          `${apiUrl}/api/sync-single-contact/${companyId}`,
-                                          {
-                                            method: "POST",
-                                            headers: {
-                                              "Content-Type":
-                                                "application/json",
-                                            },
-                                            body: JSON.stringify({
-                                              companyId,
-                                              contactPhone: phoneNumber,
-                                              phoneIndex:
-                                                selectedContact.phoneIndex ?? 0,
-                                            }),
-                                          }
-                                        );
-                                        if (response.ok) {
-                                          toast.success(
-                                            "Contact messages synced successfully!"
-                                          );
-                                        } else {
-                                          const errorText =
-                                            await response.text();
-                                          console.error(
-                                            "Sync failed:",
-                                            errorText
-                                          );
-                                          toast.error(
-                                            "Failed to sync contact messages"
-                                          );
-                                        }
-                                      } catch (error) {
-                                        console.error(
-                                          "Error syncing contact:",
-                                          error
-                                        );
-                                        toast.error(
-                                          "An error occurred while syncing contact messages"
-                                        );
-                                      }
-                                    }}
-                                  >
-                                    Sync Messages
-                                  </button>
-                                )}
-                              </Menu.Item>
-                            </Menu.Items>
-                          </Menu>
-                          {/* Updated Delete Button */}
+                            Sync
+                          </button>
+                          {/* Delete Button */}
                           <button
                             onClick={handleDeleteContact}
                             disabled={deleteLoading}
-                            className={`px-3 py-2 bg-gradient-to-r from-red-500/80 to-red-600/80 backdrop-blur-2xl text-white rounded-xl hover:from-red-600 to-red-700 transition-all duration-300 flex items-center space-x-2 shadow-xl hover:shadow-2xl hover:scale-105 text-sm font-bold border border-white/30 dark:border-white/20 ${
+                            className={`px-4 py-2 bg-red-500/30 backdrop-blur-sm text-white rounded-xl hover:bg-red-500/40 transition-all duration-300 flex items-center space-x-2 shadow-lg hover:shadow-xl hover:scale-105 text-sm font-medium border border-red-300/30 ${
                               deleteLoading
                                 ? "opacity-50 cursor-not-allowed"
                                 : ""
@@ -15031,7 +15502,7 @@ useEffect(() => {
                         <div className="flex space-x-2">
                           <button
                             onClick={handleSaveContact}
-                            className="px-3 py-2 bg-gradient-to-r from-green-500/80 to-green-600/80 backdrop-blur-2xl text-white rounded-xl hover:from-green-600 to-green-700 transition-all duration-300 shadow-xl hover:shadow-2xl hover:scale-105 text-sm font-bold border border-white/30 dark:border-white/20"
+                            className="px-4 py-2 bg-green-500/30 backdrop-blur-sm text-white rounded-xl hover:bg-green-500/40 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 text-sm font-medium border border-green-300/30"
                           >
                             Save
                           </button>
@@ -15040,7 +15511,7 @@ useEffect(() => {
                               setIsEditing(false);
                               setEditedContact(null);
                             }}
-                            className="px-3 py-2 bg-gradient-to-r from-red-500/80 to-red-600/80 backdrop-blur-2xl text-white rounded-xl hover:from-red-600 to-red-700 transition-all duration-300 shadow-xl hover:shadow-2xl hover:scale-105 text-sm font-bold border border-white/30 dark:border-white/20"
+                            className="px-4 py-2 bg-red-500/30 backdrop-blur-sm text-white rounded-xl hover:bg-red-500/40 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 text-sm font-medium border border-red-300/30"
                           >
                             Cancel
                           </button>
@@ -15050,11 +15521,202 @@ useEffect(() => {
                   </div>
                 </div>
 
-                <div className="p-4 relative z-10">
+                <div className="p-6 relative z-10">
+                  {/* Sync Options Box */}
+                  {syncDropdownOpen && (
+                    <div className="mb-6 bg-white/20 dark:bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-white/10">
+                      <div className="flex justify-between items-center mb-3">
+                        <p className="text-sm font-semibold text-gray-800 dark:text-white/80">
+                          Sync Options:
+                        </p>
+                        <button
+                          onClick={() => setSyncDropdownOpen(false)}
+                          className="text-xs text-red-600 dark:text-red-300 hover:text-red-700 dark:hover:text-red-200 flex items-center transition-colors duration-200"
+                          title="Close sync options"
+                        >
+                          <span className="mr-1">✕</span>
+                          Close
+                        </button>
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-white/60 mb-3">
+                        Choose what to sync for this contact
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <button
+                          onClick={async () => {
+                            setSyncDropdownOpen(false);
+                            try {
+                              if (!selectedContact.phone) {
+                                toast.error(
+                                  "Contact phone number is required for syncing"
+                                );
+                                return;
+                              }
+                              const userEmail =
+                                localStorage.getItem("userEmail");
+                              if (!userEmail) {
+                                toast.error("User not authenticated");
+                                return;
+                              }
+                              // Get user/company info from your backend
+                              const userRes = await fetch(
+                                `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
+                                  userEmail
+                                )}`
+                              );
+                              if (!userRes.ok) {
+                                toast.error(
+                                  "Failed to fetch user/company data"
+                                );
+                                return;
+                              }
+                              const { userData, companyData } =
+                                await userRes.json();
+                              const companyId = userData.companyId;
+                              const apiUrl = companyData.apiUrl || baseUrl;
+                              const phoneNumber = selectedContact.phone.replace(
+                                /\D/g,
+                                ""
+                              );
+                              const response = await fetch(
+                                `${apiUrl}/api/sync-single-contact-name/${companyId}`,
+                                {
+                                  method: "POST",
+                                  headers: {
+                                    "Content-Type": "application/json",
+                                  },
+                                  body: JSON.stringify({
+                                    companyId,
+                                    contactPhone: phoneNumber,
+                                    phoneIndex: selectedContact.phoneIndex ?? 0,
+                                  }),
+                                }
+                              );
+                              if (response.ok) {
+                                toast.success(
+                                  "Contact name synced successfully!"
+                                );
+                              } else {
+                                const errorText = await response.text();
+                                console.error("Sync failed:", errorText);
+                                toast.error("Failed to sync contact name");
+                              }
+                            } catch (error) {
+                              console.error("Error syncing contact:", error);
+                              toast.error(
+                                "An error occurred while syncing contact name"
+                              );
+                            }
+                          }}
+                          className="flex items-center justify-center px-4 py-3 bg-blue-500/30 hover:bg-blue-500/40 backdrop-blur-sm text-white rounded-xl transition-all duration-300 text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105 border border-blue-300/50"
+                        >
+                          <svg
+                            className="w-4 h-4 mr-2"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                            />
+                          </svg>
+                          Sync Name
+                        </button>
+
+                        <button
+                          onClick={async () => {
+                            setSyncDropdownOpen(false);
+                            try {
+                              if (!selectedContact.phone) {
+                                toast.error(
+                                  "Contact phone number is required for sync"
+                                );
+                                return;
+                              }
+                              const userEmail =
+                                localStorage.getItem("userEmail");
+                              if (!userEmail) {
+                                toast.error("User not authenticated");
+                                return;
+                              }
+                              // Get user/company info from your backend
+                              const userRes = await fetch(
+                                `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
+                                  userEmail
+                                )}`
+                              );
+                              if (!userRes.ok) {
+                                toast.error(
+                                  "Failed to fetch user/company data"
+                                );
+                                return;
+                              }
+                              const { userData, companyData } =
+                                await userRes.json();
+                              const companyId = userData.companyId;
+                              const apiUrl = companyData.apiUrl || baseUrl;
+                              const phoneNumber = selectedContact.phone.replace(
+                                /\D/g,
+                                ""
+                              );
+                              const response = await fetch(
+                                `${apiUrl}/api/sync-single-contact/${companyId}`,
+                                {
+                                  method: "POST",
+                                  headers: {
+                                    "Content-Type": "application/json",
+                                  },
+                                  body: JSON.stringify({
+                                    companyId,
+                                    contactPhone: phoneNumber,
+                                    phoneIndex: selectedContact.phoneIndex ?? 0,
+                                  }),
+                                }
+                              );
+                              if (response.ok) {
+                                toast.success(
+                                  "Contact messages synced successfully!"
+                                );
+                              } else {
+                                const errorText = await response.text();
+                                console.error("Sync failed:", errorText);
+                                toast.error("Failed to sync contact messages");
+                              }
+                            } catch (error) {
+                              console.error("Error syncing contact:", error);
+                              toast.error(
+                                "An error occurred while syncing contact messages"
+                              );
+                            }
+                          }}
+                          className="flex items-center justify-center px-4 py-3 bg-green-500/30 hover:bg-green-500/40 backdrop-blur-sm text-white rounded-xl transition-all duration-300 text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105 border border-green-300/50"
+                        >
+                          <svg
+                            className="w-4 h-4 mr-2"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.959 8.959 0 01-4.906-1.44L3 21l1.44-5.094A8.959 8.959 0 013 12c0-4.418 3.582-8 8-8s8 3.582 8 8z"
+                            />
+                          </svg>
+                          Sync Messages
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Phone Index Selector */}
-                  <div className="mb-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">
+                  <div className="mb-6 bg-white/20 dark:bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-gray-200/50 dark:border-white/10">
+                    <div className="flex justify-between items-center mb-3">
+                      <p className="text-sm font-semibold text-gray-800 dark:text-white/80">
                         Active Phone:
                       </p>
                       <button
@@ -15065,77 +15727,50 @@ useEffect(() => {
                                 `${baseUrl}/api/bot-status/${companyId}`
                               );
                               if (botStatusResponse.status === 200) {
-                                const data: BotStatusResponse = botStatusResponse.data;
+                                const data: BotStatusResponse =
+                                  botStatusResponse.data;
                                 if (data.phones && Array.isArray(data.phones)) {
-                                  const qrCodesData: QRCodeData[] = data.phones.map((phone: any) => ({
-                                    phoneIndex: phone.phoneIndex,
-                                    status: phone.status,
-                                    qrCode: phone.qrCode,
-                                  }));
+                                  const qrCodesData: QRCodeData[] =
+                                    data.phones.map((phone: any) => ({
+                                      phoneIndex: phone.phoneIndex,
+                                      status: phone.status,
+                                      qrCode: phone.qrCode,
+                                    }));
                                   setQrCodes(qrCodesData);
                                   toast.success("Phone status refreshed!");
-                                } else if (data.phoneCount === 1 && data.phoneInfo) {
-                                  setQrCodes([{
-                                    phoneIndex: 0,
-                                    status: data.status,
-                                    qrCode: data.qrCode,
-                                  }]);
+                                } else if (
+                                  data.phoneCount === 1 &&
+                                  data.phoneInfo
+                                ) {
+                                  setQrCodes([
+                                    {
+                                      phoneIndex: 0,
+                                      status: data.status,
+                                      qrCode: data.qrCode,
+                                    },
+                                  ]);
                                   toast.success("Phone status refreshed!");
                                 }
                               }
                             } catch (error) {
-                              console.error("Error refreshing phone status:", error);
-                              toast.error("Failed to refresh phone status");
-                            }
-                          }
-                        }}
-                        className="text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center"
-                        title="Refresh phone connection status"
-                      >
-                        <span className="mr-1">🔄</span>
-                        Refresh Status
-                      </button>
-                      <button
-                        onClick={async () => {
-                          if (companyId) {
-                            try {
-                              const botStatusResponse = await axios.get(
-                                `${baseUrl}/api/bot-status/${companyId}`
+                              console.error(
+                                "Error refreshing phone status:",
+                                error
                               );
-                              if (botStatusResponse.status === 200) {
-                                const data: BotStatusResponse = botStatusResponse.data;
-                                if (data.phones && Array.isArray(data.phones)) {
-                                  const qrCodesData: QRCodeData[] = data.phones.map((phone: any) => ({
-                                    phoneIndex: phone.phoneIndex,
-                                    status: phone.status,
-                                    qrCode: phone.qrCode,
-                                  }));
-                                  setQrCodes(qrCodesData);
-                                  toast.success("Phone status refreshed!");
-                                } else if (data.phoneCount === 1 && data.phoneInfo) {
-                                  setQrCodes([{
-                                    phoneIndex: 0,
-                                    status: data.status,
-                                    qrCode: data.qrCode,
-                                  }]);
-                                  toast.success("Phone status refreshed!");
-                                }
-                              }
-                            } catch (error) {
-                              console.error("Error refreshing phone status:", error);
                               toast.error("Failed to refresh phone status");
                             }
                           }
                         }}
-                        className="text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center"
+                        className="text-xs text-blue-600 dark:text-blue-300 hover:text-blue-700 dark:hover:text-blue-200 flex items-center transition-colors duration-200"
                         title="Refresh phone connection status"
                       >
                         <span className="mr-1">🔄</span>
                         Refresh Status
                       </button>
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                      Status indicators: ✅ Connected • ❌ Not Connected • ⏳ Checking
+                    <div className="text-xs text-gray-600 dark:text-white/60 mb-3">
+                      Status indicators: ✅ Connected • ❌ Not Connected • ⏳
+                      Checking
                     </div>
                     <select
                       value={selectedContact.phoneIndex ?? 0}
@@ -15152,33 +15787,46 @@ useEffect(() => {
                           `Phone updated to ${phoneNames[newPhoneIndex]}`
                         );
                       }}
-                      className="px-3 py-2 border border-white/40 dark:border-gray-500/60 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white/60 dark:bg-gray-800/60 backdrop-blur-2xl text-gray-900 dark:text-gray-100 ml-4 w-32 shadow-xl transition-all duration-300 hover:shadow-2xl"
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white/90 dark:bg-white/10 backdrop-blur-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-white/50 shadow-lg transition-all duration-300 hover:bg-white dark:hover:bg-white/15"
                     >
                       {Object.entries(phoneNames).map(([index, name]) => {
                         const phoneIndex = parseInt(index);
                         const qrCode = qrCodes[phoneIndex];
-                        const isConnected = qrCode && ["ready", "authenticated"].includes(qrCode.status?.toLowerCase());
-                        
+                        const isConnected =
+                          qrCode &&
+                          ["ready", "authenticated"].includes(
+                            qrCode.status?.toLowerCase()
+                          );
+
                         // Debug logging for phone status in dropdown
-                        console.log(`Phone ${phoneIndex} dropdown status debug:`, {
-                          phoneIndex,
-                          qrCode,
-                          status: qrCode?.status,
-                          statusLower: qrCode?.status?.toLowerCase(),
-                          isConnected,
-                          validStatuses: ["ready", "authenticated"],
-                          qrCodesLength: qrCodes.length,
-                          statusComparison: qrCode ? {
-                            statusExists: !!qrCode.status,
-                            statusType: typeof qrCode.status,
-                            statusValue: qrCode.status,
-                            readyCheck: qrCode.status === "ready",
-                            authenticatedCheck: qrCode.status === "authenticated",
-                            readyLowerCheck: qrCode.status?.toLowerCase() === "ready",
-                            authenticatedLowerCheck: qrCode.status?.toLowerCase() === "authenticated"
-                          } : "No qrCode"
-                        });
-                        
+                        console.log(
+                          `Phone ${phoneIndex} dropdown status debug:`,
+                          {
+                            phoneIndex,
+                            qrCode,
+                            status: qrCode?.status,
+                            statusLower: qrCode?.status?.toLowerCase(),
+                            isConnected,
+                            validStatuses: ["ready", "authenticated"],
+                            qrCodesLength: qrCodes.length,
+                            statusComparison: qrCode
+                              ? {
+                                  statusExists: !!qrCode.status,
+                                  statusType: typeof qrCode.status,
+                                  statusValue: qrCode.status,
+                                  readyCheck: qrCode.status === "ready",
+                                  authenticatedCheck:
+                                    qrCode.status === "authenticated",
+                                  readyLowerCheck:
+                                    qrCode.status?.toLowerCase() === "ready",
+                                  authenticatedLowerCheck:
+                                    qrCode.status?.toLowerCase() ===
+                                    "authenticated",
+                                }
+                              : "No qrCode",
+                          }
+                        );
+
                         // Show loading state when status is not yet available
                         if (!qrCode && qrCodes.length === 0) {
                           return (
@@ -15187,10 +15835,12 @@ useEffect(() => {
                             </option>
                           );
                         }
-                        
-                        const statusIcon = isConnected ? '✅' : '❌';
-                        const statusText = isConnected ? 'Connected' : 'Not Connected';
-                        
+
+                        const statusIcon = isConnected ? "✅" : "❌";
+                        const statusText = isConnected
+                          ? "Connected"
+                          : "Not Connected";
+
                         return (
                           <option key={index} value={index}>
                             {`${name} - ${statusIcon} ${statusText}`}
@@ -15198,62 +15848,80 @@ useEffect(() => {
                         );
                       })}
                     </select>
-                    
+
                     {/* Phone Connection Status Indicator */}
-                    {selectedContact.phoneIndex !== null && phoneNames[selectedContact.phoneIndex ?? 0] && (
-                      <div className="mt-2">
-                        {(() => {
-                          const currentPhoneIndex = selectedContact.phoneIndex ?? 0;
-                          const qrCode = qrCodes[currentPhoneIndex];
-                          const isConnected = qrCode && ["ready", "authenticated"].includes(qrCode.status?.toLowerCase());
-                          
-                          // Debug logging
-                          console.log("Phone status debug:", {
-                            currentPhoneIndex,
-                            qrCode,
-                            qrCodes,
-                            isConnected,
-                            phoneNames: phoneNames[currentPhoneIndex]
-                          });
-                          
-                          // Show loading state when status is not yet available
-                          if (!qrCode && qrCodes.length === 0) {
+                    {selectedContact.phoneIndex !== null &&
+                      phoneNames[selectedContact.phoneIndex ?? 0] && (
+                        <div className="mt-3">
+                          {(() => {
+                            const currentPhoneIndex =
+                              selectedContact.phoneIndex ?? 0;
+                            const qrCode = qrCodes[currentPhoneIndex];
+                            const isConnected =
+                              qrCode &&
+                              ["ready", "authenticated"].includes(
+                                qrCode.status?.toLowerCase()
+                              );
+
+                            // Debug logging
+                            console.log("Phone status debug:", {
+                              currentPhoneIndex,
+                              qrCode,
+                              qrCodes,
+                              isConnected,
+                              phoneNames: phoneNames[currentPhoneIndex],
+                            });
+
+                            // Show loading state when status is not yet available
+                            if (!qrCode && qrCodes.length === 0) {
+                              return (
+                                <div className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-300 backdrop-blur-sm border border-yellow-500/30">
+                                  <span className="mr-1">⏳</span>
+                                  Checking connection...
+                                </div>
+                              );
+                            }
+
                             return (
-                              <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200">
-                                <span className="mr-1">⏳</span>
-                                Checking connection...
+                              <div
+                                className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm border ${
+                                  isConnected
+                                    ? "bg-green-500/20 text-green-300 border-green-500/30"
+                                    : "bg-red-500/20 text-red-300 border-red-500/30"
+                                }`}
+                              >
+                                <span className="mr-1">
+                                  {isConnected ? "✅" : "❌"}
+                                </span>
+                                {isConnected ? "Connected" : "Not Connected"}
+                                {qrCode &&
+                                  !isConnected &&
+                                  ` (${qrCode.status})`}
+                                {!qrCode && ` (Status not available)`}
                               </div>
                             );
-                          }
-                          
-                          return (
-                            <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              isConnected 
-                                ? "bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200" 
-                                : "bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200"
-                            }`}>
-                              <span className="mr-1">
-                                {isConnected ? '✅' : '❌'}
-                              </span>
-                              {isConnected ? 'Connected' : 'Not Connected'}
-                              {qrCode && !isConnected && ` (${qrCode.status})`}
-                              {!qrCode && ` (Status not available)`}
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    )}
-                    
+                          })()}
+                        </div>
+                      )}
+
                     {/* Warning when no phones are connected */}
-                    {Object.keys(phoneNames).length > 0 && !Object.values(qrCodes).some(qr => qr && ["ready", "authenticated"].includes(qr.status?.toLowerCase())) && (
-                      <div className="mt-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-2 rounded-md">
-                        ⚠️ No phones are currently connected. Please ensure your WhatsApp bot is running and connected before sending messages.
-                      </div>
-                    )}
-                    
-              
+                    {Object.keys(phoneNames).length > 0 &&
+                      !Object.values(qrCodes).some(
+                        (qr) =>
+                          qr &&
+                          ["ready", "authenticated"].includes(
+                            qr.status?.toLowerCase()
+                          )
+                      ) && (
+                        <div className="mt-3 text-xs text-amber-700 dark:text-amber-300 bg-amber-200/80 dark:bg-amber-500/20 backdrop-blur-sm p-3 rounded-xl border border-amber-400/50 dark:border-amber-500/30">
+                          ⚠️ No phones are currently connected. Please ensure
+                          your WhatsApp bot is running and connected before
+                          sending messages.
+                        </div>
+                      )}
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {[
                       { label: "First Name", key: "contactName" },
                       { label: "Last Name", key: "lastName" },
@@ -15312,8 +15980,11 @@ useEffect(() => {
                     ]
                       .slice(0, showMoreContactInfo ? undefined : 6)
                       .map((item, index) => (
-                        <div key={index} className="col-span-1">
-                          <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">
+                        <div
+                          key={index}
+                          className="bg-white/30 dark:bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-gray-200/50 dark:border-white/10 hover:bg-white/40 dark:hover:bg-white/10 transition-all duration-300"
+                        >
+                          <p className="text-sm font-semibold text-gray-700 dark:text-white/70 mb-2">
                             {item.label}
                           </p>
                           {isEditing ? (
@@ -15328,10 +15999,10 @@ useEffect(() => {
                                   [item.key]: e.target.value,
                                 } as Contact)
                               }
-                              className="w-full mt-1 px-3 py-2 border border-white/40 dark:border-gray-500/60 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white/60 dark:bg-gray-800/60 backdrop-blur-2xl text-gray-900 dark:text-gray-100 shadow-xl transition-all duration-300 hover:shadow-2xl"
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white/90 dark:bg-white/10 backdrop-blur-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-white/50 shadow-lg transition-all duration-300"
                             />
                           ) : (
-                            <p className="text-gray-800 dark:text-gray-200">
+                            <p className="text-gray-900 dark:text-white/90 font-medium">
                               {selectedContact[item.key as keyof Contact] ||
                                 "N/A"}
                             </p>
@@ -15339,7 +16010,7 @@ useEffect(() => {
                         </div>
                       ))}
                   </div>
-                  
+
                   {/* Show More/Hide Button */}
                   {[
                     { label: "First Name", key: "contactName" },
@@ -15397,10 +16068,12 @@ useEffect(() => {
                         )
                       : []),
                   ].length > 6 && (
-                    <div className="mt-4 text-center">
+                    <div className="mt-6 text-center">
                       <button
-                        onClick={() => setShowMoreContactInfo(!showMoreContactInfo)}
-                        className="px-3 py-2 bg-gradient-to-r from-gray-500/30 to-gray-600/30 dark:from-gray-600/40 dark:to-gray-700/40 backdrop-blur-2xl text-gray-700 dark:text-gray-300 rounded-xl hover:from-gray-600/40 to-gray-700/40 dark:hover:from-gray-700/50 dark:hover:to-gray-800/50 transition-all duration-300 text-sm font-bold shadow-xl hover:shadow-2xl hover:scale-105 border border-white/30 dark:border-gray-500/50"
+                        onClick={() =>
+                          setShowMoreContactInfo(!showMoreContactInfo)
+                        }
+                        className="px-6 py-3 bg-white/30 dark:bg-white/10 backdrop-blur-sm text-gray-900 dark:text-white/90 rounded-xl hover:bg-white/40 dark:hover:bg-white/15 transition-all duration-300 text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105 border border-gray-200/50 dark:border-white/20"
                       >
                         {showMoreContactInfo ? "Show Less" : "Show More"}
                       </button>
@@ -15418,21 +16091,23 @@ useEffect(() => {
                         ).toLowerCase()
                     )
                   ) && (
-                    <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 dark:from-green-500/30 dark:to-emerald-500/30 backdrop-blur-3xl rounded-2xl p-4 border border-green-300/50 dark:border-green-600/50 mb-4 shadow-2xl hover:shadow-3xl transition-all duration-500 hover:scale-[1.02] relative group">
-                      {/* Animated gradient overlay */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-green-400/10 via-emerald-400/10 to-green-400/10 dark:from-green-500/20 dark:via-emerald-500/20 dark:to-green-500/20 animate-pulse opacity-40"></div>
-                      {/* Subtle inner glow */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-2xl"></div>
-                      
-                      <div className="flex items-center space-x-3 mb-3 relative z-10">
-                        <div className="p-2.5 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl shadow-xl">
-                          <Lucide icon="Users" className="w-4 h-4 text-white" />
+                    <div className="bg-green-500/10 backdrop-blur-xl rounded-2xl p-6 border border-green-500/20 mb-6 shadow-2xl hover:shadow-3xl transition-all duration-700 hover:scale-[1.02] relative group">
+                      {/* Enhanced animated gradient overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-green-400/5 via-emerald-400/5 to-green-400/5 animate-pulse opacity-60"></div>
+                      {/* Refined inner glow */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent rounded-2xl"></div>
+                      {/* Subtle border glow */}
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-green-500/20 via-emerald-500/20 to-green-500/20 blur-sm opacity-30 group-hover:opacity-50 transition-opacity duration-700"></div>
+
+                      <div className="flex items-center space-x-3 mb-4 relative z-10">
+                        <div className="p-3 bg-green-500/30 backdrop-blur-sm rounded-xl shadow-lg">
+                          <Lucide icon="Users" className="w-5 h-5 text-white" />
                         </div>
-                        <h4 className="font-bold text-lg text-green-800 dark:text-green-200 bg-gradient-to-r from-green-600 to-emerald-600 dark:from-green-400 dark:to-emerald-400 bg-clip-text text-transparent">
+                        <h4 className="font-bold text-lg text-white/90 drop-shadow-sm">
                           Assigned Employees
                         </h4>
                       </div>
-                      <div className="flex flex-wrap gap-3">
+                      <div className="flex flex-wrap gap-3 relative z-10">
                         {selectedContact.tags
                           ?.filter((tag: string) =>
                             employeeList.some(
@@ -15447,12 +16122,12 @@ useEffect(() => {
                           .map((employeeTag: string, index: number) => (
                             <div
                               key={index}
-                              className="inline-flex items-center bg-green-100/80 dark:bg-green-800/60 backdrop-blur-2xl text-green-800 dark:text-green-200 text-sm font-bold px-3 py-1.5 rounded-full border-2 border-green-300/50 dark:border-green-600/50 shadow-xl hover:shadow-2xl transition-all duration-300 group hover:scale-105"
+                              className="inline-flex items-center bg-green-500/20 backdrop-blur-sm text-white/90 text-sm font-medium px-4 py-2 rounded-full border border-green-500/30 shadow-lg hover:shadow-xl transition-all duration-300 group hover:scale-105"
                             >
-                              <div className="w-2 h-2 bg-green-500 rounded-full mr-2 shadow-sm"></div>
+                              <div className="w-2 h-2 bg-green-400 rounded-full mr-2 shadow-sm"></div>
                               <span>{employeeTag}</span>
                               <button
-                                className="ml-2 p-1 rounded-full hover:bg-green-200/80 dark:hover:bg-green-700/60 transition-colors duration-300 focus:outline-none hover:scale-110"
+                                className="ml-2 p-1 rounded-full hover:bg-green-500/30 transition-colors duration-300 focus:outline-none hover:scale-110"
                                 onClick={() =>
                                   handleRemoveTag(
                                     selectedContact.contact_id,
@@ -15462,7 +16137,7 @@ useEffect(() => {
                               >
                                 <Lucide
                                   icon="X"
-                                  className="w-3 h-3 text-green-600 hover:text-green-800 dark:text-green-300 dark:hover:text-green-100"
+                                  className="w-3 h-3 text-white/80 hover:text-white"
                                 />
                               </button>
                             </div>
@@ -15478,7 +16153,7 @@ useEffect(() => {
                 <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-purple-500/10 to-indigo-500/10 dark:from-indigo-400/20 dark:via-purple-400/20 dark:to-indigo-400/20 animate-pulse opacity-40"></div>
                 {/* Subtle inner glow */}
                 <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-2xl"></div>
-                
+
                 <div className="bg-gradient-to-r from-indigo-500/30 to-purple-500/30 dark:from-indigo-500/40 dark:to-purple-500/40 px-4 py-3 border-b border-white/40 dark:border-gray-500/60 backdrop-blur-2xl relative z-10">
                   <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">
                     Tags
@@ -15537,14 +16212,13 @@ useEffect(() => {
                   </div>
                 </div>
               </div>
-       
-              
+
               <div className="bg-white/40 dark:bg-gray-700/40 backdrop-blur-3xl rounded-2xl shadow-2xl overflow-hidden border border-white/50 dark:border-gray-600/60 hover:shadow-3xl transition-all duration-500 hover:scale-[1.02] relative group">
                 {/* Animated gradient overlay */}
                 <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 via-orange-500/10 to-yellow-500/10 dark:from-yellow-400/20 dark:via-orange-400/20 dark:to-yellow-400/20 animate-pulse opacity-40"></div>
                 {/* Subtle inner glow */}
                 <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-2xl"></div>
-                
+
                 <div className="bg-gradient-to-r from-yellow-500/30 to-orange-500/30 dark:from-yellow-500/40 dark:to-orange-500/40 px-4 py-3 border-b border-white/40 dark:border-gray-500/60 backdrop-blur-2xl flex items-center justify-between relative z-10">
                   <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 bg-gradient-to-r from-yellow-600 to-orange-600 dark:from-yellow-400 dark:to-orange-400 bg-clip-text text-transparent">
                     Scheduled Messages
@@ -15681,7 +16355,7 @@ useEffect(() => {
                 <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-yellow-500/10 to-amber-500/10 dark:from-amber-400/20 dark:via-yellow-400/20 dark:to-amber-400/20 animate-pulse opacity-40"></div>
                 {/* Subtle inner glow */}
                 <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-2xl"></div>
-                
+
                 <div className="bg-gradient-to-r from-amber-500/30 to-yellow-500/30 dark:from-amber-500/40 dark:to-yellow-500/40 px-4 py-3 border-b border-white/40 dark:border-gray-500/60 backdrop-blur-2xl flex items-center justify-between relative z-10">
                   <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 bg-gradient-to-r from-amber-600 to-yellow-600 dark:from-amber-400 dark:to-yellow-400 bg-clip-text text-transparent">
                     Notes
@@ -15718,14 +16392,14 @@ useEffect(() => {
                   )}
                 </div>
               </div>
-              
+
               {/* Media, Links and Docs Section */}
               <div className="bg-white/40 dark:bg-gray-800/40 backdrop-blur-3xl rounded-2xl shadow-2xl overflow-hidden border border-white/50 dark:border-gray-600/60 hover:shadow-3xl transition-all duration-500 hover:scale-[1.02] relative group">
                 {/* Animated gradient overlay */}
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10 dark:from-blue-400/20 dark:via-purple-400/20 dark:to-pink-400/20 animate-pulse opacity-40"></div>
                 {/* Subtle inner glow */}
                 <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-2xl"></div>
-                
+
                 <div className="p-4 relative z-10">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
@@ -15735,42 +16409,56 @@ useEffect(() => {
                       121
                     </span>
                   </div>
-                  
+
                   {/* Sample Media Thumbnails */}
                   <div className="grid grid-cols-4 gap-3">
                     <div className="w-full aspect-square bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-800/50 dark:to-blue-900/50 rounded-lg flex items-center justify-center border border-blue-200/50 dark:border-blue-700/50">
                       <div className="text-center">
                         <div className="w-8 h-8 bg-blue-500 rounded-lg mx-auto mb-1 flex items-center justify-center">
-                          <Lucide icon="BarChart3" className="w-4 h-4 text-white" />
+                          <Lucide
+                            icon="BarChart3"
+                            className="w-4 h-4 text-white"
+                          />
                         </div>
-                        <p className="text-xs text-blue-700 dark:text-blue-300 font-medium">Engulfing</p>
+                        <p className="text-xs text-blue-700 dark:text-blue-300 font-medium">
+                          Engulfing
+                        </p>
                       </div>
                     </div>
-                    
+
                     <div className="w-full aspect-square bg-gradient-to-br from-green-100 to-green-200 dark:from-green-800/50 dark:to-green-900/50 rounded-lg flex items-center justify-center border border-green-200/50 dark:border-green-700/50">
                       <div className="text-center">
                         <div className="w-8 h-8 bg-green-500 rounded-lg mx-auto mb-1 flex items-center justify-center">
-                          <Lucide icon="FileText" className="w-4 h-4 text-white" />
+                          <Lucide
+                            icon="FileText"
+                            className="w-4 h-4 text-white"
+                          />
                         </div>
-                        <p className="text-xs text-green-700 dark:text-green-300 font-medium">Chapter 7</p>
+                        <p className="text-xs text-green-700 dark:text-green-300 font-medium">
+                          Chapter 7
+                        </p>
                       </div>
                     </div>
-                    
+
                     <div className="w-full aspect-square bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-800/50 dark:to-purple-900/50 rounded-lg flex items-center justify-center border border-purple-200/50 dark:border-purple-700/50">
                       <div className="text-center">
                         <div className="w-8 h-8 bg-purple-500 rounded-lg mx-auto mb-1 flex items-center justify-center">
                           <Lucide icon="Image" className="w-4 h-4 text-white" />
                         </div>
-                        <p className="text-xs text-purple-700 dark:text-purple-300 font-medium">Image</p>
+                        <p className="text-xs text-purple-700 dark:text-purple-300 font-medium">
+                          Image
+                        </p>
                       </div>
                     </div>
-                    
+
                     <div className="w-full aspect-square bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-800/50 dark:to-orange-900/50 rounded-lg flex items-center justify-center border border-orange-200/50 dark:border-orange-700/50">
                       <div className="text-center">
                         <div className="w-8 h-8 bg-orange-500 rounded-lg mx-auto mb-1 flex items-center justify-center">
                           <Lucide icon="File" className="w-4 h-4 text-white" />
                         </div>
-                        <p className="text-xs text-orange-700 dark:text-orange-300 font-medium">Doc</p>
+                        <p className="text-xs text-orange-700 dark:text-orange-300 font-medium">
+                          Doc
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -15793,10 +16481,14 @@ useEffect(() => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-6">
-              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">Search Messages</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Find specific messages in your conversation</p>
+              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">
+                Search Messages
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Find specific messages in your conversation
+              </p>
             </div>
-            
+
             <input
               ref={messageSearchInputRef}
               type="text"
@@ -15805,14 +16497,14 @@ useEffect(() => {
               onChange={handleMessageSearchChange}
               className="w-full border-0 rounded-xl text-gray-800 dark:text-gray-200 bg-white/90 dark:bg-gray-700/90 placeholder-gray-500 dark:placeholder-gray-400 p-4 shadow-lg backdrop-blur-sm focus:ring-2 focus:ring-blue-500/50 focus:outline-none transition-all duration-300"
             />
-            
+
             <div className="mt-6 max-h-[70vh] overflow-y-auto space-y-3">
               {messageSearchResults.length === 0 && messageSearchQuery && (
                 <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                   <p>No messages found matching "{messageSearchQuery}"</p>
                 </div>
               )}
-              
+
               {messageSearchResults.map((result) => (
                 <div
                   key={result.id}
@@ -15842,7 +16534,7 @@ useEffect(() => {
           </div>
         </div>
       )}
-    
+
       <DocumentModal
         isOpen={documentModalOpen}
         type={selectedDocument?.type || ""}
@@ -15954,7 +16646,12 @@ useEffect(() => {
                                 {aiMessageUsage.toLocaleString()}
                               </span>
                               <span className="text-lg font-semibold text-blue-600 dark:text-blue-400">
-                                / {(quotaData?.limit || currentPlanLimits.aiMessages || 500).toLocaleString()}
+                                /{" "}
+                                {(
+                                  quotaData?.limit ||
+                                  currentPlanLimits.aiMessages ||
+                                  500
+                                ).toLocaleString()}
                               </span>
                             </div>
                             <div className="relative w-full bg-blue-200/50 dark:bg-blue-800/50 rounded-full h-4 overflow-hidden">
@@ -15963,7 +16660,13 @@ useEffect(() => {
                                 style={{
                                   width: `${Math.min(
                                     Math.max(
-                                      ((quotaData?.limit || currentPlanLimits.aiMessages || 500) - (aiMessageUsage || 0)) / (quotaData?.limit || currentPlanLimits.aiMessages || 500) *
+                                      (((quotaData?.limit ||
+                                        currentPlanLimits.aiMessages ||
+                                        500) -
+                                        (aiMessageUsage || 0)) /
+                                        (quotaData?.limit ||
+                                          currentPlanLimits.aiMessages ||
+                                          500)) *
                                         100,
                                       0
                                     ),
@@ -15975,12 +16678,16 @@ useEffect(() => {
                               </div>
                             </div>
                             <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                              {(
-                                Math.max(
-                                  ((quotaData?.limit || currentPlanLimits.aiMessages || 500) - (aiMessageUsage || 0)) / (quotaData?.limit || currentPlanLimits.aiMessages || 500) *
-                                    100,
-                                  0
-                                )
+                              {Math.max(
+                                (((quotaData?.limit ||
+                                  currentPlanLimits.aiMessages ||
+                                  500) -
+                                  (aiMessageUsage || 0)) /
+                                  (quotaData?.limit ||
+                                    currentPlanLimits.aiMessages ||
+                                    500)) *
+                                  100,
+                                0
                               ).toFixed(1)}
                               % quota remaining this month
                             </p>
@@ -15993,7 +16700,10 @@ useEffect(() => {
                         <div className="relative">
                           <div className="flex items-center gap-3 mb-4">
                             <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
-                              <Lucide icon="Users" className="w-6 h-6 text-white" />
+                              <Lucide
+                                icon="Users"
+                                className="w-6 h-6 text-white"
+                              />
                             </div>
                             <h3 className="text-xl font-bold text-emerald-900 dark:text-emerald-100">
                               Contacts
@@ -16005,7 +16715,10 @@ useEffect(() => {
                                 {contacts.length.toLocaleString()}
                               </span>
                               <span className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
-                                / {(currentPlanLimits.contacts || 0).toLocaleString()}
+                                /{" "}
+                                {(
+                                  currentPlanLimits.contacts || 0
+                                ).toLocaleString()}
                               </span>
                             </div>
                             <div className="relative w-full bg-emerald-200/50 dark:bg-emerald-800/50 rounded-full h-4 overflow-hidden">
@@ -16014,7 +16727,10 @@ useEffect(() => {
                                 style={{
                                   width: `${Math.min(
                                     Math.max(
-                                      ((currentPlanLimits.contacts || 1) - contacts.length) / (currentPlanLimits.contacts || 1) * 100,
+                                      (((currentPlanLimits.contacts || 1) -
+                                        contacts.length) /
+                                        (currentPlanLimits.contacts || 1)) *
+                                        100,
                                       0
                                     ),
                                     100
@@ -16025,19 +16741,24 @@ useEffect(() => {
                               </div>
                             </div>
                             <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                              {(
-                                Math.max(
-                                  ((currentPlanLimits.contacts || 1) - contacts.length) / (currentPlanLimits.contacts || 1) * 100,
-                                  0
-                                )
-                              ).toFixed(1)}% quota remaining for this account
+                              {Math.max(
+                                (((currentPlanLimits.contacts || 1) -
+                                  contacts.length) /
+                                  (currentPlanLimits.contacts || 1)) *
+                                  100,
+                                0
+                              ).toFixed(1)}
+                              % quota remaining for this account
                             </p>
                             {contacts.length > currentPlanLimits.contacts && (
                               <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg border border-orange-200 dark:border-orange-700/50">
                                 <p className="text-xs text-orange-700 dark:text-orange-300 font-medium">
                                   ⚠️ You have{" "}
-                                  {(contacts.length - currentPlanLimits.contacts).toLocaleString()}{" "}
-                                  contacts over your plan limit. Consider upgrading to manage all contacts effectively.
+                                  {(
+                                    contacts.length - currentPlanLimits.contacts
+                                  ).toLocaleString()}{" "}
+                                  contacts over your plan limit. Consider
+                                  upgrading to manage all contacts effectively.
                                 </p>
                               </div>
                             )}
@@ -16086,12 +16807,17 @@ useEffect(() => {
                                           // Use a timeout to ensure proper destruction
                                           setTimeout(() => {
                                             // Destroy any existing chart instance
-                                            const existingChart = (canvas as any).chart;
+                                            const existingChart = (
+                                              canvas as any
+                                            ).chart;
                                             if (existingChart) {
                                               try {
                                                 existingChart.destroy();
                                               } catch (e) {
-                                                console.warn('Error destroying chart:', e);
+                                                console.warn(
+                                                  "Error destroying chart:",
+                                                  e
+                                                );
                                               }
                                               (canvas as any).chart = null;
                                             }
@@ -16099,12 +16825,20 @@ useEffect(() => {
                                             // Clear the canvas
                                             const ctx = canvas.getContext("2d");
                                             if (ctx) {
-                                              ctx.clearRect(0, 0, canvas.width, canvas.height);
+                                              ctx.clearRect(
+                                                0,
+                                                0,
+                                                canvas.width,
+                                                canvas.height
+                                              );
                                             }
 
-                                            import("chart.js/auto").then(
-                                              (Chart) => {
-                                                if (ctx && !(canvas as any).chart) {
+                                            import("chart.js/auto")
+                                              .then((Chart) => {
+                                                if (
+                                                  ctx &&
+                                                  !(canvas as any).chart
+                                                ) {
                                                   const isDark =
                                                     document.documentElement.classList.contains(
                                                       "dark"
@@ -16130,7 +16864,9 @@ useEffect(() => {
                                                       "DEC",
                                                     ];
                                                     const month =
-                                                      monthNames[date.getMonth()];
+                                                      monthNames[
+                                                        date.getMonth()
+                                                      ];
                                                     const day = date
                                                       .getDate()
                                                       .toString()
@@ -16152,7 +16888,8 @@ useEffect(() => {
                                                             ),
                                                           datasets: [
                                                             {
-                                                              label: "AI Messages",
+                                                              label:
+                                                                "AI Messages",
                                                               data: dailyUsageData.map(
                                                                 (day) =>
                                                                   day.aiMessages
@@ -16187,7 +16924,8 @@ useEffect(() => {
                                                               position:
                                                                 "top" as const,
                                                               labels: {
-                                                                usePointStyle: true,
+                                                                usePointStyle:
+                                                                  true,
                                                                 pointStyle:
                                                                   "circle" as const,
                                                                 padding: 20,
@@ -16210,12 +16948,14 @@ useEffect(() => {
                                                               bodyColor: isDark
                                                                 ? "#D1D5DB"
                                                                 : "#4B5563",
-                                                              borderColor: isDark
-                                                                ? "#374151"
-                                                                : "#E5E7EB",
+                                                              borderColor:
+                                                                isDark
+                                                                  ? "#374151"
+                                                                  : "#E5E7EB",
                                                               borderWidth: 1,
                                                               cornerRadius: 8,
-                                                              displayColors: true,
+                                                              displayColors:
+                                                                true,
                                                               padding: 12,
                                                             },
                                                           },
@@ -16253,28 +16993,35 @@ useEffect(() => {
                                                                   size: 12,
                                                                 },
                                                                 padding: 10,
-                                                                callback: function (
-                                                                  value: any
-                                                                ) {
-                                                                  return Number.isInteger(
-                                                                    value
-                                                                  )
-                                                                    ? value
-                                                                    : "";
-                                                                },
+                                                                callback:
+                                                                  function (
+                                                                    value: any
+                                                                  ) {
+                                                                    return Number.isInteger(
+                                                                      value
+                                                                    )
+                                                                      ? value
+                                                                      : "";
+                                                                  },
                                                               },
                                                             },
                                                           },
                                                         },
                                                       });
                                                   } catch (error) {
-                                                    console.error('Error creating chart:', error);
+                                                    console.error(
+                                                      "Error creating chart:",
+                                                      error
+                                                    );
                                                   }
                                                 }
-                                              }
-                                            ).catch((error) => {
-                                              console.error('Error importing Chart.js:', error);
-                                            });
+                                              })
+                                              .catch((error) => {
+                                                console.error(
+                                                  "Error importing Chart.js:",
+                                                  error
+                                                );
+                                              });
                                           }, 100);
                                         }
                                       }}
@@ -16680,10 +17427,11 @@ useEffect(() => {
                       AI Response Calculator
                     </h3>
                     <p className="text-green-600 dark:text-green-400 text-sm mt-1">
-                      Calculate how many AI responses you need and get instant pricing
+                      Calculate how many AI responses you need and get instant
+                      pricing
                     </p>
                   </div>
-                  
+
                   <div className="max-w-md mx-auto">
                     <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-green-200 dark:border-green-700">
                       <div className="mb-4">
@@ -16695,12 +17443,14 @@ useEffect(() => {
                           min="1"
                           step="1"
                           value={topUpAmount}
-                          onChange={(e) => setTopUpAmount(parseInt(e.target.value) || 0)}
+                          onChange={(e) =>
+                            setTopUpAmount(parseInt(e.target.value) || 0)
+                          }
                           className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-center text-lg font-semibold"
                           placeholder="Enter amount in RM"
                         />
                       </div>
-                      
+
                       <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                         <div className="text-center">
                           <div className="text-2xl font-bold text-green-600 dark:text-green-400">
@@ -16717,8 +17467,8 @@ useEffect(() => {
                           </div>
                         </div>
                       </div>
-                      
-                      <button 
+
+                      <button
                         onClick={() => handleTopUpPurchase()}
                         disabled={topUpAmount < 1 || isTopUpLoading}
                         className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95"
@@ -16761,12 +17511,15 @@ useEffect(() => {
                     <div className="text-center">
                       <div
                         className={`text-2xl font-bold ${
-                          (currentPlanLimits.aiMessages || 0) - (aiMessageUsage || 0) >= 0
+                          (currentPlanLimits.aiMessages || 0) -
+                            (aiMessageUsage || 0) >=
+                          0
                             ? "text-blue-600 dark:text-blue-400"
                             : "text-red-600 dark:text-red-400"
                         }`}
                       >
-                        {(currentPlanLimits.aiMessages || 0) - (aiMessageUsage || 0)}
+                        {(currentPlanLimits.aiMessages || 0) -
+                          (aiMessageUsage || 0)}
                       </div>
                       <div className="text-sm text-blue-700 dark:text-blue-300">
                         Remaining
@@ -16794,7 +17547,9 @@ useEffect(() => {
                           </span>
                         </div>
                         <p className="text-gray-600 dark:text-gray-400 mb-4 text-xs">
-                          Perfect for getting started. Get 100 AI responses monthly and 100 contacts with full access to all system features.
+                          Perfect for getting started. Get 100 AI responses
+                          monthly and 100 contacts with full access to all
+                          system features.
                         </p>
                         <div className="w-full bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-400 font-semibold py-2 px-4 rounded-xl text-sm text-center">
                           Current Plan
@@ -16811,7 +17566,10 @@ useEffect(() => {
                           "Mobile App Access",
                           "Desktop App Access",
                         ].map((benefit, index) => (
-                          <div key={index} className="flex items-center text-xs text-gray-700 dark:text-gray-300">
+                          <div
+                            key={index}
+                            className="flex items-center text-xs text-gray-700 dark:text-gray-300"
+                          >
                             <Lucide
                               icon="Check"
                               className="w-3 h-3 text-green-500 mr-2 flex-shrink-0"
@@ -16835,9 +17593,11 @@ useEffect(() => {
                           </span>
                         </div>
                         <p className="text-gray-600 dark:text-gray-400 mb-4 text-xs">
-                          Perfect for small businesses. Get 1000 AI responses monthly and 5000 contacts with full access to all system features.
+                          Perfect for small businesses. Get 1000 AI responses
+                          monthly and 5000 contacts with full access to all
+                          system features.
                         </p>
-                        <a 
+                        <a
                           href="https://api.payex.io/Payment/Details?key=78cd6WScl365InsA&amount=500&payment_type=fpx&description=Standard%20Plan&signature=8f619e38ff161beeb887286cc69b2aaf1bdf278df51249436c7ce0063179a617"
                           target="_blank"
                           rel="noopener noreferrer"
@@ -16857,7 +17617,10 @@ useEffect(() => {
                           "Mobile App Access",
                           "Desktop App Access",
                         ].map((benefit, index) => (
-                          <div key={index} className="flex items-center text-xs text-gray-700 dark:text-gray-300">
+                          <div
+                            key={index}
+                            className="flex items-center text-xs text-gray-700 dark:text-gray-300"
+                          >
                             <Lucide
                               icon="Check"
                               className="w-3 h-3 text-green-500 mr-2 flex-shrink-0"
@@ -16886,9 +17649,11 @@ useEffect(() => {
                           </span>
                         </div>
                         <p className="text-gray-600 dark:text-gray-400 mb-4 text-xs">
-                          Premium support with 5,000 AI responses monthly and 10,000 contacts. We handle your prompting, follow-ups, and maintenance.
+                          Premium support with 5,000 AI responses monthly and
+                          10,000 contacts. We handle your prompting, follow-ups,
+                          and maintenance.
                         </p>
-                        <a 
+                        <a
                           href="https://api.payex.io/Payment/Details?key=78cd6WScl365InsA&amount=950&payment_type=fpx&description=Pro%20Plan&signature=c33c1d57c6ddb0976c02f5dab08bc683b25e01d099e92e707b82a607268e28a7"
                           target="_blank"
                           rel="noopener noreferrer"
@@ -16909,7 +17674,10 @@ useEffect(() => {
                           "Desktop App Access",
                           "Full Maintenance & Support",
                         ].map((benefit, index) => (
-                          <div key={index} className="flex items-center text-xs text-gray-700 dark:text-gray-300">
+                          <div
+                            key={index}
+                            className="flex items-center text-xs text-gray-700 dark:text-gray-300"
+                          >
                             <Lucide
                               icon="Check"
                               className="w-3 h-3 text-green-500 mr-2 flex-shrink-0"
@@ -16933,9 +17701,11 @@ useEffect(() => {
                           </span>
                         </div>
                         <p className="text-gray-600 dark:text-gray-400 mb-4 text-xs">
-                          Complete solution with 20,000 AI responses, 50,000 contacts, custom integrations, full setup and maintenance included.
+                          Complete solution with 20,000 AI responses, 50,000
+                          contacts, custom integrations, full setup and
+                          maintenance included.
                         </p>
-                        <a 
+                        <a
                           href="https://wa.me/601121677522?text=Hi%20i%20would%20like%20to%20know%20more%20about%20your%20enterprise%20plan"
                           target="_blank"
                           rel="noopener noreferrer"
@@ -16957,7 +17727,10 @@ useEffect(() => {
                           "Full Maintenance & Support",
                           "Full AI Setup & Custom Automations",
                         ].map((benefit, index) => (
-                          <div key={index} className="flex items-center text-xs text-gray-700 dark:text-gray-300">
+                          <div
+                            key={index}
+                            className="flex items-center text-xs text-gray-700 dark:text-gray-300"
+                          >
                             <Lucide
                               icon="Check"
                               className="w-3 h-3 text-green-500 mr-2 flex-shrink-0"
@@ -16969,95 +17742,85 @@ useEffect(() => {
                     </div>
                   </div>
                 </div>
-
-
               </div>
             </div>
           </div>
         </div>
       )}
-          {/* Quick Replies Modal */}
-          <QuickRepliesModal
-                  isOpen={isQuickRepliesOpen}
-                  onClose={() => setIsQuickRepliesOpen(false)}
-                  quickReplies={quickReplies}
-                  categories={categories}
-                  onSelectReply={(reply) => {
-                    // Handle videos first
-                    if (reply.videos?.length) {
-                      reply.videos.forEach((video) => {
-                        fetch(video.url)
-                          .then((response) => response.blob())
-                          .then((blob) => {
-                            const videoFile = new File(
-                              [blob],
-                              video.name,
-                              {
-                                type: video.type,
-                                lastModified: video.lastModified,
-                              }
-                            );
-                            setSelectedVideo(videoFile);
-                            setVideoModalOpen(true);
-                            setDocumentCaption(reply.text || "");
-                          })
-                          .catch((error) => {
-                            console.error("Error handling video:", error);
-                            toast.error("Failed to load video");
-                          });
-                      });
-                    }
-                    // Handle images
-                    else if (reply.images?.length) {
-                      setPastedImageUrl(reply.images);
-                      setDocumentCaption(reply.text || "");
-                      setImageModalOpen2(true);
-                    }
-                    // Handle documents
-                    else if (reply.documents?.length) {
-                      reply.documents.forEach((doc) => {
-                        fetch(doc.url)
-                          .then((response) => response.blob())
-                          .then((blob) => {
-                            const documentFile = new File(
-                              [blob],
-                              doc.name,
-                              {
-                                type: doc.type,
-                                lastModified: doc.lastModified,
-                              }
-                            );
-                            setSelectedDocument(documentFile);
-                            setDocumentModalOpen(true);
-                            setDocumentCaption(reply.text || "");
-                          })
-                          .catch((error) => {
-                            console.error("Error handling document:", error);
-                            toast.error("Failed to load document");
-                          });
-                      });
-                    }
-                    // Handle text-only replies
-                    else if (
-                      !reply.images?.length &&
-                      !reply.documents?.length &&
-                      !reply.videos?.length
-                    ) {
-                      setNewMessage(reply.text);
-                    }
-                  }}
-                  onUpdateReply={updateQuickReply}
-                  onDeleteReply={deleteQuickReply}
-                />
+      {/* Quick Replies Modal */}
+      <QuickRepliesModal
+        isOpen={isQuickRepliesOpen}
+        onClose={() => setIsQuickRepliesOpen(false)}
+        quickReplies={quickReplies}
+        categories={categories}
+        onSelectReply={(reply) => {
+          // Handle videos first
+          if (reply.videos?.length) {
+            reply.videos.forEach((video) => {
+              fetch(video.url)
+                .then((response) => response.blob())
+                .then((blob) => {
+                  const videoFile = new File([blob], video.name, {
+                    type: video.type,
+                    lastModified: video.lastModified,
+                  });
+                  setSelectedVideo(videoFile);
+                  setVideoModalOpen(true);
+                  setDocumentCaption(reply.text || "");
+                })
+                .catch((error) => {
+                  console.error("Error handling video:", error);
+                  toast.error("Failed to load video");
+                });
+            });
+          }
+          // Handle images
+          else if (reply.images?.length) {
+            setPastedImageUrl(reply.images);
+            setDocumentCaption(reply.text || "");
+            setImageModalOpen2(true);
+          }
+          // Handle documents
+          else if (reply.documents?.length) {
+            reply.documents.forEach((doc) => {
+              fetch(doc.url)
+                .then((response) => response.blob())
+                .then((blob) => {
+                  const documentFile = new File([blob], doc.name, {
+                    type: doc.type,
+                    lastModified: doc.lastModified,
+                  });
+                  setSelectedDocument(documentFile);
+                  setDocumentModalOpen(true);
+                  setDocumentCaption(reply.text || "");
+                })
+                .catch((error) => {
+                  console.error("Error handling document:", error);
+                  toast.error("Failed to load document");
+                });
+            });
+          }
+          // Handle text-only replies
+          else if (
+            !reply.images?.length &&
+            !reply.documents?.length &&
+            !reply.videos?.length
+          ) {
+            setNewMessage(reply.text);
+          }
+        }}
+        onUpdateReply={updateQuickReply}
+        onDeleteReply={deleteQuickReply}
+      />
       {/* Employee Assignment Modal */}
       {isEmployeeModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           {/* Backdrop */}
-          <div 
+          <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setIsEmployeeModalOpen(false)}
           />
-          
+
           {/* Modal Content */}
           <div className="relative w-full max-w-2xl mx-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl shadow-2xl rounded-3xl border border-white/20 dark:border-gray-600/30 overflow-hidden">
             {/* Header */}
@@ -17068,8 +17831,12 @@ useEffect(() => {
                     <Lucide icon="Users" className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-white">Assign Employee</h2>
-                    <p className="text-blue-100 text-sm">Select an employee to assign to this contact</p>
+                    <h2 className="text-xl font-bold text-white">
+                      Assign Employee
+                    </h2>
+                    <p className="text-blue-100 text-sm">
+                      Select an employee to assign to this contact
+                    </p>
                   </div>
                 </div>
                 <button
@@ -17084,9 +17851,9 @@ useEffect(() => {
             {/* Search Input */}
             <div className="p-6 border-b border-gray-200/50 dark:border-gray-600/50">
               <div className="relative">
-                <Lucide 
-                  icon="Search" 
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" 
+                <Lucide
+                  icon="Search"
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
                 />
                 <input
                   type="text"
@@ -17114,7 +17881,10 @@ useEffect(() => {
               >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                    <Lucide icon="Users" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <Lucide
+                      icon="Users"
+                      className="w-4 h-4 text-blue-600 dark:text-blue-400"
+                    />
                   </div>
                   <span>All Contacts</span>
                 </div>
@@ -17158,14 +17928,18 @@ useEffect(() => {
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                        <Lucide icon="User" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                        <Lucide
+                          icon="User"
+                          className="w-4 h-4 text-blue-600 dark:text-blue-400"
+                        />
                       </div>
                       <span className="font-medium">{employee.name}</span>
                     </div>
                     <div className="flex items-center space-x-2 text-sm">
                       {employee.quotaLeads !== undefined && (
                         <span className="px-2 py-1 bg-white/20 dark:bg-gray-600/30 rounded-lg">
-                          {employee.assignedContacts || 0}/{employee.quotaLeads} leads
+                          {employee.assignedContacts || 0}/{employee.quotaLeads}{" "}
+                          leads
                         </span>
                       )}
                     </div>
@@ -17180,11 +17954,11 @@ useEffect(() => {
       {isTagModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           {/* Backdrop */}
-          <div 
+          <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setIsTagModalOpen(false)}
           />
-          
+
           {/* Modal Content */}
           <div className="relative w-full max-w-2xl mx-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl shadow-2xl rounded-3xl border border-white/20 dark:border-gray-600/30 overflow-hidden">
             {/* Header */}
@@ -17196,7 +17970,9 @@ useEffect(() => {
                   </div>
                   <div>
                     <h2 className="text-xl font-bold text-white">Add Tag</h2>
-                    <p className="text-green-100 text-sm">Select a tag to assign to this contact</p>
+                    <p className="text-green-100 text-sm">
+                      Select a tag to assign to this contact
+                    </p>
                   </div>
                 </div>
                 <button
@@ -17224,16 +18000,16 @@ useEffect(() => {
                       tag.name,
                       selectedContact
                     );
-                    handleAddTagToSelectedContacts(
-                      tag.name,
-                      selectedContact
-                    );
+                    handleAddTagToSelectedContacts(tag.name, selectedContact);
                     setIsTagModalOpen(false);
                   }}
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
-                      <Lucide icon="Tag" className="w-4 h-4 text-green-600 dark:text-green-400" />
+                      <Lucide
+                        icon="Tag"
+                        className="w-4 h-4 text-green-600 dark:text-green-400"
+                      />
                     </div>
                     <span className="font-medium">{tag.name}</span>
                   </div>
@@ -17248,11 +18024,11 @@ useEffect(() => {
       {isAttachmentModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           {/* Backdrop */}
-          <div 
+          <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setIsAttachmentModalOpen(false)}
           />
-          
+
           {/* Modal Content */}
           <div className="relative w-full max-w-md mx-4 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl shadow-2xl rounded-3xl border-0 overflow-hidden">
             {/* Header */}
@@ -17263,8 +18039,12 @@ useEffect(() => {
                     <Lucide icon="Paperclip" className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-white">Attach File</h2>
-                    <p className="text-blue-100 text-sm">Choose what you want to attach</p>
+                    <h2 className="text-xl font-bold text-white">
+                      Attach File
+                    </h2>
+                    <p className="text-blue-100 text-sm">
+                      Choose what you want to attach
+                    </p>
                   </div>
                 </div>
                 <button
@@ -17278,15 +18058,18 @@ useEffect(() => {
 
             {/* Attachment Options */}
             <div className="p-6 space-y-4">
-              <button 
+              <button
                 className="w-full flex items-center p-4 rounded-xl text-base transition-all duration-200 bg-white/20 dark:bg-slate-700/40 hover:bg-white/30 dark:hover:bg-slate-600/50 text-slate-800 dark:text-slate-200"
                 onClick={() => {
-                  document.getElementById('imageUpload')?.click();
+                  document.getElementById("imageUpload")?.click();
                 }}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                    <Lucide icon="Image" className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <Lucide
+                      icon="Image"
+                      className="w-4 h-4 text-blue-600 dark:text-blue-400"
+                    />
                   </div>
                   <span className="font-medium">Image</span>
                 </div>
@@ -17310,15 +18093,18 @@ useEffect(() => {
                 />
               </button>
 
-              <button 
+              <button
                 className="w-full flex items-center p-4 rounded-xl text-base transition-all duration-200 bg-white/20 dark:bg-slate-700/40 hover:bg-white/30 dark:hover:bg-slate-600/50 text-slate-800 dark:text-slate-200"
                 onClick={() => {
-                  document.getElementById('videoUpload')?.click();
+                  document.getElementById("videoUpload")?.click();
                 }}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
-                    <Lucide icon="Video" className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    <Lucide
+                      icon="Video"
+                      className="w-4 h-4 text-green-600 dark:text-green-400"
+                    />
                   </div>
                   <span className="font-medium">Video</span>
                 </div>
@@ -17338,15 +18124,18 @@ useEffect(() => {
                 />
               </button>
 
-              <button 
+              <button
                 className="w-full flex items-center p-4 rounded-xl text-base transition-all duration-200 bg-white/20 dark:bg-slate-700/40 hover:bg-white/30 dark:hover:bg-slate-600/50 text-slate-800 dark:text-slate-200"
                 onClick={() => {
-                  document.getElementById('documentUpload')?.click();
+                  document.getElementById("documentUpload")?.click();
                 }}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
-                    <Lucide icon="File" className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    <Lucide
+                      icon="File"
+                      className="w-4 h-4 text-purple-600 dark:text-purple-400"
+                    />
                   </div>
                   <span className="font-medium">Document</span>
                 </div>

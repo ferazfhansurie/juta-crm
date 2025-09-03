@@ -77,6 +77,7 @@ const firestore = getFirestore(app);
 
 function Main() {
   interface Contact {
+    company: string;
     name: any;
     contact_id: any;
     threadid?: string | null;
@@ -256,29 +257,29 @@ function Main() {
   };
 
   interface Phone {
-  phoneIndex: number;
-  status: string;
-  qrCode: string | null;
-  phoneInfo: string;
-}
+    phoneIndex: number;
+    status: string;
+    qrCode: string | null;
+    phoneInfo: string;
+  }
 
-interface QRCodeData {
-  phoneIndex: number;
-  status: string;
-  qrCode: string | null;
-}
+  interface QRCodeData {
+    phoneIndex: number;
+    status: string;
+    qrCode: string | null;
+  }
 
-interface BotStatusResponse {
-  qrCode: string | null;
-  status: string;
-  phoneInfo: boolean;
-  phones: Phone[];
-  companyId: string;
-  v2: boolean;
-  trialEndDate: string | null;
-  apiUrl: string | null;
-  phoneCount: number;
-}
+  interface BotStatusResponse {
+    qrCode: string | null;
+    status: string;
+    phoneInfo: boolean;
+    phones: Phone[];
+    companyId: string;
+    v2: boolean;
+    trialEndDate: string | null;
+    apiUrl: string | null;
+    phoneCount: number;
+  }
 
   const DatePickerComponent = DatePicker as any;
 
@@ -311,8 +312,7 @@ interface BotStatusResponse {
   const [currentPage, setCurrentPage] = useState(0);
   const contactsPerPage = 200;
   const contactListRef = useRef<HTMLDivElement>(null);
-// Add this near your other state declarations (around line 78)
-const [isLoadingContacts, setIsLoadingContacts] = useState(false);
+  const [isLoadingContacts, setIsLoadingContacts] = useState(false);
   const [totalContacts, setTotalContacts] = useState(contacts.length);
   const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(
     null
@@ -332,6 +332,7 @@ const [isLoadingContacts, setIsLoadingContacts] = useState(false);
   } | null>(null);
   const [exportModalContent, setExportModalContent] =
     useState<React.ReactNode | null>(null);
+  const [exportSelectedTags, setExportSelectedTags] = useState<string[]>([]);
   const [focusedMessageIndex, setFocusedMessageIndex] = useState<number>(0);
   const [cursorPosition, setCursorPosition] = useState<number>(0);
   const [selectedScheduledMessages, setSelectedScheduledMessages] = useState<
@@ -391,6 +392,16 @@ const [isLoadingContacts, setIsLoadingContacts] = useState(false);
   const [showManageTagsModal, setShowManageTagsModal] = useState(false);
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [showSyncOptionsModal, setShowSyncOptionsModal] = useState(false);
+
+  // Accordion menu states
+  const [showAssignUserMenu, setShowAssignUserMenu] = useState(false);
+  const [showAddTagMenu, setShowAddTagMenu] = useState(false);
+  const [showRemoveTagMenu, setShowRemoveTagMenu] = useState(false);
+  const [showSyncMenu, setShowSyncMenu] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showTagSelection, setShowTagSelection] = useState(false);
+  const [showManageTagsMenu, setShowManageTagsMenu] = useState(false);
+
   const [isMassDeleting, setIsMassDeleting] = useState(false);
   const [userFilter, setUserFilter] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"tags" | "users">("tags");
@@ -427,15 +438,17 @@ const [isLoadingContacts, setIsLoadingContacts] = useState(false);
     { text: "", delayAfter: 0 },
   ]);
   const employeeListRef = useRef<Employee[]>([]);
-// Add these with your other state variables
-const [messageStatusFilter, setMessageStatusFilter] = useState("");
-const [messageDateFilter, setMessageDateFilter] = useState("");
-const [messageTypeFilter, setMessageTypeFilter] = useState("");
-const [messageRecipientFilter, setMessageRecipientFilter] = useState("");
+  const [messageStatusFilter, setMessageStatusFilter] = useState("");
+  const [messageDateFilter, setMessageDateFilter] = useState("");
+  const [messageTypeFilter, setMessageTypeFilter] = useState("");
+  const [messageRecipientFilter, setMessageRecipientFilter] = useState("");
   const [infiniteLoop, setInfiniteLoop] = useState(false);
   const [showScheduledMessages, setShowScheduledMessages] =
     useState<boolean>(false);
-  // First, add a state to track visible columns
+  const [scheduledMessagesModal, setScheduledMessagesModal] = useState(false);
+  const [selectedMessageForView, setSelectedMessageForView] =
+    useState<any>(null);
+  const [viewMessageDetailsModal, setViewMessageDetailsModal] = useState(false);
   const defaultVisibleColumns = {
     checkbox: true,
     contact: true,
@@ -570,14 +583,19 @@ const [messageRecipientFilter, setMessageRecipientFilter] = useState("");
       if (userEmail && Object.keys(phoneNames).length === 0) {
         try {
           const response = await fetch(
-            `${baseUrl}/api/user-page-context?email=${encodeURIComponent(userEmail)}`
+            `${baseUrl}/api/user-page-context?email=${encodeURIComponent(
+              userEmail
+            )}`
           );
-          
+
           if (response.ok) {
             const data = await response.json();
-            
-            if (data.phoneNames && typeof data.phoneNames === 'object') {
-              console.log("Setting phone names early from user-page-context:", data.phoneNames);
+
+            if (data.phoneNames && typeof data.phoneNames === "object") {
+              console.log(
+                "Setting phone names early from user-page-context:",
+                data.phoneNames
+              );
               setPhoneNames(data.phoneNames);
               setPhoneOptions(Object.keys(data.phoneNames).map(Number));
             }
@@ -602,24 +620,32 @@ const [messageRecipientFilter, setMessageRecipientFilter] = useState("");
 
       // Use the same API endpoint as Chat component to get phone names
       const response = await fetch(
-        `${baseUrl}/api/user-page-context?email=${encodeURIComponent(userEmail)}`
+        `${baseUrl}/api/user-page-context?email=${encodeURIComponent(
+          userEmail
+        )}`
       );
-      
+
       if (!response.ok) {
         throw new Error("Failed to fetch user context");
       }
-      
+
       const data = await response.json();
-      
+
       // Set phone names from the API response
-      if (data.phoneNames && typeof data.phoneNames === 'object') {
-        console.log("Setting phone names from user-page-context:", data.phoneNames);
+      if (data.phoneNames && typeof data.phoneNames === "object") {
+        console.log(
+          "Setting phone names from user-page-context:",
+          data.phoneNames
+        );
         setPhoneNames(data.phoneNames);
         setPhoneOptions(Object.keys(data.phoneNames).map(Number));
       } else {
         // Fallback: create default phone names based on phone count
         const phoneCount = data.companyData?.phoneCount || 0;
-        console.log("Creating default phone names for phone count:", phoneCount);
+        console.log(
+          "Creating default phone names for phone count:",
+          phoneCount
+        );
         const defaultPhoneNames: { [key: number]: string } = {};
         for (let i = 0; i < phoneCount; i++) {
           defaultPhoneNames[i] = `Phone ${i + 1}`;
@@ -628,18 +654,21 @@ const [messageRecipientFilter, setMessageRecipientFilter] = useState("");
         setPhoneOptions(Object.keys(defaultPhoneNames).map(Number));
       }
     } catch (error) {
-      console.error("Error fetching phone names from user-page-context:", error);
-      
+      console.error(
+        "Error fetching phone names from user-page-context:",
+        error
+      );
+
       // Fallback: try to get phone count from bot status API
       try {
         const botStatusResponse = await axios.get(
           `${baseUrl}/api/bot-status/${companyId}`
         );
-        
+
         if (botStatusResponse.status === 200) {
           const botData = botStatusResponse.data;
           const phoneCount = botData.phoneCount || 0;
-          
+
           // Create default phone names based on phone count
           const defaultPhoneNames: { [key: number]: string } = {};
           for (let i = 0; i < phoneCount; i++) {
@@ -653,7 +682,10 @@ const [messageRecipientFilter, setMessageRecipientFilter] = useState("");
           setPhoneNames({});
         }
       } catch (fallbackError) {
-        console.error("Error fetching phone names from bot status API:", fallbackError);
+        console.error(
+          "Error fetching phone names from bot status API:",
+          fallbackError
+        );
         setPhoneOptions([]);
         setPhoneNames({});
       }
@@ -680,32 +712,36 @@ const [messageRecipientFilter, setMessageRecipientFilter] = useState("");
   };
   useEffect(() => {
     if (showAssignUserModal) {
-      console.log('Modal opened - employeeList:', employeeList);
-      console.log('Modal opened - employeeList length:', employeeList.length);
+      console.log("Modal opened - employeeList:", employeeList);
+      console.log("Modal opened - employeeList length:", employeeList.length);
     }
   }, [showAssignUserModal, employeeList]);
   useEffect(() => {
     if (showAssignUserModal) {
-      console.log('Modal opened - employeeList:', employeeList);
-      console.log('Modal opened - employeeList length:', employeeList.length);
+      console.log("Modal opened - employeeList:", employeeList);
+      console.log("Modal opened - employeeList length:", employeeList.length);
     }
   }, [showAssignUserModal, employeeList]);
   // Add this near your other useEffect hooks
 
-useEffect(() => {
-  // Ensure employee names are properly stored when fetched
-  const normalizedEmployeeNames = employeeList.map((employee) =>
-    employee.name.toLowerCase()
-  );
-  setEmployeeNames(normalizedEmployeeNames);
-}, [employeeList]);
+  useEffect(() => {
+    // Ensure employee names are properly stored when fetched
+    const normalizedEmployeeNames = employeeList.map((employee) =>
+      employee.name.toLowerCase()
+    );
+    setEmployeeNames(normalizedEmployeeNames);
+  }, [employeeList]);
 
-useEffect(() => {
-  if (employeeList.length > 0) {
-    employeeListRef.current = [...employeeList];
-    console.log('Updated employeeListRef with:', employeeListRef.current.length, 'employees');
-  }
-}, [employeeList]);
+  useEffect(() => {
+    if (employeeList.length > 0) {
+      employeeListRef.current = [...employeeList];
+      console.log(
+        "Updated employeeListRef with:",
+        employeeListRef.current.length,
+        "employees"
+      );
+    }
+  }, [employeeList]);
   const handleDeleteSelected = async () => {
     if (selectedScheduledMessages.length === 0) {
       toast.error("Please select messages to delete");
@@ -781,7 +817,6 @@ useEffect(() => {
 
       // Convert to strings for comparison (except for points and dates which are handled above)
       if (
-      
         sortField !== "createdAt" &&
         sortField !== "dateAdded" &&
         sortField !== "dateUpdated" &&
@@ -864,9 +899,7 @@ useEffect(() => {
 
       // Fetch user config to get companyId
       const userResponse = await fetch(
-        `${baseUrl}/api/user/config?email=${encodeURIComponent(
-          userEmail
-        )}`,
+        `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
         {
           method: "GET",
           headers: {
@@ -890,14 +923,11 @@ useEffect(() => {
       }
 
       // Remove tags from contact via SQL backend
-      const response = await axios.post(
-      `${baseUrl}/api/contacts/remove-tags`,
-        {
-          companyId,
-          contact_id: contact.contact_id,
-          tagsToRemove,
-        }
-      );
+      const response = await axios.post(`${baseUrl}/api/contacts/remove-tags`, {
+        companyId,
+        contact_id: contact.contact_id,
+        tagsToRemove,
+      });
 
       if (response.data.success) {
         // Update local state
@@ -920,7 +950,7 @@ useEffect(() => {
   };
 
   const fetchContacts = useCallback(async () => {
-    setIsLoadingContacts(true);
+    setLoading(true);
     try {
       const userEmail = localStorage.getItem("userEmail");
       if (!userEmail) {
@@ -930,9 +960,7 @@ useEffect(() => {
 
       // Get user config to get companyId
       const userResponse = await fetch(
-        `${baseUrl}/api/user/config?email=${encodeURIComponent(
-          userEmail
-        )}`,
+        `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
         {
           method: "GET",
           headers: {
@@ -976,33 +1004,43 @@ useEffect(() => {
       // Debug: Log multiple contacts to see what fields are available
       if (data.contacts && data.contacts.length > 0) {
         console.log("Total contacts fetched:", data.contacts.length);
-        
-    
 
         // Search for specific contact with phone 60103089696
-        const targetContact = data.contacts.find((contact: any) => 
-          contact.phone === '+60103089696' || 
-          contact.phone === '60103089696' || 
-          contact.phone === '+60 10-308 9696' ||
-          contact.phone?.includes('60103089696')
+        const targetContact = data.contacts.find(
+          (contact: any) =>
+            contact.phone === "+60103089696" ||
+            contact.phone === "60103089696" ||
+            contact.phone === "+60 10-308 9696" ||
+            contact.phone?.includes("60103089696")
         );
-        
+
         if (targetContact) {
           console.log("=== FOUND TARGET CONTACT ===");
           console.log("Target contact:", targetContact);
           console.log("Target contact fields:", Object.keys(targetContact));
-          console.log("Target contact custom fields:", targetContact.customFields);
+          console.log(
+            "Target contact custom fields:",
+            targetContact.customFields
+          );
           console.log("Target contact branch:", targetContact.branch);
-          console.log("Target contact vehicleNumber:", targetContact.vehicleNumber);
+          console.log(
+            "Target contact vehicleNumber:",
+            targetContact.vehicleNumber
+          );
           console.log("Target contact ic:", targetContact.ic);
           console.log("Target contact expiryDate:", targetContact.expiryDate);
           console.log("Target contact leadNumber:", targetContact.leadNumber);
           console.log("Target contact phoneIndex:", targetContact.phoneIndex);
           console.log("=== END TARGET CONTACT ===");
         } else {
-          console.log("Contact with phone 60103089696 not found in current batch");
+          console.log(
+            "Contact with phone 60103089696 not found in current batch"
+          );
           // Log all phone numbers to see what we have
-          console.log("Available phone numbers:", data.contacts.map((c: any) => c.phone).slice(0, 10));
+          console.log(
+            "Available phone numbers:",
+            data.contacts.map((c: any) => c.phone).slice(0, 10)
+          );
         }
       }
 
@@ -1033,28 +1071,53 @@ useEffect(() => {
           last_message: contact.last_message,
           isIndividual: contact.isIndividual,
           // Try to extract data from profile JSON if it exists
-          ...(contact.profile && typeof contact.profile === 'string' ? 
-            (() => {
-              try {
-                const profileData = JSON.parse(contact.profile);
-                return {
-                  branch: contact.branch || profileData.branch,
-                  vehicleNumber: contact.vehicleNumber || contact.vehicle_number || profileData.vehicleNumber,
-                  ic: contact.ic || profileData.ic,
-                  expiryDate: contact.expiryDate || contact.expiry_date || profileData.expiryDate,
-                };
-              } catch (e) {
-                return {};
-              }
-            })() : {}),
+          ...(contact.profile && typeof contact.profile === "string"
+            ? (() => {
+                try {
+                  const profileData = JSON.parse(contact.profile);
+                  return {
+                    branch: contact.branch || profileData.branch,
+                    vehicleNumber:
+                      contact.vehicleNumber ||
+                      contact.vehicle_number ||
+                      profileData.vehicleNumber,
+                    ic: contact.ic || profileData.ic,
+                    expiryDate:
+                      contact.expiryDate ||
+                      contact.expiry_date ||
+                      profileData.expiryDate,
+                  };
+                } catch (e) {
+                  return {};
+                }
+              })()
+            : {}),
           // Map fields with multiple possible names and custom fields
-          branch: contact.branch || contact.customFields?.branch || contact.customFields?.['BRANCH'],
-          vehicleNumber: contact.vehicleNumber || contact.vehicle_number || contact.customFields?.['VEH. NO.'] || contact.customFields?.vehicleNumber || contact.customFields?.['VEHICLE NUMBER'],
-          ic: contact.ic || contact.customFields?.ic || contact.customFields?.['IC'],
-          expiryDate: contact.expiryDate || contact.expiry_date || contact.customFields?.expiryDate || contact.customFields?.['EXPIRY DATE'],
-      
+          branch:
+            contact.branch ||
+            contact.customFields?.branch ||
+            contact.customFields?.["BRANCH"],
+          vehicleNumber:
+            contact.vehicleNumber ||
+            contact.vehicle_number ||
+            contact.customFields?.["VEH. NO."] ||
+            contact.customFields?.vehicleNumber ||
+            contact.customFields?.["VEHICLE NUMBER"],
+          ic:
+            contact.ic ||
+            contact.customFields?.ic ||
+            contact.customFields?.["IC"],
+          expiryDate:
+            contact.expiryDate ||
+            contact.expiry_date ||
+            contact.customFields?.expiryDate ||
+            contact.customFields?.["EXPIRY DATE"],
+
           phoneIndex: contact.phoneIndex || contact.phone_index,
-          leadNumber: contact.leadNumber || contact.lead_number || contact.customFields?.['LEAD NUMBER'],
+          leadNumber:
+            contact.leadNumber ||
+            contact.lead_number ||
+            contact.customFields?.["LEAD NUMBER"],
           notes: contact.notes,
           customFields: contact.customFields || {},
         } as Contact;
@@ -1126,7 +1189,6 @@ useEffect(() => {
           contactListRef.current.clientHeight >=
           contactListRef.current.scrollHeight
       ) {
-     
       }
     };
 
@@ -1153,30 +1215,11 @@ useEffect(() => {
       { id: "tagged", label: "Export Contacts by Tag" },
     ];
 
-    const exportModal =
-      userRole === "1" ? (
-        <Dialog open={true} onClose={() => setExportModalOpen(false)}>
-          <Dialog.Panel className="w-full max-w-md p-6 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-white/30 dark:border-gray-700/50 rounded-xl shadow-xl shadow-gray-200/50 dark:shadow-gray-800/50">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
-              Export Contacts
-            </h3>
-            <div className="space-y-4">
-              {exportOptions.map((option) => (
-                <button
-                  key={option.id}
-                  className="w-full p-2 text-left bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm border border-white/30 dark:border-gray-600/50 hover:bg-white/90 dark:hover:bg-gray-600/90 rounded-md transition-all duration-200"
-                  onClick={() => handleExportOption(option.id)}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </Dialog.Panel>
-        </Dialog>
-      ) : null;
-
-    setExportModalOpen(true);
-    setExportModalContent(exportModal);
+    // Open export modal; rendering centralized in MODALS SECTION
+    if (userRole === "1") {
+      setExportModalOpen(true);
+      setExportModalContent("options");
+    }
   };
 
   const handleExportOption = (option: string) => {
@@ -1193,77 +1236,9 @@ useEffect(() => {
     }
   };
 
-  const TagSelectionModal = ({
-    onClose,
-    onExport,
-  }: {
-    onClose: () => void;
-    onExport: (tags: string[]) => void;
-  }) => {
-    const [localSelectedTags, setLocalSelectedTags] =
-      useState<string[]>(selectedTags);
-
-    const handleLocalTagSelection = (
-      e: React.ChangeEvent<HTMLInputElement>,
-      tagName: string
-    ) => {
-      const isChecked = e.target.checked;
-      setLocalSelectedTags((prevTags) =>
-        isChecked
-          ? [...prevTags, tagName]
-          : prevTags.filter((tag) => tag !== tagName)
-      );
-    };
-
-    return (
-      <Dialog.Panel className="w-full max-w-md p-6 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-white/30 dark:border-gray-700/50 rounded-xl shadow-xl shadow-gray-200/50 dark:shadow-gray-800/50">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
-          Select Tags to Export
-        </h3>
-        <div className="space-y-2 max-h-60 overflow-y-auto">
-          {tagList.map((tag) => (
-            <label key={tag.id} className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                value={tag.name}
-                checked={localSelectedTags.includes(tag.name)}
-                onChange={(e) => handleLocalTagSelection(e, tag.name)}
-                className="form-checkbox"
-              />
-              <span className="text-gray-700 dark:text-gray-300">
-                {tag.name}
-              </span>
-            </label>
-          ))}
-        </div>
-        <div className="mt-4 flex justify-end space-x-2">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm border border-white/30 dark:border-gray-600/50 text-gray-800 dark:text-gray-200 rounded-md hover:bg-white/90 dark:hover:bg-gray-600/90 transition-all duration-200"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => onExport(localSelectedTags)}
-            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600/90 backdrop-blur-sm border border-indigo-500/30 rounded-md hover:bg-indigo-700/90 transition-all duration-200"
-          >
-            Export
-          </button>
-        </div>
-      </Dialog.Panel>
-    );
-  };
   const showTagSelectionModal = () => {
-    setExportModalContent(
-      <Dialog open={true} onClose={() => setExportModalOpen(false)}>
-        <TagSelectionModal
-          onClose={() => setExportModalOpen(false)}
-          onExport={(tags) => {
-            exportContactsByTags(tags);
-          }}
-        />
-      </Dialog>
-    );
+    setExportSelectedTags(selectedTags);
+    setExportModalContent("tag-select");
     setExportModalOpen(true);
   };
 
@@ -1442,9 +1417,7 @@ useEffect(() => {
 
       // Fetch user config to get companyId
       const userResponse = await fetch(
-        `${baseUrl}/api/user/config?email=${encodeURIComponent(
-          userEmail
-        )}`,
+        `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
         {
           method: "GET",
           headers: {
@@ -1486,7 +1459,7 @@ useEffect(() => {
         locationId: newContact.locationId,
         dateAdded: new Date().toISOString(),
         unreadCount: 0,
-   
+
         branch: newContact.branch,
         expiryDate: newContact.expiryDate,
         vehicleNumber: newContact.vehicleNumber,
@@ -1495,10 +1468,7 @@ useEffect(() => {
         notes: newContact.notes,
       };
       // Send POST request to your SQL backend
-      const response = await axios.post(
-        `${baseUrl}/api/contacts`,
-        contactData
-      );
+      const response = await axios.post(`${baseUrl}/api/contacts`, contactData);
 
       if (response.data.success) {
         toast.success("Contact added successfully!");
@@ -1665,6 +1635,64 @@ useEffect(() => {
     }
   };
 
+  const handleBulkDeleteTags = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        console.error("No authenticated user");
+        return;
+      }
+
+      const docUserRef = doc(firestore, "user", user.email!);
+      const docUserSnapshot = await getDoc(docUserRef);
+      if (!docUserSnapshot.exists()) {
+        console.error("No such document for user!");
+        return;
+      }
+      const userData = docUserSnapshot.data();
+      const companyId = userData.companyId;
+
+      const batch = writeBatch(firestore);
+
+      // Delete all tags from the tags collection
+      for (const tag of tagList) {
+        const tagRef = doc(firestore, `companies/${companyId}/tags`, tag.id);
+        batch.delete(tagRef);
+      }
+
+      // Remove all tags from all contacts
+      const contactsRef = collection(
+        firestore,
+        `companies/${companyId}/contacts`
+      );
+      const contactsSnapshot = await getDocs(contactsRef);
+
+      contactsSnapshot.forEach((doc) => {
+        const contactData = doc.data();
+        if (contactData.tags && contactData.tags.length > 0) {
+          batch.update(doc.ref, { tags: [] });
+        }
+      });
+
+      await batch.commit();
+
+      // Update local state
+      setTagList([]);
+      setContacts(
+        contacts.map((contact) => ({
+          ...contact,
+          tags: [],
+        }))
+      );
+
+      setShowDeleteTagModal(false);
+      toast.success(`All ${tagList.length} tags deleted successfully!`);
+    } catch (error) {
+      console.error("Error deleting all tags:", error);
+      toast.error("Failed to delete all tags.");
+    }
+  };
+
   const handleEyeClick = () => {
     setIsTabOpen(!isTabOpen);
   };
@@ -1809,7 +1837,8 @@ useEffect(() => {
   };
   async function fetchCompanyData() {
     try {
-      const { companyId, userData, email, stopbot, stopbots } = await getCompanyData();
+      const { companyId, userData, email, stopbot, stopbots } =
+        await getCompanyData();
 
       setShowAddUserButton(userData.role === "1");
       setUserRole(userData.role);
@@ -1822,14 +1851,16 @@ useEffect(() => {
       await fetchPhoneIndex(companyId);
 
       // Set employee data
-      const employeeListData = (userData.employees || []).map((employee: any) => ({
-        id: employee.id,
-        name: employee.name,
-        email: employee.email || employee.id,
-        role: employee.role,
-        employeeId: employee.employeeId,
-        phoneNumber: employee.phoneNumber,
-      }));
+      const employeeListData = (userData.employees || []).map(
+        (employee: any) => ({
+          id: employee.id,
+          name: employee.name,
+          email: employee.email || employee.id,
+          role: employee.role,
+          employeeId: employee.employeeId,
+          phoneNumber: employee.phoneNumber,
+        })
+      );
       setEmployeeList(employeeListData);
       const employeeNames = employeeListData.map((employee: Employee) =>
         employee.name.trim().toLowerCase()
@@ -1908,27 +1939,30 @@ useEffect(() => {
     console.log("🏷️ [TAG ASSIGNMENT] Starting tag assignment:");
     console.log("🏷️ [TAG ASSIGNMENT] Tag name:", tagName);
     console.log("🏷️ [TAG ASSIGNMENT] Contact:", contact);
-    console.log("🏷️ [TAG ASSIGNMENT] Contact ID:", contact?.contact_id || contact?.id);
+    console.log(
+      "🏷️ [TAG ASSIGNMENT] Contact ID:",
+      contact?.contact_id || contact?.id
+    );
     console.log(
       "🏷️ [TAG ASSIGNMENT] Contact Name:",
       contact?.contactName || contact?.firstName
     );
-  
+
     if (userRole === "3") {
       toast.error("You don't have permission to assign users to contacts.");
       return;
     }
-  
+
     if (!contact || (!contact.contact_id && !contact.id)) {
       toast.error("No contact selected or contact ID missing");
       console.error("🏷️ [TAG ASSIGNMENT] Missing contact or contact ID");
       return;
     }
-  
+
     try {
       // Get company and user data from your backend
       const userEmail = localStorage.getItem("userEmail");
-  
+
       // Get user data from SQL
       const userResponse = await fetch(
         `${baseUrl}/api/user-data?email=${encodeURIComponent(userEmail || "")}`,
@@ -1936,23 +1970,23 @@ useEffect(() => {
           credentials: "include",
         }
       );
-  
+
       if (!userResponse.ok) throw new Error("Failed to fetch user data");
       const userData = await userResponse.json();
       const companyId = userData.company_id;
-  
+
       if (!companyId || (!contact.contact_id && !contact.id)) {
         toast.error("Missing company or contact ID");
         return;
       }
-  
+
       const contactId = contact.contact_id || contact.id;
-  
+
       // Check if this is the 'Stop Blast' tag
       if (tagName.toLowerCase() === "stop blast") {
         const contactChatId =
           contact.phone?.replace(/\D/g, "") + "@s.whatsapp.net";
-  
+
         try {
           // Handle stop blast via API
           const response = await fetch(
@@ -1967,7 +2001,7 @@ useEffect(() => {
               }),
             }
           );
-  
+
           if (response.ok) {
             const result = await response.json();
             if (result.deletedCount > 0) {
@@ -1983,7 +2017,7 @@ useEffect(() => {
           toast.error("Failed to cancel scheduled messages");
         }
       }
-  
+
       // Check if the tag is an employee name
       const employee = employeeList.find((emp) => emp.name === tagName);
       console.log("🔍 Employee search for tag:", tagName, "found:", employee);
@@ -1992,7 +2026,7 @@ useEffect(() => {
         employeeList.map((emp) => emp.name)
       );
       console.log("🔍 Employee list length:", employeeList.length);
-  
+
       if (employeeList.length === 0) {
         console.warn("🔍 Employee list is empty, may need to fetch employees");
         toast.warning(
@@ -2000,7 +2034,7 @@ useEffect(() => {
         );
         return;
       }
-  
+
       if (employee) {
         // Assign employee to contact (requires backend endpoint for assignment logic)
         const response = await fetch(
@@ -2020,10 +2054,10 @@ useEffect(() => {
           toast.error(`Failed to assign ${tagName} to contact: ${errorText}`);
           return;
         }
-  
+
         const assignmentResult = await response.json();
         console.log("✅ Employee assignment successful:", assignmentResult);
-  
+
         // Update contact immediately with the new assignment
         // Remove any existing employee tags first, then add the new one
         const currentTags = contact.tags || [];
@@ -2033,19 +2067,19 @@ useEffect(() => {
         const updatedTags = [...nonEmployeeTags, tagName];
         console.log("🏷️ [EMPLOYEE ASSIGNMENT] Updated tags:", updatedTags);
         console.log("🏷️ [EMPLOYEE ASSIGNMENT] Previous tags:", currentTags);
-  
+
         const updateContactsList = (prevContacts: Contact[]) =>
           prevContacts.map((c) =>
             c.id === contact.id || c.contact_id === contact.contact_id
-        ? { ...c, tags: updatedTags, assignedTo: tagName }
+              ? { ...c, tags: updatedTags, assignedTo: tagName }
               : c
           );
-  
+
         setContacts(updateContactsList);
         setFilteredContacts((prevFilteredContacts) =>
           updateContactsList(prevFilteredContacts)
         );
-  
+
         // Update selectedContact if it's the same contact
         if (
           selectedContact &&
@@ -2058,18 +2092,18 @@ useEffect(() => {
             assignedTo: tagName,
           }));
         }
-  
+
         // Update localStorage immediately
         const updatedContacts = updateContactsList(contacts);
         localStorage.setItem(
           "contacts",
           LZString.compress(JSON.stringify(updatedContacts))
         );
-  
+
         toast.success(`Contact assigned to ${tagName}`);
         return;
       }
-  
+
       console.log(
         "Adding tag",
         tagName,
@@ -2078,7 +2112,7 @@ useEffect(() => {
         "in company",
         companyId
       );
-      
+
       // Handle non-employee tags (add tag to contact)
       const hasTag = contact.tags?.includes(tagName) || false;
       if (!hasTag) {
@@ -2105,13 +2139,13 @@ useEffect(() => {
           return;
         }
         const data = await response.json();
-        
+
         // Calculate the updated tags by adding the new tag to existing tags
         const currentTags = contact.tags || [];
-        const newTags = currentTags.includes(tagName) 
-          ? currentTags 
+        const newTags = currentTags.includes(tagName)
+          ? currentTags
           : [...currentTags, tagName];
-  
+
         // Update both contacts and filteredContacts states immediately
         const updateContactsList = (prevContacts: Contact[]) =>
           prevContacts.map((c) =>
@@ -2119,12 +2153,12 @@ useEffect(() => {
               ? { ...c, tags: newTags }
               : c
           );
-  
+
         setContacts(updateContactsList);
         setFilteredContacts((prevFilteredContacts) =>
           updateContactsList(prevFilteredContacts)
         );
-  
+
         // Update selectedContact if it's the same contact
         if (
           selectedContact &&
@@ -2136,7 +2170,7 @@ useEffect(() => {
             tags: newTags,
           }));
         }
-  
+
         console.log(
           "�� [TAG] Added tag to contact:",
           contact.contactName,
@@ -2159,23 +2193,23 @@ useEffect(() => {
       toast.info("Please select contacts first");
       return;
     }
-  
+
     try {
       const userEmail = localStorage.getItem("userEmail");
       const userResponse = await fetch(
         `${baseUrl}/api/user-data?email=${encodeURIComponent(userEmail || "")}`,
         { credentials: "include" }
       );
-      
+
       if (!userResponse.ok) throw new Error("Failed to fetch user data");
       const userData = await userResponse.json();
       const companyId = userData.company_id;
-  
+
       // Remove tag from all selected contacts
       for (const contact of selectedContacts) {
         const contactId = contact.contact_id || contact.id;
         if (!contactId) continue;
-  
+
         const response = await fetch(
           `${baseUrl}/api/contacts/${companyId}/${contactId}/tags`,
           {
@@ -2184,26 +2218,34 @@ useEffect(() => {
             body: JSON.stringify({ tags: [tagName] }),
           }
         );
-  
+
         if (response.ok) {
           // Update local state
-          const updatedTags = (contact.tags || []).filter(tag => tag !== tagName);
-          
-          setContacts(prev => prev.map(c => 
-            c.id === contact.id || c.contact_id === contact.contact_id
-              ? { ...c, tags: updatedTags }
-              : c
-          ));
-          
-          setFilteredContacts(prev => prev.map(c => 
-            c.id === contact.id || c.contact_id === contact.contact_id
-              ? { ...c, tags: updatedTags }
-              : c
-          ));
+          const updatedTags = (contact.tags || []).filter(
+            (tag) => tag !== tagName
+          );
+
+          setContacts((prev) =>
+            prev.map((c) =>
+              c.id === contact.id || c.contact_id === contact.contact_id
+                ? { ...c, tags: updatedTags }
+                : c
+            )
+          );
+
+          setFilteredContacts((prev) =>
+            prev.map((c) =>
+              c.id === contact.id || c.contact_id === contact.contact_id
+                ? { ...c, tags: updatedTags }
+                : c
+            )
+          );
         }
       }
-  
-      toast.success(`Removed tag "${tagName}" from ${selectedContacts.length} contact(s)`);
+
+      toast.success(
+        `Removed tag "${tagName}" from ${selectedContacts.length} contact(s)`
+      );
       setSelectedContacts([]); // Clear selection
     } catch (error) {
       console.error("Error removing tags:", error);
@@ -2290,8 +2332,7 @@ useEffect(() => {
         return;
       }
       const companyData = docSnapshot.data();
-      const baseUrl =
-        companyData.apiUrl || "https://juta-dev.ngrok.dev";
+      const baseUrl = companyData.apiUrl || "https://juta-dev.ngrok.dev";
       let message = `Hello ${
         assignedEmployee.name
       }, a new contact has been assigned to you:\n\nName: ${
@@ -2411,9 +2452,7 @@ useEffect(() => {
 
       // Get user config to get companyId
       const userResponse = await fetch(
-        `${baseUrl}/api/user/config?email=${encodeURIComponent(
-          userEmail
-        )}`,
+        `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
         {
           method: "GET",
           headers: {
@@ -2508,9 +2547,7 @@ useEffect(() => {
 
       // Get user config to get companyId
       const userResponse = await fetch(
-        `${baseUrl}/api/user/config?email=${encodeURIComponent(
-          userEmail
-        )}`,
+        `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
         {
           method: "GET",
           headers: {
@@ -2649,11 +2686,13 @@ useEffect(() => {
       }
 
       const data = await response.json();
-      
+
       // Calculate the updated tags by removing the specified tag from existing tags
-      const currentContact = contacts.find(c => c.id === contactId || c.contact_id === contactId);
+      const currentContact = contacts.find(
+        (c) => c.id === contactId || c.contact_id === contactId
+      );
       const currentTags = currentContact?.tags || [];
-      const updatedTags = currentTags.filter(tag => tag !== tagName);
+      const updatedTags = currentTags.filter((tag) => tag !== tagName);
 
       // Update both contacts and filteredContacts states immediately
       const updateContactsList = (prevContacts: Contact[]) =>
@@ -2687,9 +2726,7 @@ useEffect(() => {
           currentContact.contact_id === contactId)
       ) {
         setCurrentContact((prevContact) =>
-          prevContact
-            ? { ...prevContact, tags: updatedTags }
-            : prevContact
+          prevContact ? { ...prevContact, tags: updatedTags } : prevContact
         );
       }
 
@@ -2911,9 +2948,7 @@ useEffect(() => {
 
         // Fetch user config to get companyId
         const userResponse = await fetch(
-          `${baseUrl}/api/user/config?email=${encodeURIComponent(
-            userEmail
-          )}`,
+          `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
           {
             method: "GET",
             headers: {
@@ -2959,7 +2994,10 @@ useEffect(() => {
           } else if (assignmentsResponse.status === 404) {
             console.log("No assignments found for this contact");
           } else {
-            console.warn("Failed to remove assignments:", assignmentsResponse.status);
+            console.warn(
+              "Failed to remove assignments:",
+              assignmentsResponse.status
+            );
           }
         } catch (error) {
           console.warn("Error removing assignments:", error);
@@ -2967,7 +3005,7 @@ useEffect(() => {
 
         // Step 2: Delete the contact
         toast.info("Deleting contact...");
-        
+
         const response = await fetch(
           `${baseUrl}/api/contacts/${contact_id}?companyId=${companyId}`,
           {
@@ -2981,7 +3019,7 @@ useEffect(() => {
 
         if (response.ok) {
           toast.success("Contact deleted successfully!");
-          
+
           // Update local state
           setContacts((prevContacts) =>
             prevContacts.filter((contact) => contact.contact_id !== contact_id)
@@ -2997,19 +3035,23 @@ useEffect(() => {
         } else {
           const errorData = await response.json().catch(() => ({}));
           console.error("Delete failed:", errorData);
-          
+
           // Check if this is a constraint error that can be resolved with force delete
-          const canForceDelete = errorData.message && (
-            errorData.message.includes("active assignments") ||
-            errorData.message.includes("associated messages") ||
-            errorData.message.includes("Use /api/contacts/{contactId}/force")
-          );
-          
+          const canForceDelete =
+            errorData.message &&
+            (errorData.message.includes("active assignments") ||
+              errorData.message.includes("associated messages") ||
+              errorData.message.includes(
+                "Use /api/contacts/{contactId}/force"
+              ));
+
           if (canForceDelete) {
             // Offer to force delete with cascade
-            if (window.confirm(
-              "This contact has database dependencies. Would you like to force delete it and remove all related data? This is irreversible."
-            )) {
+            if (
+              window.confirm(
+                "This contact has database dependencies. Would you like to force delete it and remove all related data? This is irreversible."
+              )
+            ) {
               try {
                 const forceDeleteResponse = await fetch(
                   `${baseUrl}/api/contacts/${contact_id}/force?companyId=${companyId}`,
@@ -3024,10 +3066,12 @@ useEffect(() => {
 
                 if (forceDeleteResponse.ok) {
                   toast.success("Contact force deleted successfully!");
-                  
+
                   // Update local state
                   setContacts((prevContacts) =>
-                    prevContacts.filter((contact) => contact.contact_id !== contact_id)
+                    prevContacts.filter(
+                      (contact) => contact.contact_id !== contact_id
+                    )
                   );
                   setScheduledMessages((prev) =>
                     prev.filter((msg) => !msg.chatIds.includes(contact_id))
@@ -3035,12 +3079,16 @@ useEffect(() => {
                   setDeleteConfirmationModal(false);
                   setCurrentContact(null);
 
-          await fetchContacts();
-          await fetchScheduledMessages();
+                  await fetchContacts();
+                  await fetchScheduledMessages();
                   return;
-        } else {
+                } else {
                   const forceErrorData = await forceDeleteResponse.json();
-                  toast.error(`Force delete failed: ${forceErrorData.message || 'Unknown error'}`);
+                  toast.error(
+                    `Force delete failed: ${
+                      forceErrorData.message || "Unknown error"
+                    }`
+                  );
                 }
               } catch (forceError) {
                 console.error("Force delete error:", forceError);
@@ -3049,7 +3097,9 @@ useEffect(() => {
             }
           } else if (response.status === 409) {
             // Handle conflict status - contact has dependencies
-            toast.error("Cannot delete contact: Contact has associated data. Please remove dependencies first.");
+            toast.error(
+              "Cannot delete contact: Contact has associated data. Please remove dependencies first."
+            );
           } else {
             toast.error("Failed to delete contact");
           }
@@ -3127,8 +3177,7 @@ useEffect(() => {
       const batch = writeBatch(firestore);
 
       const companyData = docSnapshot.data();
-      const baseUrl =
-        companyData.apiUrl || "https://juta-dev.ngrok.dev";
+      const baseUrl = companyData.apiUrl || "https://juta-dev.ngrok.dev";
 
       // Process each contact
       let contactsProcessed = 0;
@@ -3245,14 +3294,24 @@ useEffect(() => {
           );
 
           if (assignmentsResponse.ok) {
-            console.log(`Assignments removed for contact ${contact.contact_id}`);
+            console.log(
+              `Assignments removed for contact ${contact.contact_id}`
+            );
           } else if (assignmentsResponse.status === 404) {
-            console.log(`No assignments found for contact ${contact.contact_id}`);
+            console.log(
+              `No assignments found for contact ${contact.contact_id}`
+            );
           } else {
-            console.warn(`Failed to remove assignments for contact ${contact.contact_id}:`, assignmentsResponse.status);
+            console.warn(
+              `Failed to remove assignments for contact ${contact.contact_id}:`,
+              assignmentsResponse.status
+            );
           }
         } catch (error) {
-          console.warn(`Error removing assignments for contact ${contact.contact_id}:`, error);
+          console.warn(
+            `Error removing assignments for contact ${contact.contact_id}:`,
+            error
+          );
         }
 
         // Step 2: Delete contact from SQL backend
@@ -3270,8 +3329,11 @@ useEffect(() => {
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            console.warn(`Failed to delete contact ${contact.contact_id} from SQL backend:`, errorData);
-            
+            console.warn(
+              `Failed to delete contact ${contact.contact_id} from SQL backend:`,
+              errorData
+            );
+
             // Try force delete if regular delete fails
             if (response.status === 409) {
               try {
@@ -3287,19 +3349,31 @@ useEffect(() => {
                 );
 
                 if (forceDeleteResponse.ok) {
-                  console.log(`Contact ${contact.contact_id} force deleted from SQL backend`);
+                  console.log(
+                    `Contact ${contact.contact_id} force deleted from SQL backend`
+                  );
                 } else {
-                  console.warn(`Force delete failed for contact ${contact.contact_id}`);
+                  console.warn(
+                    `Force delete failed for contact ${contact.contact_id}`
+                  );
                 }
               } catch (forceError) {
-                console.warn(`Force delete error for contact ${contact.contact_id}:`, forceError);
+                console.warn(
+                  `Force delete error for contact ${contact.contact_id}:`,
+                  forceError
+                );
               }
             }
           } else {
-            console.log(`Contact ${contact.contact_id} deleted from SQL backend`);
+            console.log(
+              `Contact ${contact.contact_id} deleted from SQL backend`
+            );
           }
         } catch (error) {
-          console.warn(`Error deleting contact ${contact.contact_id} from SQL backend:`, error);
+          console.warn(
+            `Error deleting contact ${contact.contact_id} from SQL backend:`,
+            error
+          );
         }
 
         // Add contact deletion to Firestore batch
@@ -3314,9 +3388,6 @@ useEffect(() => {
       // Execute the batch delete for contacts
       await batch.commit();
 
-      // Store the count before clearing the array
-      const deletedCount = selectedContacts.length;
-      
       // Update local state
       setContacts((prevContacts) =>
         prevContacts.filter(
@@ -3325,12 +3396,13 @@ useEffect(() => {
         )
       );
       setSelectedContacts([]);
+      setShowMassDeleteModal(false);
 
       // Refresh lists
       await fetchScheduledMessages();
 
       toast.success(
-        `${deletedCount} contacts deleted successfully from both Firestore and SQL backend!`
+        `${selectedContacts.length} contacts deleted successfully from both Firestore and SQL backend!`
       );
       await fetchContacts();
     } catch (error) {
@@ -3357,9 +3429,7 @@ useEffect(() => {
 
         // Fetch user config to get companyId
         const userResponse = await fetch(
-          `${baseUrl}/api/user/config?email=${encodeURIComponent(
-            userEmail
-          )}`,
+          `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
           {
             method: "GET",
             headers: {
@@ -3411,7 +3481,7 @@ useEffect(() => {
           "branch",
           "expiryDate",
           "vehicleNumber",
-    
+
           "IC",
           "assistantId",
           "threadid",
@@ -3637,7 +3707,6 @@ useEffect(() => {
       const phone = (contact.phone || "").toLowerCase();
       const tags = (contact.tags || []).map((tag) => tag.toLowerCase());
       const searchTerm = searchQuery.toLowerCase();
-   
 
       // Check basic fields
       const basicFieldMatch =
@@ -3648,7 +3717,9 @@ useEffect(() => {
       // Check custom fields
       const customFieldMatch = contact.customFields
         ? Object.entries(contact.customFields).some(([key, value]) =>
-            String(value || "").toLowerCase().includes(searchTerm)
+            String(value || "")
+              .toLowerCase()
+              .includes(searchTerm)
           )
         : false;
 
@@ -3762,7 +3833,6 @@ useEffect(() => {
 
       return (
         matchesSearch &&
-     
         matchesTagFilters &&
         matchesUserFilters &&
         notExcluded &&
@@ -3806,8 +3876,8 @@ useEffect(() => {
       return;
     }
 
-    if (messages.some((msg) => !msg.text.trim())) {
-      toast.error("Please fill in all message fields");
+    if (!blastMessage.trim()) {
+      toast.error("Please enter a message");
       return;
     }
 
@@ -3863,9 +3933,7 @@ useEffect(() => {
 
       // Get user config to get companyId
       const userResponse = await fetch(
-        `${baseUrl}/api/user/config?email=${encodeURIComponent(
-          userEmail
-        )}`,
+        `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
         {
           method: "GET",
           headers: {
@@ -3894,11 +3962,11 @@ useEffect(() => {
       // Prepare chatIds
       const chatIds = selectedContacts
         .map((contact) => {
-          const phoneNumber = contact.contact_id?.split('-')[1];
+          const phoneNumber = contact.contact_id?.split("-")[1];
           return phoneNumber ? `${phoneNumber}@c.us` : null;
         })
         .filter((chatId) => chatId !== null);
-      
+
       const contactIds = selectedContacts
         .map((contact) => contact.contact_id)
         .filter((contactId) => contactId !== null);
@@ -3908,7 +3976,7 @@ useEffect(() => {
 
       // Prepare processedMessages (replace placeholders)
       const processedMessages = selectedContacts.map((contact) => {
-        let processedMessage = messages[0]?.text || "";
+        let processedMessage = blastMessage;
         processedMessage = processedMessage
           .replace(/@{contactName}/g, contact.contactName || "")
           .replace(/@{firstName}/g, contact.firstName || "")
@@ -3918,6 +3986,7 @@ useEffect(() => {
           .replace(/@{vehicleNumber}/g, contact.vehicleNumber || "")
           .replace(/@{branch}/g, contact.branch || "")
           .replace(/@{expiryDate}/g, contact.expiryDate || "")
+          .replace(/@{company}/g, contact.company || "")
           .replace(/@{ic}/g, contact.ic || "");
         // Add more placeholders as needed
         return {
@@ -3934,19 +4003,29 @@ useEffect(() => {
         const timeMinutes = blastStartTime.getMinutes();
         const timeSeconds = blastStartTime.getSeconds();
         const timeMilliseconds = blastStartTime.getMilliseconds();
-        
+
         scheduledTime = new Date(blastStartDate);
-        scheduledTime.setHours(timeHours, timeMinutes, timeSeconds, timeMilliseconds);
+        scheduledTime.setHours(
+          timeHours,
+          timeMinutes,
+          timeSeconds,
+          timeMilliseconds
+        );
       } else if (blastStartTime) {
         scheduledTime = new Date();
-        scheduledTime.setHours(blastStartTime.getHours(), blastStartTime.getMinutes(), blastStartTime.getSeconds(), blastStartTime.getMilliseconds());
+        scheduledTime.setHours(
+          blastStartTime.getHours(),
+          blastStartTime.getMinutes(),
+          blastStartTime.getSeconds(),
+          blastStartTime.getMilliseconds()
+        );
       } else {
         scheduledTime = new Date();
       }
-      
+
       const scheduledMessageData = {
         chatIds,
-        message: messages[0]?.text || "",
+        message: blastMessage,
         messages: processedMessages,
         batchQuantity,
         companyId,
@@ -3971,7 +4050,7 @@ useEffect(() => {
         multiple: multiple,
       };
 
-      // Make API call to juta.ngrok.app
+      // Make API call to juta-dev.ngrok.dev
       const response = await axios.post(
         `${baseUrl}/api/schedule-message/${companyId}`,
         scheduledMessageData
@@ -4003,6 +4082,8 @@ useEffect(() => {
   // Helper function to reset the form
   const resetForm = () => {
     setMessages([{ text: "", delayAfter: 0 }]);
+    setBlastMessage("");
+    setPhoneIndex(null);
     setInfiniteLoop(false);
     setBatchQuantity(10);
     setRepeatInterval(0);
@@ -4018,6 +4099,7 @@ useEffect(() => {
     setActivateSleep(false);
     setSleepAfterMessages(10);
     setSleepDuration(30);
+    setShowPlaceholders(false);
   };
 
   const handleCsvFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -4091,8 +4173,7 @@ useEffect(() => {
       }
 
       const companyData = docSnapshot.data();
-      const baseUrl =
-        companyData.apiUrl || "https://juta-dev.ngrok.dev";
+      const baseUrl = companyData.apiUrl || "https://juta-dev.ngrok.dev";
       const accessToken = companyData.ghl_accessToken;
       const whapiToken = companyData.whapiToken;
       const phoneNumber = id.split("+")[1];
@@ -4295,7 +4376,7 @@ useEffect(() => {
       console.error("Error fetching scheduled messages:", error);
     }
   };
-  
+
   // Helper to get current user email from localStorage or auth
   const getCurrentUserEmail = () => {
     const userDataStr = localStorage.getItem("userData");
@@ -4325,16 +4406,20 @@ useEffect(() => {
 
       // Helper to determine API endpoint based on mediaUrl
       const getApiEndpoint = (mediaUrl: string | undefined, chatId: string) => {
-        if (!mediaUrl) return `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`;
+        if (!mediaUrl)
+          return `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`;
         const ext = mediaUrl.split(".").pop()?.toLowerCase();
-        if (!ext) return `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`;
+        if (!ext)
+          return `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`;
         if (["mp4", "mov", "avi", "webm"].includes(ext)) {
           return `${apiUrl}/api/v2/messages/video/${companyId}/${chatId}`;
         }
         if (["jpg", "jpeg", "png", "gif", "bmp", "webp"].includes(ext)) {
           return `${apiUrl}/api/v2/messages/image/${companyId}/${chatId}`;
         }
-        if (["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx"].includes(ext)) {
+        if (
+          ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx"].includes(ext)
+        ) {
           return `${apiUrl}/api/v2/messages/document/${companyId}/${chatId}`;
         }
         return `${apiUrl}/api/v2/messages/text/${companyId}/${chatId}`;
@@ -4370,9 +4455,7 @@ useEffect(() => {
         contactList = message.contactIds
           .map((cid: string) => {
             const phone = cid.split("-")[1];
-            return contacts.find(
-              (c) => c.phone?.replace(/\D/g, "") === phone
-            );
+            return contacts.find((c) => c.phone?.replace(/\D/g, "") === phone);
           })
           .filter(Boolean) as Contact[];
       } else if (!isConsolidated && message.contactId) {
@@ -4405,15 +4488,13 @@ useEffect(() => {
         }
 
         // Process message with contact data and custom fields
-        let processedMessage = mainMessage.messageContent || mainMessage.text || "";
+        let processedMessage =
+          mainMessage.messageContent || mainMessage.text || "";
 
         if (contact) {
           processedMessage = processedMessage
             .replace(/@{contactName}/g, contact.contactName || "")
-            .replace(
-              /@{firstName}/g,
-              contact.contactName?.split(" ")[0] || ""
-            )
+            .replace(/@{firstName}/g, contact.contactName?.split(" ")[0] || "")
             .replace(/@{lastName}/g, contact.lastName || "")
             .replace(/@{email}/g, contact.email || "")
             .replace(/@{phone}/g, contact.phone || "")
@@ -4423,10 +4504,15 @@ useEffect(() => {
             .replace(/@{ic}/g, contact.ic || "");
 
           if (contact.customFields) {
-            Object.entries(contact.customFields).forEach(([fieldName, value]) => {
-              const placeholder = new RegExp(`@{${fieldName}}`, "g");
-              processedMessage = processedMessage.replace(placeholder, value || "");
-            });
+            Object.entries(contact.customFields).forEach(
+              ([fieldName, value]) => {
+                const placeholder = new RegExp(`@{${fieldName}}`, "g");
+                processedMessage = processedMessage.replace(
+                  placeholder,
+                  value || ""
+                );
+              }
+            );
           }
         }
 
@@ -4491,7 +4577,7 @@ useEffect(() => {
       await Promise.all(sendPromises);
       toast.success("Messages sent successfully!");
       await fetchScheduledMessages();
-      return;      
+      return;
     } catch (error) {
       console.error("Error sending messages:", error);
       toast.error("Failed to send messages. Please try again.");
@@ -4507,14 +4593,32 @@ useEffect(() => {
 
   const insertPlaceholder = (field: string) => {
     const placeholder = `@{${field}}`;
-    // Update the current scheduled message
-    if (currentScheduledMessage) {
-      setCurrentScheduledMessage({
-        ...currentScheduledMessage,
-        message: blastMessage + placeholder,
-      });
+    // Get the current cursor position from the textarea
+    const textarea = document.querySelector(
+      'textarea[placeholder="Enter your message here..."]'
+    ) as HTMLTextAreaElement;
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const currentValue = blastMessage;
+
+      // Insert placeholder at cursor position
+      const newValue =
+        currentValue.substring(0, start) +
+        placeholder +
+        currentValue.substring(end);
+      setBlastMessage(newValue);
+
+      // Set cursor position after the inserted placeholder
+      setTimeout(() => {
+        textarea.selectionStart = textarea.selectionEnd =
+          start + placeholder.length;
+        textarea.focus();
+      }, 0);
+    } else {
+      // Fallback: append to end
+      setBlastMessage((prevMessage) => prevMessage + placeholder);
     }
-    setBlastMessage((prevMessage) => prevMessage + placeholder);
   };
 
   const handleDeleteScheduledMessage = async (messageId: string) => {
@@ -4553,11 +4657,15 @@ useEffect(() => {
         `${baseUrl}/api/schedule-message/${companyId}/${messageId}`
       );
       if (response.status === 200 && response.data.success) {
-        setScheduledMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+        setScheduledMessages((prev) =>
+          prev.filter((msg) => msg.id !== messageId)
+        );
         toast.success("Scheduled message deleted successfully!");
         await fetchScheduledMessages();
       } else {
-        throw new Error(response.data.message || "Failed to delete scheduled message.");
+        throw new Error(
+          response.data.message || "Failed to delete scheduled message."
+        );
       }
     } catch (error) {
       console.error("Error deleting scheduled message:", error);
@@ -4617,7 +4725,10 @@ useEffect(() => {
       let recipientIds: string[] = [];
       if (currentScheduledMessage.multiple) {
         // If multiple, use contactIds (array)
-        if (!currentScheduledMessage.contactIds || currentScheduledMessage.contactIds.length === 0) {
+        if (
+          !currentScheduledMessage.contactIds ||
+          currentScheduledMessage.contactIds.length === 0
+        ) {
           toast.error("No recipients for this message");
           return;
         }
@@ -4677,44 +4788,54 @@ useEffect(() => {
       }
 
       // Prepare processedMessages (replace placeholders)
-      const processedMessages = (recipientIds || []).map((chatId) => {
-        let phoneNumber = "";
-        if (typeof chatId === "string") {
-          const parts = chatId.split("-");
-          phoneNumber = parts.length > 1 ? parts.slice(1).join("-") : chatId;
-        }
-        phoneNumber = phoneNumber.split("@")[0];
-        let contact =
-          contacts.find((c) => c.chat_id === chatId) ||
-          contacts.find((c) => c.phone?.replace(/\D/g, "") === phoneNumber);
-        if (!contact) return null;
-        let processedMessage = blastMessage
-          .replace(/@{contactName}/g, contact.contactName || "")
-          .replace(/@{firstName}/g, contact.firstName || "")
-          .replace(/@{lastName}/g, contact.lastName || "")
-          .replace(/@{email}/g, contact.email || "")
-          .replace(/@{phone}/g, contact.phone || "")
-          .replace(/@{vehicleNumber}/g, contact.vehicleNumber || "")
-          .replace(/@{branch}/g, contact.branch || "")
-          .replace(/@{expiryDate}/g, contact.expiryDate || "")
-          .replace(/@{ic}/g, contact.ic || "");
-        // Custom fields
-        if (contact.customFields) {
-          Object.entries(contact.customFields).forEach(([fieldName, value]) => {
-        const placeholder = new RegExp(`@{${fieldName}}`, "g");
-        processedMessage = processedMessage.replace(placeholder, value || "");
-          });
-        }
-        return {
-          chatId,
-          message: processedMessage,
-          contactData: contact,
-        };
-      }).filter(Boolean);
+      const processedMessages = (recipientIds || [])
+        .map((chatId) => {
+          let phoneNumber = "";
+          if (typeof chatId === "string") {
+            const parts = chatId.split("-");
+            phoneNumber = parts.length > 1 ? parts.slice(1).join("-") : chatId;
+          }
+          phoneNumber = phoneNumber.split("@")[0];
+          let contact =
+            contacts.find((c) => c.chat_id === chatId) ||
+            contacts.find((c) => c.phone?.replace(/\D/g, "") === phoneNumber);
+          if (!contact) return null;
+          let processedMessage = blastMessage
+            .replace(/@{contactName}/g, contact.contactName || "")
+            .replace(/@{firstName}/g, contact.firstName || "")
+            .replace(/@{lastName}/g, contact.lastName || "")
+            .replace(/@{email}/g, contact.email || "")
+            .replace(/@{phone}/g, contact.phone || "")
+            .replace(/@{vehicleNumber}/g, contact.vehicleNumber || "")
+            .replace(/@{branch}/g, contact.branch || "")
+            .replace(/@{expiryDate}/g, contact.expiryDate || "")
+            .replace(/@{ic}/g, contact.ic || "");
+          // Custom fields
+          if (contact.customFields) {
+            Object.entries(contact.customFields).forEach(
+              ([fieldName, value]) => {
+                const placeholder = new RegExp(`@{${fieldName}}`, "g");
+                processedMessage = processedMessage.replace(
+                  placeholder,
+                  value || ""
+                );
+              }
+            );
+          }
+          return {
+            chatId,
+            message: processedMessage,
+            contactData: contact,
+          };
+        })
+        .filter(Boolean);
 
       // Prepare consolidated messages array (media, document, text)
       // Ensure all fields are defined and match the ScheduledMessage.messages type
-      const consolidatedMessages: { [x: string]: string | boolean; text: string }[] = [];
+      const consolidatedMessages: {
+        [x: string]: string | boolean;
+        text: string;
+      }[] = [];
       if (newMediaUrl) {
         consolidatedMessages.push({
           type: "media",
@@ -4762,7 +4883,9 @@ useEffect(() => {
         scheduledTime !== null &&
         "seconds" in scheduledTime
       ) {
-        scheduledTime = new Date((scheduledTime as any).seconds * 1000).toISOString();
+        scheduledTime = new Date(
+          (scheduledTime as any).seconds * 1000
+        ).toISOString();
       }
 
       // Prepare updated message data for SQL backend
@@ -4770,7 +4893,9 @@ useEffect(() => {
         ...currentScheduledMessage,
         message: blastMessage,
         messages: consolidatedMessages,
-        processedMessages: processedMessages.filter(Boolean) as ScheduledMessage["processedMessages"],
+        processedMessages: processedMessages.filter(
+          Boolean
+        ) as ScheduledMessage["processedMessages"],
         documentUrl: newDocumentUrl,
         fileName: newFileName,
         mediaUrl: newMediaUrl,
@@ -4781,7 +4906,8 @@ useEffect(() => {
       };
 
       // Use scheduleId if present, otherwise fallback to id
-      const sId = currentScheduledMessage.scheduleId || currentScheduledMessage.id;
+      const sId =
+        currentScheduledMessage.scheduleId || currentScheduledMessage.id;
 
       // Send PUT request to update the scheduled message
       const response = await axios.put(
@@ -4801,7 +4927,9 @@ useEffect(() => {
         toast.success("Scheduled message updated successfully!");
         await fetchScheduledMessages();
       } else {
-        throw new Error(response.data.message || "Failed to update scheduled message");
+        throw new Error(
+          response.data.message || "Failed to update scheduled message"
+        );
       }
     } catch (error) {
       console.error("Error updating scheduled message:", error);
@@ -5007,7 +5135,7 @@ useEffect(() => {
           switch (field) {
             case "phone":
               return "60123456789";
-    
+
             case "email":
               return "john@example.com";
             case "IC":
@@ -5134,9 +5262,7 @@ useEffect(() => {
       if (!userEmail) throw new Error("User not authenticated");
 
       const userResponse = await fetch(
-        `${baseUrl}/api/user/config?email=${encodeURIComponent(
-          userEmail
-        )}`,
+        `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
         {
           method: "GET",
           headers: {
@@ -5251,7 +5377,12 @@ useEffect(() => {
                 }
               } else if (fieldName === "notes") {
                 baseContact["notes"] = value || "";
-              } else if (fieldName === "expiryDate" || fieldName === "ic" || fieldName === "phoneIndex" || fieldName === "leadNumber") {
+              } else if (
+                fieldName === "expiryDate" ||
+                fieldName === "ic" ||
+                fieldName === "phoneIndex" ||
+                fieldName === "leadNumber"
+              ) {
                 baseContact[fieldName] = value || null;
               } else {
                 baseContact[fieldName] = value || "";
@@ -5308,7 +5439,7 @@ useEffect(() => {
           locationId: contact.locationId,
           dateAdded: new Date().toISOString(),
           unreadCount: 0,
-   
+
           branch: contact.branch,
           expiryDate: contact.expiryDate,
           vehicleNumber: contact.vehicleNumber,
@@ -5323,10 +5454,9 @@ useEffect(() => {
       });
 
       // Send contacts in bulk to your SQL backend
-      const response = await axios.post(
-        `${baseUrl}/api/contacts/bulk`,
-        { contacts: contactsToImport }
-      );
+      const response = await axios.post(`${baseUrl}/api/contacts/bulk`, {
+        contacts: contactsToImport,
+      });
 
       if (response.data.success) {
         toast.success(
@@ -5355,74 +5485,75 @@ useEffect(() => {
   const [isLoadingStatus, setIsLoadingStatus] = useState(false);
   const [selectedPhone, setSelectedPhone] = useState<number | null>(null);
   const [isSyncingFirebase, setIsSyncingFirebase] = useState(false);
-// ... existing code ...
-const handleConfirmSyncFirebase = async () => {
-  setShowSyncConfirmationModal(false);
-  setIsSyncingFirebase(true);
-  try {
-    const userEmail = localStorage.getItem("userEmail");
-    if (!userEmail) {
-      toast.error("No user email found");
-      setIsSyncingFirebase(false);
-      return;
-    }
-    // Get user config to get companyId
-    const userResponse = await fetch(
-      `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        credentials: "include",
+  // ... existing code ...
+  const handleConfirmSyncFirebase = async () => {
+    setShowSyncConfirmationModal(false);
+    setIsSyncingFirebase(true);
+    try {
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        toast.error("No user email found");
+        setIsSyncingFirebase(false);
+        return;
       }
-    );
-    if (!userResponse.ok) {
-      toast.error("Failed to fetch user config");
-      setIsSyncingFirebase(false);
-      return;
-    }
-    const userData = await userResponse.json();
-    const companyId = userData.company_id;
-    setCompanyId(companyId);
-    // Call the sync-firebase-to-neon endpoint
-    const syncResponse = await fetch(
-      `${baseUrl}/api/sync-firebase-to-neon/${companyId}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        credentials: "include",
+      // Get user config to get companyId
+      const userResponse = await fetch(
+        `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
+        }
+      );
+      if (!userResponse.ok) {
+        toast.error("Failed to fetch user config");
+        setIsSyncingFirebase(false);
+        return;
       }
-    );
-    if (!syncResponse.ok) {
-      const errorData = await syncResponse.json();
-      throw new Error(
-        errorData.error || "Failed to start Firebase-to-Neon synchronization"
+      const userData = await userResponse.json();
+      const companyId = userData.company_id;
+      setCompanyId(companyId);
+      // Call the sync-firebase-to-neon endpoint
+      const syncResponse = await fetch(
+        `${baseUrl}/api/sync-firebase-to-neon/${companyId}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
+        }
       );
-    }
-    const responseData = await syncResponse.json();
-    if (responseData.success) {
-      toast.success("Firebase-to-Neon synchronization started successfully");
-    } else {
-      throw new Error(
-        responseData.error || "Failed to start Firebase-to-Neon synchronization"
+      if (!syncResponse.ok) {
+        const errorData = await syncResponse.json();
+        throw new Error(
+          errorData.error || "Failed to start Firebase-to-Neon synchronization"
+        );
+      }
+      const responseData = await syncResponse.json();
+      if (responseData.success) {
+        toast.success("Firebase-to-Neon synchronization started successfully");
+      } else {
+        throw new Error(
+          responseData.error ||
+            "Failed to start Firebase-to-Neon synchronization"
+        );
+      }
+    } catch (error) {
+      console.error("Error syncing from Firebase to Neon:", error);
+      toast.error(
+        "An error occurred while syncing from Firebase to Neon: " +
+          (error instanceof Error ? error.message : String(error))
       );
+    } finally {
+      setIsSyncingFirebase(false);
     }
-  } catch (error) {
-    console.error("Error syncing from Firebase to Neon:", error);
-    toast.error(
-      "An error occurred while syncing from Firebase to Neon: " +
-        (error instanceof Error ? error.message : String(error))
-    );
-  } finally {
-    setIsSyncingFirebase(false);
-  }
-};
-// ... existing code ...
+  };
+
   // Add this helper function to get status color and text
   const getStatusInfo = (status: string) => {
     const statusLower = status?.toLowerCase() || "";
@@ -5501,7 +5632,7 @@ const handleConfirmSyncFirebase = async () => {
         const botStatusResponse = await axios.get(
           `${baseUrl}/api/bot-status/${companyId}`
         );
-        console.log('botStatusResponse:', botStatusResponse);
+
         if (botStatusResponse.status === 200) {
           const data: BotStatusResponse = botStatusResponse.data;
           let qrCodesData: QRCodeData[] = [];
@@ -5515,9 +5646,10 @@ const handleConfirmSyncFirebase = async () => {
               qrCode: phone.qrCode,
             }));
             setQrCodes(qrCodesData);
-            console.log('qrCodesData:', qrCodesData);
-          
-          } else if ((data.phoneCount === 1 || data.phoneCount === 0) && data.phoneInfo) {
+          } else if (
+            (data.phoneCount === 1 || data.phoneCount === 0) &&
+            data.phoneInfo
+          ) {
             // Single phone: create QRCodeData from flat structure
             qrCodesData = [
               {
@@ -5557,16 +5689,69 @@ const handleConfirmSyncFirebase = async () => {
     }
   }, [companyId, selectedPhone]);
 
-  const filterRecipients = (chatIds: string[], search: string) => {
-    return chatIds.filter((chatId) => {
-      const phoneNumber = chatId.split("@")[0];
-      const contact = contacts.find(
-        (c) => c.phone?.replace(/\D/g, "") === phoneNumber
+  // Helper functions for the modern layout
+  const removeTagFilter = (tag: string) => {
+    setSelectedTagFilters((prev) => prev.filter((t) => t !== tag));
+  };
+
+  const clearAllSelections = () => {
+    setSelectedContacts([]);
+  };
+
+  const handleContactCheckboxChange = (contact: Contact) => {
+    const isSelected = selectedContacts.some(
+      (selectedContact) =>
+        selectedContact.id === contact.id ||
+        selectedContact.phone === contact.phone
+    );
+
+    if (isSelected) {
+      setSelectedContacts((prev) =>
+        prev.filter((c) => c.id !== contact.id && c.phone !== contact.phone)
       );
+    } else {
+      setSelectedContacts((prev) => [...prev, contact]);
+    }
+  };
+
+  const filterRecipients = (chatIds: string[] | undefined, search: string) => {
+    if (!chatIds || !Array.isArray(chatIds)) {
+      return [];
+    }
+    return chatIds.filter((chatId) => {
+      // Extract phone number from different chatId formats
+      let phoneNumber = "";
+
+      if (chatId.includes("@")) {
+        // Format: "60123456789@c.us" or "60123456789@s.whatsapp.net"
+        phoneNumber = chatId.split("@")[0];
+      } else if (chatId.includes("-")) {
+        // Format: "companyId-60123456789"
+        phoneNumber = chatId.split("-")[1];
+      } else {
+        // Just the phone number
+        phoneNumber = chatId;
+      }
+
+      // Clean the phone number and add + if not present
+      if (phoneNumber && !phoneNumber.startsWith("+")) {
+        phoneNumber = "+" + phoneNumber;
+      }
+
+      // Find the contact by matching phone numbers
+      const contact = contacts.find((c) => {
+        if (!c.phone) return false;
+        const cleanContactPhone = c.phone.replace(/\D/g, "");
+        const cleanSearchPhone = phoneNumber.replace(/\D/g, "");
+        return cleanContactPhone === cleanSearchPhone;
+      });
+
       const contactName = contact?.contactName || phoneNumber;
+
       return (
         contactName.toLowerCase().includes(search.toLowerCase()) ||
-        phoneNumber.includes(search)
+        phoneNumber.includes(search) ||
+        (contact?.phone && contact.phone.includes(search))
       );
     });
   };
@@ -5580,691 +5765,4425 @@ const handleConfirmSyncFirebase = async () => {
         return true;
       }
 
-      // Check if any recipient matches search
-      const matchingRecipients = filterRecipients(message.chatIds, searchQuery);
-      return matchingRecipients.length > 0;
+      // Check if messageContent matches search
+      if (
+        message.messageContent
+          ?.toLowerCase()
+          .includes(searchQuery.toLowerCase())
+      ) {
+        return true;
+      }
+
+      // Check if any recipient matches search (search through contact names)
+      if (message.chatIds && Array.isArray(message.chatIds)) {
+        const matchingRecipients = filterRecipients(
+          message.chatIds,
+          searchQuery
+        );
+        return matchingRecipients.length > 0;
+      }
+
+      // Also check contactIds format if chatIds is not available
+      if (message.contactIds && Array.isArray(message.contactIds)) {
+        const matchingRecipients = filterRecipients(
+          message.contactIds,
+          searchQuery
+        );
+        return matchingRecipients.length > 0;
+      }
+
+      // Check single contactId
+      if (message.contactId) {
+        const matchingRecipients = filterRecipients(
+          [message.contactId],
+          searchQuery
+        );
+        return matchingRecipients.length > 0;
+      }
+
+      return false;
+    });
+  };
+
+  // Helper function to apply advanced filters to scheduled messages
+  const applyAdvancedFilters = (messages: ScheduledMessage[]) => {
+    let filteredMessages = messages;
+
+    // First apply search filter if there's a search query
+    if (searchQuery) {
+      filteredMessages = filteredMessages.filter((message) => {
+        // Check if message content matches search
+        if (
+          message.message?.toLowerCase().includes(searchQuery.toLowerCase())
+        ) {
+          return true;
+        }
+
+        // Check if messageContent matches search
+        if (
+          message.messageContent
+            ?.toLowerCase()
+            .includes(searchQuery.toLowerCase())
+        ) {
+          return true;
+        }
+
+        // Check if any recipient matches search (search through contact names)
+        if (message.chatIds && Array.isArray(message.chatIds)) {
+          const matchingRecipients = filterRecipients(
+            message.chatIds,
+            searchQuery
+          );
+          if (matchingRecipients.length > 0) return true;
+        }
+
+        // Also check contactIds format if chatIds is not available
+        if (message.contactIds && Array.isArray(message.contactIds)) {
+          const matchingRecipients = filterRecipients(
+            message.contactIds,
+            searchQuery
+          );
+          if (matchingRecipients.length > 0) return true;
+        }
+
+        // Check single contactId
+        if (message.contactId) {
+          const matchingRecipients = filterRecipients(
+            [message.contactId],
+            searchQuery
+          );
+          if (matchingRecipients.length > 0) return true;
+        }
+
+        return false;
+      });
+    }
+
+    return filteredMessages.filter((message) => {
+      // Status filter
+      if (messageStatusFilter && message.status !== messageStatusFilter) {
+        return false;
+      }
+
+      // Date filter
+      if (messageDateFilter && message.scheduledTime) {
+        const messageDate = new Date(message.scheduledTime);
+        const now = new Date();
+        const today = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate()
+        );
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        switch (messageDateFilter) {
+          case "today":
+            if (messageDate < today || messageDate >= tomorrow) return false;
+            break;
+          case "tomorrow":
+            if (
+              messageDate < tomorrow ||
+              messageDate >= new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000)
+            )
+              return false;
+            break;
+          case "this-week":
+            const weekStart = new Date(today);
+            weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekEnd.getDate() + 7);
+            if (messageDate < weekStart || messageDate >= weekEnd) return false;
+            break;
+          case "next-week":
+            const nextWeekStart = new Date(today);
+            nextWeekStart.setDate(
+              nextWeekStart.getDate() - nextWeekStart.getDay() + 7
+            );
+            const nextWeekEnd = new Date(nextWeekStart);
+            nextWeekEnd.setDate(nextWeekEnd.getDate() + 7);
+            if (messageDate < nextWeekStart || messageDate >= nextWeekEnd)
+              return false;
+            break;
+          case "this-month":
+            if (
+              messageDate.getMonth() !== now.getMonth() ||
+              messageDate.getFullYear() !== now.getFullYear()
+            )
+              return false;
+            break;
+          case "next-month":
+            const nextMonth = new Date(
+              now.getFullYear(),
+              now.getMonth() + 1,
+              1
+            );
+            if (
+              messageDate < nextMonth ||
+              messageDate.getMonth() !== nextMonth.getMonth()
+            )
+              return false;
+            break;
+        }
+      }
+
+      // Message type filter
+      if (messageTypeFilter) {
+        switch (messageTypeFilter) {
+          case "text":
+            if (
+              message.mediaUrl ||
+              message.documentUrl ||
+              (message.messages && message.messages.length > 1)
+            )
+              return false;
+            break;
+          case "media":
+            if (!message.mediaUrl) return false;
+            break;
+          case "document":
+            if (!message.documentUrl) return false;
+            break;
+          case "multiple":
+            if (!message.messages || message.messages.length <= 1) return false;
+            break;
+        }
+      }
+
+      // Recipient filter
+      if (messageRecipientFilter) {
+        const hasMultipleRecipients =
+          Array.isArray(message.contactIds) && message.contactIds.length > 1;
+        if (messageRecipientFilter === "single" && hasMultipleRecipients)
+          return false;
+        if (messageRecipientFilter === "multiple" && !hasMultipleRecipients)
+          return false;
+      }
+
+      return true;
     });
   };
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-purple-50/30 dark:from-gray-900 dark:via-gray-800/50 dark:to-gray-900">
-    <div className="h-screen overflow-y-auto">
-        <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-6">
-          <div className="flex items-center col-span-12 intro-y sm:flex-nowrap">
-            <div className="w-full sm:w-auto sm:mt-0 sm:ml-auto md:ml-0">
-              <div className="w-full p-3 sm:p-6 rounded-2xl sm:rounded-3xl bg-white/40 dark:bg-gray-800/40 backdrop-blur-xl shadow-2xl border border-white/30 dark:border-gray-700/30">
-              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-4 items-stretch sm:items-center justify-between">
-  
-  {/* === CONTACTS CLUSTER === */}
-  <div className="flex flex-col sm:flex-row gap-2 sm:gap-1 overflow-x-auto">
-    {/* Add Contact */}
-    <button
-      className={`px-3 py-3 sm:px-4 sm:py-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-blue-500/90 to-blue-600/90 hover:from-blue-600/90 hover:to-blue-700/90 backdrop-blur-md shadow-lg border border-blue-400/20 text-white text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 hover:shadow-xl hover:scale-105 ${
-        userRole === "3" ? "opacity-50 cursor-not-allowed hover:scale-100" : ""
-      }`}
-      onClick={() => {
-        if (userRole !== "3") setAddContactModal(true);
-        else toast.error("You don't have permission to add contacts.");
-      }}
-      disabled={userRole === "3"}
-    >
-      <Lucide icon="Plus" className="w-4 h-4" />
-      <span className="whitespace-nowrap">Add Contact</span>
-    </button>
+    <>
+      {/* Modern Glassmorphism Layout */}
+      <div className="h-screen bg-gradient-to-br from-slate-50/80 via-blue-50/40 to-indigo-50/60 dark:from-slate-900/90 dark:via-slate-800/80 dark:to-slate-700/70 overflow-auto relative">
+        {/* Subtle Background Pattern */}
+        <div className="absolute inset-0 bg-grid-slate-100/[0.02] dark:bg-grid-slate-700/[0.05] pointer-events-none" />
 
-    {/* Assign User */}
-    <button
-      className="px-3 py-3 sm:px-4 sm:py-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-emerald-500/90 to-emerald-600/90 hover:from-emerald-600/90 hover:to-emerald-700/90 backdrop-blur-md shadow-lg border border-emerald-400/20 text-white text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 hover:shadow-xl hover:scale-105"
-      onClick={() => setShowAssignUserModal(true)}
-    >
-      <Lucide icon="User" className="w-4 h-4" />
-      <span className="whitespace-nowrap">Assign User</span>
-    </button>
+        {/* Top Navigation Bar with Enhanced Glassmorphism */}
+        <div className="sticky top-0 z-50 bg-white/70 dark:bg-slate-900/70 backdrop-blur-3xl border-b border-white/30 dark:border-slate-700/40 shadow-2xl shadow-slate-200/20 dark:shadow-slate-900/30">
+          <div className="max-w-[96rem] mx-auto px-3 py-6">
+            <div className="flex items-center justify-between">
+              {/* Page Title & Stats */}
+              <div className="flex items-center space-x-8">
+                <div>
+                  <div className="flex items-center space-x-3 mb-2">
+                    <div className="p-2.5 rounded-2xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 dark:from-blue-400/20 dark:to-indigo-400/20 backdrop-blur-sm border border-blue-200/40 dark:border-blue-700/40">
+                      <Lucide
+                        icon="Users"
+                        className="w-6 h-6 text-blue-600 dark:text-blue-400"
+                      />
+                    </div>
+                    <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 tracking-tight bg-gradient-to-r from-slate-800 to-slate-600 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
+                      Contacts
+                    </h1>
+                  </div>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 font-medium ml-14">
+                    {filteredContactsSearch.length} of {contacts.length}{" "}
+                    contacts
+                  </p>
+                </div>
 
-    {/* Tag Management */}
-    <button
-      className="px-3 py-3 sm:px-4 sm:py-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-purple-500/90 to-purple-600/90 hover:from-purple-600/90 hover:to-purple-700/90 backdrop-blur-md shadow-lg border border-purple-400/20 text-white text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 hover:shadow-xl hover:scale-105"
-      onClick={() => setShowManageTagsModal(true)}
-    >
-      <Lucide icon="Tag" className="w-4 h-4" />
-      <span className="whitespace-nowrap">Manage Tags</span>
-    </button>
-  </div>
+                {/* Enhanced Quick Stats Cards */}
+                <div className="hidden lg:flex items-center space-x-4">
+                  <div className="group relative bg-gradient-to-r from-emerald-500/15 to-green-500/10 dark:from-emerald-400/15 dark:to-green-400/10 backdrop-blur-xl border border-emerald-200/40 dark:border-emerald-700/40 px-5 py-3 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 transform-gpu">
+                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-50/30 to-green-50/20 dark:from-emerald-900/20 dark:to-green-900/15 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <div className="relative flex items-center space-x-2">
+                      <div className="p-1.5 rounded-lg bg-gradient-to-br from-emerald-500/30 to-green-500/30 dark:from-emerald-400/30 dark:to-green-400/30">
+                        <Lucide
+                          icon="CheckSquare"
+                          className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400"
+                        />
+                      </div>
+                      <span className="text-sm font-bold text-emerald-700 dark:text-emerald-300">
+                        {selectedContacts.length} Selected
+                      </span>
+                    </div>
+                  </div>
+                  <div className="group relative bg-gradient-to-r from-blue-500/15 to-indigo-500/10 dark:from-blue-400/15 dark:to-indigo-400/10 backdrop-blur-xl border border-blue-200/40 dark:border-blue-700/40 px-5 py-3 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 transform-gpu">
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-50/30 to-indigo-50/20 dark:from-blue-900/20 dark:to-indigo-900/15 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <div className="relative flex items-center space-x-2">
+                      <div className="p-1.5 rounded-lg bg-gradient-to-br from-blue-500/30 to-indigo-500/30 dark:from-blue-400/30 dark:to-indigo-400/30">
+                        <Lucide
+                          icon="Calendar"
+                          className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400"
+                        />
+                      </div>
+                      <span className="text-sm font-bold text-blue-700 dark:text-blue-300">
+                        {scheduledMessages.length} Scheduled
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-  {/* === FILTER CLUSTER === */}
-  <div className="flex flex-col sm:flex-row gap-2">
-    <button
-      className="px-3 py-3 sm:px-4 sm:py-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-orange-500/90 to-orange-600/90 hover:from-orange-600/90 hover:to-orange-700/90 backdrop-blur-md shadow-lg border border-orange-400/20 text-white text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 hover:shadow-xl hover:scale-105"
-      onClick={() => setShowFiltersModal(true)}
-    >
-      <Lucide icon="Filter" className="w-4 h-4" />
-      <span className="whitespace-nowrap">Smart Filters</span>
-    </button>
-  </div>
+              {/* Enhanced Primary Actions */}
+              <div className="flex items-center space-x-3">
+                <Button
+                  variant="outline-secondary"
+                  size="sm"
+                  className="hidden sm:flex items-center space-x-2 group bg-gradient-to-r from-white/60 to-white/40 dark:from-slate-800/60 dark:to-slate-700/40 backdrop-blur-xl border border-white/40 dark:border-slate-600/40 hover:border-orange-300/60 dark:hover:border-orange-500/60 transition-all duration-300 hover:shadow-xl hover:shadow-orange-500/10 dark:hover:shadow-orange-500/20 rounded-xl px-4 py-2.5 hover:scale-105 transform-gpu"
+                  onClick={() => {
+                    if (userRole !== "3") {
+                      setShowCsvImportModal(true);
+                    } else {
+                      toast.error(
+                        "You don't have permission to import CSV files."
+                      );
+                    }
+                  }}
+                  disabled={userRole === "3"}
+                >
+                  <div className="p-1.5 rounded-lg bg-gradient-to-br from-orange-500/20 to-amber-500/20 dark:from-orange-400/20 dark:to-amber-400/20 backdrop-blur-sm border border-orange-200/40 dark:border-orange-700/40 group-hover:scale-110 transition-transform duration-300">
+                    <Lucide
+                      icon="Upload"
+                      className="w-4 h-4 text-orange-600 dark:text-orange-400"
+                    />
+                  </div>
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">
+                    Import
+                  </span>
+                </Button>
 
-  {/* === SYSTEM CLUSTER === */}
-  <div className="flex flex-col sm:flex-row gap-2">
-    {/* Blast Messages */}
-    <button
-      className={`px-3 py-3 sm:px-4 sm:py-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-pink-500/90 to-pink-600/90 hover:from-pink-600/90 hover:to-pink-700/90 backdrop-blur-md shadow-lg border border-pink-400/20 text-white text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 hover:shadow-xl hover:scale-105 ${
-        userRole === "3" ? "opacity-50 cursor-not-allowed hover:scale-100" : ""
-      }`}
-      onClick={() => {
-        if (userRole !== "3") setBlastMessageModal(true);
-        else toast.error("You don't have permission to send blast messages.");
-      }}
-      disabled={userRole === "3"}
-    >
-      <Lucide icon="Send" className="w-4 h-4" />
-      <span className="whitespace-nowrap">Blast Messages</span>
-    </button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="flex items-center space-x-2 group bg-gradient-to-r from-blue-500/90 to-indigo-500/90 hover:from-blue-600/90 hover:to-indigo-600/90 backdrop-blur-sm border-blue-400/30 shadow-xl shadow-blue-500/30 transition-all duration-300 rounded-xl px-4 py-2.5 hover:scale-105 transform-gpu hover:shadow-2xl hover:shadow-blue-500/40"
+                  onClick={() => {
+                    if (userRole !== "3") {
+                      setAddContactModal(true);
+                    } else {
+                      toast.error("You don't have permission to add contacts.");
+                    }
+                  }}
+                  disabled={userRole === "3"}
+                >
+                  <div className="p-1.5 rounded-lg bg-white/20 backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
+                    <Lucide icon="Plus" className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="font-semibold text-white">Add Contact</span>
+                </Button>
 
-    {/* Sync Data */}
-    <button
-      className={`px-3 py-3 sm:px-4 sm:py-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-cyan-500/90 to-cyan-600/90 hover:from-cyan-600/90 hover:to-cyan-700/90 backdrop-blur-md shadow-lg border border-cyan-400/20 text-white text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 hover:shadow-xl hover:scale-105 ${
-        isSyncing || userRole === "3"
-          ? "opacity-50 cursor-not-allowed hover:scale-100"
-          : ""
-      }`}
-      onClick={() => setShowSyncOptionsModal(true)}
-      disabled={isSyncing || userRole === "3"}
-    >
-      <Lucide icon="FolderSync" className="w-4 h-4" />
-      <span className="whitespace-nowrap">{isSyncing ? "Syncing..." : "Sync Data"}</span>
-    </button>
+                <Button
+                  variant="outline-primary"
+                  size="sm"
+                  className="flex items-center space-x-2 group bg-gradient-to-r from-blue-500/15 to-indigo-500/10 dark:from-blue-400/15 dark:to-indigo-400/10 backdrop-blur-xl border border-blue-300/50 dark:border-blue-600/50 hover:border-blue-400/70 dark:hover:border-blue-500/70 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/20 dark:hover:shadow-blue-500/30 rounded-xl px-4 py-2.5 hover:scale-105 transform-gpu"
+                  onClick={() => {
+                    if (userRole !== "3") {
+                      setBlastMessageModal(true);
+                    } else {
+                      toast.error(
+                        "You don't have permission to send blast messages."
+                      );
+                    }
+                  }}
+                  disabled={userRole === "3"}
+                >
+                  <div className="p-1.5 rounded-lg bg-gradient-to-br from-blue-500/20 to-indigo-500/20 dark:from-blue-400/20 dark:to-indigo-400/20 backdrop-blur-sm border border-blue-200/40 dark:border-blue-700/40 group-hover:scale-110 transition-transform duration-300">
+                    <Lucide
+                      icon="Send"
+                      className="w-4 h-4 text-blue-600 dark:text-blue-400"
+                    />
+                  </div>
+                  <span className="font-semibold text-blue-700 dark:text-blue-300">
+                    Blast Message
+                  </span>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
 
-    {/* Import CSV */}
-    <button
-      className={`px-3 py-3 sm:px-4 sm:py-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-indigo-500/90 to-indigo-600/90 hover:from-indigo-600/90 hover:to-indigo-700/90 backdrop-blur-md shadow-lg border border-indigo-400/20 text-white text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 hover:shadow-xl hover:scale-105 ${
-        userRole === "3" ? "opacity-50 cursor-not-allowed hover:scale-100" : ""
-      }`}
-      onClick={() => {
-        if (userRole !== "3") setShowCsvImportModal(true);
-        else toast.error("You don't have permission to import CSV files.");
-      }}
-      disabled={userRole === "3"}
-    >
-      <Lucide icon="Upload" className="w-4 h-4" />
-      <span className="whitespace-nowrap">Import CSV</span>
-    </button>
+        {/* Main Content Area with Enhanced Glassmorphism */}
+        <div className="max-w-[96rem] mx-auto px-3 py-8">
+          {/* Search & Filter Bar with Modern Glass Effect */}
+          <div className="group relative bg-white/70 dark:bg-slate-800/70 backdrop-blur-2xl rounded-3xl border border-white/30 dark:border-slate-700/30 p-8 mb-8 shadow-2xl shadow-slate-200/20 dark:shadow-slate-900/40 transition-all duration-500 hover:shadow-3xl hover:shadow-slate-200/30 dark:hover:shadow-slate-900/60">
+            {/* Subtle gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-50/20 via-transparent to-indigo-50/20 dark:from-blue-900/10 dark:via-transparent dark:to-indigo-900/10 rounded-3xl pointer-events-none" />
 
-    {/* Export Contacts */}
-    {userRole !== "2" && userRole !== "3" && userRole !== "5" && (
-      <>
-        <button
-          className="px-3 py-3 sm:px-4 sm:py-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-green-500/90 to-green-600/90 hover:from-green-600/90 hover:to-green-700/90 backdrop-blur-md shadow-lg border border-green-400/20 text-white text-sm font-medium flex items-center justify-center gap-2 transition-all duration-200 hover:shadow-xl hover:scale-105"
-          onClick={handleExportContacts}
-        >
-          <Lucide icon="FolderUp" className="w-4 h-4" />
-          <span className="whitespace-nowrap">Export Data</span>
-        </button>
-        {exportModalOpen && exportModalContent}
-      </>
-    )}
-  </div>
-</div>
-</div>
+            <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-6 lg:space-y-0 lg:space-x-8">
+              {/* Enhanced Search Input */}
+              <div className="flex-1 max-w-md">
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 transform -translate-y-1/2 p-1.5 rounded-lg bg-gradient-to-br from-blue-500/20 to-indigo-500/20 dark:from-blue-400/20 dark:to-indigo-400/20 backdrop-blur-sm border border-blue-200/40 dark:border-blue-700/40 group-focus-within:scale-110 transition-transform duration-300">
+                    <Lucide
+                      icon="Search"
+                      className="w-4 h-4 text-blue-600 dark:text-blue-400"
+                    />
+                  </div>
+                  <FormInput
+                    type="text"
+                    placeholder="Search contacts..."
+                    className="pl-16 pr-4 py-4 w-full bg-white/70 dark:bg-slate-700/70 backdrop-blur-xl border border-white/50 dark:border-slate-600/50 rounded-2xl focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400/60 transition-all duration-300 shadow-lg hover:shadow-xl text-slate-800 dark:text-slate-200 font-medium placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                    value={searchQuery}
+                    onChange={handleSearchChange}
+                  />
+                </div>
+              </div>
 
-              <div className="relative w-full text-slate-500 p-1 sm:p-2 mb-2 sm:mb-3">
-                {isFetching ? (
-                  <div className="fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-white dark:bg-gray-900 bg-opacity-50">
-                    <div className="items-center absolute top-1/2 left-2/2 transform -translate-x-1/3 -translate-y-1/2 bg-white dark:bg-gray-800 p-4 rounded-md shadow-lg">
-                      <div role="status">
-                        <div className="flex flex-col items-center justify-end col-span-6 sm:col-span-3 xl:col-span-2">
-                          <LoadingIcon
-                            icon="spinning-circles"
-                            className="w-8 h-8"
+              {/* Enhanced Filter Controls */}
+              <div className="flex flex-wrap items-center gap-4">
+                {/* Modern Bulk Selection */}
+                <div className="flex items-center space-x-2 bg-gradient-to-r from-slate-100/70 to-slate-200/50 dark:from-slate-700/70 dark:to-slate-600/50 backdrop-blur-xl rounded-2xl p-2 border border-slate-200/50 dark:border-slate-600/50 shadow-lg">
+                  <Button
+                    variant="outline-secondary"
+                    size="sm"
+                    className="text-xs group bg-white/70 dark:bg-slate-600/70 backdrop-blur-sm border border-white/50 dark:border-slate-500/50 hover:bg-white/90 dark:hover:bg-slate-500/90 transition-all duration-300 rounded-xl px-3 py-2 hover:scale-105 transform-gpu hover:shadow-lg"
+                    onClick={handleSelectAll}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <div className="p-1 rounded-md bg-gradient-to-br from-blue-500/20 to-indigo-500/20 dark:from-blue-400/20 dark:to-indigo-400/20 group-hover:scale-110 transition-transform duration-300">
+                        <Lucide
+                          icon="CheckSquare"
+                          className="w-3 h-3 text-blue-600 dark:text-blue-400"
+                        />
+                      </div>
+                      <span className="font-semibold text-slate-700 dark:text-slate-300">
+                        All
+                      </span>
+                    </div>
+                  </Button>
+                  <Button
+                    variant="outline-secondary"
+                    size="sm"
+                    className="text-xs group bg-white/70 dark:bg-slate-600/70 backdrop-blur-sm border border-white/50 dark:border-slate-500/50 hover:bg-white/90 dark:hover:bg-slate-500/90 transition-all duration-300 rounded-xl px-3 py-2 hover:scale-105 transform-gpu hover:shadow-lg"
+                    onClick={handleSelectCurrentPage}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <div className="p-1 rounded-md bg-gradient-to-br from-emerald-500/20 to-green-500/20 dark:from-emerald-400/20 dark:to-green-400/20 group-hover:scale-110 transition-transform duration-300">
+                        <Lucide
+                          icon="Square"
+                          className="w-3 h-3 text-emerald-600 dark:text-emerald-400"
+                        />
+                      </div>
+                      <span className="font-semibold text-slate-700 dark:text-slate-300">
+                        Page
+                      </span>
+                    </div>
+                  </Button>
+                </div>
+
+                {/* Modern Quick Filters */}
+                <Button
+                  variant="outline-secondary"
+                  size="sm"
+                  className="flex items-center space-x-2 group bg-gradient-to-r from-white/70 to-white/50 dark:from-slate-700/70 dark:to-slate-600/50 backdrop-blur-xl border border-white/50 dark:border-slate-600/50 hover:border-blue-300/60 dark:hover:border-blue-500/60 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/10 dark:hover:shadow-blue-500/20 rounded-2xl px-4 py-3 hover:scale-105 transform-gpu"
+                  onClick={() => setShowFiltersModal(true)}
+                >
+                  <div className="p-1.5 rounded-lg bg-gradient-to-br from-blue-500/20 to-indigo-500/20 dark:from-blue-400/20 dark:to-indigo-400/20 backdrop-blur-sm border border-blue-200/40 dark:border-blue-700/40 group-hover:scale-110 transition-transform duration-300">
+                    <Lucide
+                      icon="Tag"
+                      className="w-4 h-4 text-blue-600 dark:text-blue-400"
+                    />
+                  </div>
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">
+                    Tags
+                  </span>
+                </Button>
+
+                <Button
+                  variant="outline-secondary"
+                  size="sm"
+                  className="flex items-center space-x-2 group bg-gradient-to-r from-white/70 to-white/50 dark:from-slate-700/70 dark:to-slate-600/50 backdrop-blur-xl border border-white/50 dark:border-slate-600/50 hover:border-emerald-300/60 dark:hover:border-emerald-500/60 transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/10 dark:hover:shadow-emerald-500/20 rounded-2xl px-4 py-3 hover:scale-105 transform-gpu"
+                  onClick={() => setShowDateFilterModal(true)}
+                >
+                  <div className="p-1.5 rounded-lg bg-gradient-to-br from-emerald-500/20 to-green-500/20 dark:from-emerald-400/20 dark:to-green-400/20 backdrop-blur-sm border border-emerald-200/40 dark:border-emerald-700/40 group-hover:scale-110 transition-transform duration-300">
+                    <Lucide
+                      icon="Calendar"
+                      className="w-4 h-4 text-emerald-600 dark:text-emerald-400"
+                    />
+                  </div>
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">
+                    Date
+                  </span>
+                </Button>
+
+                <Button
+                  variant="outline-secondary"
+                  size="sm"
+                  className="flex items-center space-x-2 group bg-gradient-to-r from-white/70 to-white/50 dark:from-slate-700/70 dark:to-slate-600/50 backdrop-blur-xl border border-white/50 dark:border-slate-600/50 hover:border-violet-300/60 dark:hover:border-violet-500/60 transition-all duration-300 hover:shadow-xl hover:shadow-violet-500/10 dark:hover:shadow-violet-500/20 rounded-2xl px-4 py-3 hover:scale-105 transform-gpu"
+                  onClick={() => setShowColumnsModal(true)}
+                >
+                  <div className="p-1.5 rounded-lg bg-gradient-to-br from-violet-500/20 to-purple-500/20 dark:from-violet-400/20 dark:to-purple-400/20 backdrop-blur-sm border border-violet-200/40 dark:border-violet-700/40 group-hover:scale-110 transition-transform duration-300">
+                    <Lucide
+                      icon="Grid2x2"
+                      className="w-4 h-4 text-violet-600 dark:text-violet-400"
+                    />
+                  </div>
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">
+                    Columns
+                  </span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Enhanced Active Filters */}
+            {(selectedTagFilters.length > 0 || selectedContacts.length > 0) && (
+              <div className="relative flex flex-wrap items-center gap-4 mt-8 pt-6 border-t border-white/30 dark:border-slate-600/40">
+                {/* Tag Filters */}
+                {selectedTagFilters.map((tag, index) => (
+                  <div
+                    key={index}
+                    className="group flex items-center bg-gradient-to-r from-blue-500/15 to-indigo-500/10 dark:from-blue-400/15 dark:to-indigo-400/10 backdrop-blur-xl border border-blue-200/50 dark:border-blue-700/50 text-blue-700 dark:text-blue-300 px-4 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 hover:bg-blue-500/25 dark:hover:bg-blue-400/25 hover:scale-105 transform-gpu hover:shadow-lg"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <div className="p-1 rounded-full bg-gradient-to-br from-blue-500/30 to-indigo-500/30 dark:from-blue-400/30 dark:to-indigo-400/30">
+                        <Lucide
+                          icon="Tag"
+                          className="w-3 h-3 text-blue-600 dark:text-blue-400"
+                        />
+                      </div>
+                      <span>Tag: {tag}</span>
+                    </div>
+                    <button
+                      className="ml-3 p-1 rounded-full hover:bg-red-500/20 dark:hover:bg-red-400/20 transition-all duration-200 group-hover:scale-110"
+                      onClick={() => removeTagFilter(tag)}
+                    >
+                      <Lucide
+                        icon="X"
+                        className="w-3.5 h-3.5 text-red-500 hover:text-red-600"
+                      />
+                    </button>
+                  </div>
+                ))}
+
+                {/* Selected Contacts Filter */}
+                {selectedContacts.length > 0 && (
+                  <div className="group flex items-center bg-gradient-to-r from-emerald-500/15 to-green-500/10 dark:from-emerald-400/15 dark:to-green-400/10 backdrop-blur-xl border border-emerald-200/50 dark:border-emerald-700/50 text-emerald-700 dark:text-emerald-300 px-4 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 hover:bg-emerald-500/25 dark:hover:bg-emerald-400/25 hover:scale-105 transform-gpu hover:shadow-lg">
+                    <div className="flex items-center space-x-2">
+                      <div className="p-1 rounded-full bg-gradient-to-br from-emerald-500/30 to-green-500/30 dark:from-emerald-400/30 dark:to-green-400/30">
+                        <Lucide
+                          icon="Users"
+                          className="w-3 h-3 text-emerald-600 dark:text-emerald-400"
+                        />
+                      </div>
+                      <span>{selectedContacts.length} Selected</span>
+                    </div>
+                    <button
+                      className="ml-3 p-1 rounded-full hover:bg-red-500/20 dark:hover:bg-red-400/20 transition-all duration-200 group-hover:scale-110"
+                      onClick={clearAllSelections}
+                    >
+                      <Lucide
+                        icon="X"
+                        className="w-3.5 h-3.5 text-red-500 hover:text-red-600"
+                      />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Two-Column Layout */}
+          <div className="flex flex-col lg:flex-row gap-8">
+            {/* Main Content with Enhanced Glass Effect */}
+            <div className="lg:flex-1 min-w-0">
+              <div className="group relative bg-white/70 dark:bg-slate-800/70 backdrop-blur-2xl rounded-3xl border border-white/30 dark:border-slate-700/30 shadow-2xl shadow-slate-200/20 dark:shadow-slate-900/40 overflow-hidden transition-all duration-500 hover:shadow-3xl hover:shadow-slate-200/30 dark:hover:shadow-slate-900/60">
+                {/* Subtle gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-50/20 via-transparent to-blue-50/20 dark:from-slate-900/10 dark:via-transparent dark:to-blue-900/10 pointer-events-none" />
+
+                {/* Enhanced Table Header */}
+                <div className="relative px-8 py-6 border-b border-white/30 dark:border-slate-700/40 bg-gradient-to-r from-slate-50/70 to-slate-100/50 dark:from-slate-800/70 dark:to-slate-700/50 backdrop-blur-xl">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2.5 rounded-2xl bg-gradient-to-br from-slate-500/20 to-gray-500/20 dark:from-slate-400/20 dark:to-gray-400/20 backdrop-blur-sm border border-slate-200/40 dark:border-slate-700/40">
+                        <Lucide
+                          icon="Database"
+                          className="w-5 h-5 text-slate-600 dark:text-slate-400"
+                        />
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
+                          Contacts
+                        </h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                          Manage your contact database
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Enhanced Table Actions */}
+                    <div className="flex items-center space-x-3">
+                      <Button
+                        variant="outline-danger"
+                        size="sm"
+                        className="flex items-center space-x-2 group bg-gradient-to-r from-red-500/15 to-pink-500/10 dark:from-red-400/15 dark:to-pink-400/10 backdrop-blur-xl border border-red-300/50 dark:border-red-600/50 hover:border-red-400/70 dark:hover:border-red-500/70 transition-all duration-300 hover:shadow-xl hover:shadow-red-500/20 dark:hover:shadow-red-500/30 rounded-xl px-4 py-2.5 hover:scale-105 transform-gpu"
+                        onClick={() => setShowMassDeleteModal(true)}
+                        disabled={selectedContacts.length === 0}
+                      >
+                        <div className="p-1.5 rounded-lg bg-gradient-to-br from-red-500/20 to-pink-500/20 dark:from-red-400/20 dark:to-pink-400/20 backdrop-blur-sm border border-red-200/40 dark:border-red-700/40 group-hover:scale-110 transition-transform duration-300">
+                          <Lucide
+                            icon="Trash2"
+                            className="w-4 h-4 text-red-600 dark:text-red-400"
                           />
-                          <div className="mt-2 text-xs text-center text-gray-600 dark:text-gray-400">
-                            Fetching Data...
-                          </div>
+                        </div>
+                        <span className="font-semibold text-red-700 dark:text-red-300">
+                          Delete
+                        </span>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Enhanced Contacts Table */}
+                <div className="overflow-x-auto">
+                  {isFetching ? (
+                    <div className="flex justify-center items-center h-96">
+                      <div className="text-center">
+                        <LoadingIcon
+                          icon="spinning-circles"
+                          className="w-8 h-8 mx-auto text-blue-500"
+                        />
+                        <div className="mt-3 text-sm text-slate-600 dark:text-slate-400 font-medium">
+                          Fetching Data...
                         </div>
                       </div>
                     </div>
-                  </div>
-                ) : (
-                  <>
-              <div className="relative">
-                    <div className="relative">
-                      <FormInput
-                            type="text"
-      className="relative w-full h-12 !box text-base bg-white/90 dark:bg-gray-800/90 backdrop-blur-md text-gray-900 dark:text-gray-100 border border-white/20 dark:border-gray-700/20 rounded-xl shadow-lg focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400/50 transition-all duration-200 placeholder-gray-500 dark:placeholder-gray-400"
-                        placeholder="Search contacts..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                      />
-                      {searchQuery ? (
-                        <button
-                          onClick={() => setSearchQuery("")}
-        className="absolute inset-y-0 right-0 flex items-center pr-4 transition-all duration-200 hover:scale-110"
-                        >
-        <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200">
-                          <Lucide
-                            icon="X"
-            className="w-4 h-4 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                          />
-        </div>
-                        </button>
-                      ) : (
-      <div className="absolute inset-y-0 right-0 flex items-center pr-4">
-        <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                  ) : (
+                    <table className="w-full">
+                      <thead className="relative bg-gradient-to-r from-white/80 via-slate-50/60 to-white/40 dark:from-slate-700/80 dark:via-slate-800/60 dark:to-slate-700/40 backdrop-blur-2xl border-b-2 border-white/30 dark:border-slate-600/40 shadow-lg shadow-slate-200/20 dark:shadow-slate-900/30">
+                        <tr>
+                          <th className="relative px-6 py-6 text-left group">
+                            <div className="flex items-center justify-center">
+                              <div className="relative">
+                                <input
+                                  type="checkbox"
+                                  className="rounded-xl border-2 border-slate-300/80 dark:border-slate-600/80 h-6 w-6 text-blue-600 focus:ring-3 focus:ring-blue-500/40 focus:ring-offset-2 focus:ring-offset-transparent transition-all duration-300 bg-white/90 dark:bg-slate-700/90 backdrop-blur-sm hover:border-blue-400/90 dark:hover:border-blue-500/90 hover:scale-110 transform-gpu shadow-lg"
+                                  checked={selectAll}
+                                  onChange={handleSelectAll}
+                                />
+                                {selectAll && (
+                                  <div className="absolute inset-0 rounded-xl bg-blue-500/20 dark:bg-blue-400/20 pointer-events-none animate-pulse" />
+                                )}
+                              </div>
+                            </div>
+                          </th>
+                          <th
+                            className="relative px-6 py-6 text-left group cursor-pointer hover:bg-gradient-to-r hover:from-blue-50/60 hover:to-blue-100/40 dark:hover:from-blue-900/30 dark:hover:to-blue-800/20 transition-all duration-300"
+                            onClick={() => handleSort("contactName")}
+                          >
+                            <div className="flex items-center space-x-3">
+                              <div>
+                                <span className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300">
+                                  Contact
+                                </span>
+                              </div>
+                              {sortField === "contactName" && (
+                                <div className="p-1.5 rounded-lg bg-blue-500/20 dark:bg-blue-400/20 backdrop-blur-sm border border-blue-300/40 dark:border-blue-600/40">
+                                  <Lucide
+                                    icon={
+                                      sortDirection === "asc"
+                                        ? "ChevronUp"
+                                        : "ChevronDown"
+                                    }
+                                    className="w-4 h-4 text-blue-600 dark:text-blue-400"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </th>
+                          <th
+                            className="relative px-6 py-6 text-left group cursor-pointer hover:bg-gradient-to-r hover:from-emerald-50/60 hover:to-emerald-100/40 dark:hover:from-emerald-900/30 dark:hover:to-emerald-800/20 transition-all duration-300"
+                            onClick={() => handleSort("phone")}
+                          >
+                            <div className="flex items-center space-x-3">
+                              <div>
+                                <span className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-300">
+                                  Phone Number
+                                </span>
+                              </div>
+                              {sortField === "phone" && (
+                                <div className="p-1.5 rounded-lg bg-emerald-500/20 dark:bg-emerald-400/20 backdrop-blur-sm border border-emerald-300/40 dark:border-emerald-600/40">
+                                  <Lucide
+                                    icon={
+                                      sortDirection === "asc"
+                                        ? "ChevronUp"
+                                        : "ChevronDown"
+                                    }
+                                    className="w-4 h-4 text-emerald-600 dark:text-emerald-400"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </th>
+                          <th className="relative px-6 py-6 text-left group">
+                            <div className="flex items-center space-x-3">
+                              <div>
+                                <span className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                                  Tags
+                                </span>
+                              </div>
+                            </div>
+                          </th>
+                          {visibleColumns.ic && (
+                            <th
+                              className="relative px-6 py-6 text-left group cursor-pointer hover:bg-gradient-to-r hover:from-orange-50/60 hover:to-orange-100/40 dark:hover:from-orange-900/30 dark:hover:to-orange-800/20 transition-all duration-300"
+                              onClick={() => handleSort("ic")}
+                            >
+                              <div className="flex items-center space-x-3">
+                                <div>
+                                  <span className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors duration-300">
+                                    IC Number
+                                  </span>
+                                </div>
+                                {sortField === "ic" && (
+                                  <div className="p-1.5 bg-orange-500/20 dark:bg-orange-400/20 backdrop-blur-sm border border-orange-300/40 dark:border-orange-600/40">
+                                    <Lucide
+                                      icon={
+                                        sortDirection === "asc"
+                                          ? "ChevronUp"
+                                          : "ChevronDown"
+                                      }
+                                      className="w-4 h-4 text-orange-600 dark:text-orange-400"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            </th>
+                          )}
+                          {visibleColumns.vehicleNumber && (
+                            <th
+                              className="relative px-6 py-6 text-left group cursor-pointer hover:bg-gradient-to-r hover:from-cyan-50/60 hover:to-cyan-100/40 dark:hover:from-cyan-900/30 dark:hover:to-cyan-800/20 transition-all duration-300"
+                              onClick={() => handleSort("vehicleNumber")}
+                            >
+                              <div className="flex items-center space-x-3">
+                                <div>
+                                  <span className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors duration-300">
+                                    Vehicle Number
+                                  </span>
+                                </div>
+                                {sortField === "vehicleNumber" && (
+                                  <div className="p-1.5 bg-cyan-500/20 dark:bg-cyan-400/20 backdrop-blur-sm border border-cyan-300/40 dark:border-cyan-600/40">
+                                    <Lucide
+                                      icon={
+                                        sortDirection === "asc"
+                                          ? "ChevronUp"
+                                          : "ChevronDown"
+                                      }
+                                      className="w-4 h-4 text-cyan-600 dark:text-cyan-400"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            </th>
+                          )}
+                          {visibleColumns.branch && (
+                            <th
+                              className="relative px-6 py-6 text-left group cursor-pointer hover:bg-gradient-to-r hover:from-pink-50/60 hover:to-pink-100/40 dark:hover:from-pink-900/30 dark:hover:to-pink-800/20 transition-all duration-300"
+                              onClick={() => handleSort("branch")}
+                            >
+                              <div className="flex items-center space-x-3">
+                                <div>
+                                  <span className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider group-hover:text-pink-600 dark:group-hover:text-pink-400 transition-colors duration-300">
+                                    Branch
+                                  </span>
+                                </div>
+                                {sortField === "branch" && (
+                                  <div className="p-1.5 bg-pink-500/20 dark:bg-pink-400/20 backdrop-blur-sm border border-pink-300/40 dark:border-pink-600/40">
+                                    <Lucide
+                                      icon={
+                                        sortDirection === "asc"
+                                          ? "ChevronUp"
+                                          : "ChevronDown"
+                                      }
+                                      className="w-4 h-4 text-pink-600 dark:text-pink-400"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            </th>
+                          )}
+                          {visibleColumns.expiryDate && (
+                            <th
+                              className="relative px-6 py-6 text-left group cursor-pointer hover:bg-gradient-to-r hover:from-purple-50/60 hover:to-purple-100/40 dark:hover:from-purple-900/30 dark:hover:to-purple-800/20 transition-all duration-300"
+                              onClick={() => handleSort("expiryDate")}
+                            >
+                              <div className="flex items-center space-x-3">
+                                <div>
+                                  <span className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors duration-300">
+                                    Expiry Date
+                                  </span>
+                                </div>
+                                {sortField === "expiryDate" && (
+                                  <div className="p-1.5 bg-purple-500/20 dark:bg-purple-400/20 backdrop-blur-sm border border-purple-300/40 dark:border-purple-600/40">
+                                    <Lucide
+                                      icon={
+                                        sortDirection === "asc"
+                                          ? "ChevronUp"
+                                          : "ChevronDown"
+                                      }
+                                      className="w-4 h-4 text-purple-600 dark:text-purple-400"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            </th>
+                          )}
+                          {visibleColumns.notes && (
+                            <th className="relative px-6 py-6 text-left group">
+                              <div className="flex items-center space-x-3">
+                                <div>
+                                  <span className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                                    Notes
+                                  </span>
+                                </div>
+                              </div>
+                            </th>
+                          )}
+                          <th
+                            className="relative px-6 py-6 text-left group cursor-pointer hover:bg-gradient-to-r hover:from-indigo-50/60 hover:to-indigo-100/40 dark:hover:from-indigo-900/30 dark:hover:to-indigo-800/20 transition-all duration-300"
+                            onClick={() => handleSort("createdAt")}
+                          >
+                            <div className="flex items-center space-x-3">
+                              <div>
+                                <span className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors duration-300">
+                                  Date Added
+                                </span>
+                              </div>
+                              {sortField === "createdAt" && (
+                                <div className="p-1.5 bg-indigo-500/20 dark:bg-indigo-400/20 backdrop-blur-sm border border-indigo-300/40 dark:border-indigo-600/40">
+                                  <Lucide
+                                    icon={
+                                      sortDirection === "asc"
+                                        ? "ChevronUp"
+                                        : "ChevronDown"
+                                    }
+                                    className="w-4 h-4 text-indigo-600 dark:text-indigo-400"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </th>
+                          <th className="relative px-6 py-6 text-right group">
+                            <div className="flex items-center justify-end space-x-3">
+                              <div>
+                                <span className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                                  Actions
+                                </span>
+                              </div>
+                            </div>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white/30 dark:bg-slate-800/30 backdrop-blur-xl divide-y divide-white/20 dark:divide-slate-700/40">
+                        {/* Map through actual contact data */}
+                        {currentContacts.map((contact, index) => {
+                          const isSelected = selectedContacts.some(
+                            (selectedContact) =>
+                              selectedContact.id === contact.id
+                          );
+
+                          return (
+                            <tr
+                              key={contact.id || index}
+                              className="group relative hover:bg-gradient-to-r hover:from-white/60 hover:to-slate-50/40 dark:hover:from-slate-700/60 dark:hover:to-slate-800/40 transition-all duration-300 hover:shadow-lg hover:shadow-slate-200/20 dark:hover:shadow-slate-900/30 backdrop-blur-sm border-b border-white/10 dark:border-slate-700/20 last:border-b-0"
+                            >
+                              <td className="px-6 py-5 whitespace-nowrap">
+                                <div className="relative">
+                                  <input
+                                    type="checkbox"
+                                    className="rounded-lg border-2 border-slate-300/60 dark:border-slate-600/60 h-5 w-5 text-blue-600 focus:ring-2 focus:ring-blue-500/30 focus:ring-offset-2 focus:ring-offset-transparent transition-all duration-200 bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm hover:border-blue-400/80 dark:hover:border-blue-500/80"
+                                    checked={isSelected}
+                                    onChange={() =>
+                                      handleContactCheckboxChange(contact)
+                                    }
+                                  />
+                                  {isSelected && (
+                                    <div className="absolute inset-0 rounded-lg bg-blue-500/10 dark:bg-blue-400/10 pointer-events-none animate-pulse" />
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-6 py-5 whitespace-nowrap">
+                                <div className="flex items-center group/contact">
+                                  <div className="flex-shrink-0 h-12 w-12 relative">
+                                    {contact.profileUrl ? (
+                                      <div className="h-12 w-12 rounded-2xl overflow-hidden shadow-xl shadow-blue-500/20 dark:shadow-blue-500/30 border border-white/30 dark:border-slate-600/30 group-hover/contact:scale-110 transition-transform duration-300">
+                                        <img
+                                          src={contact.profileUrl}
+                                          alt={
+                                            contact.contactName ||
+                                            contact.firstName ||
+                                            "Contact"
+                                          }
+                                          className="w-full h-full object-cover"
+                                          onError={(e) => {
+                                            // Fallback to initials if image fails to load
+                                            const target =
+                                              e.currentTarget as HTMLImageElement;
+                                            const fallback =
+                                              target.nextElementSibling as HTMLDivElement;
+                                            if (fallback) {
+                                              target.style.display = "none";
+                                              fallback.style.display = "flex";
+                                            }
+                                          }}
+                                        />
+                                        <div className="hidden h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-500/80 via-violet-500/80 to-purple-600/80 backdrop-blur-sm items-center justify-center text-white font-bold text-sm">
+                                          {contact.contactName
+                                            ? contact.contactName
+                                                .charAt(0)
+                                                .toUpperCase()
+                                            : contact.firstName
+                                                ?.charAt(0)
+                                                ?.toUpperCase() || "U"}
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-500/80 via-violet-500/80 to-purple-600/80 backdrop-blur-sm flex items-center justify-center text-white font-bold text-sm shadow-xl shadow-blue-500/20 dark:shadow-blue-500/30 border border-white/30 dark:border-slate-600/30 group-hover/contact:scale-110 transition-transform duration-300">
+                                        {contact.contactName
+                                          ? contact.contactName
+                                              .charAt(0)
+                                              .toUpperCase()
+                                          : contact.firstName
+                                              ?.charAt(0)
+                                              ?.toUpperCase() || "U"}
+                                      </div>
+                                    )}
+                                    <div className="absolute -inset-1 bg-gradient-to-br from-blue-400/30 to-violet-600/30 rounded-2xl blur opacity-0 group-hover/contact:opacity-100 transition-opacity duration-300" />
+                                  </div>
+                                  <div className="ml-5">
+                                    <div className="text-sm font-bold text-slate-800 dark:text-slate-100 group-hover/contact:text-blue-600 dark:group-hover/contact:text-blue-400 transition-colors duration-200">
+                                      {contact.contactName ||
+                                        `${contact.firstName || ""} ${
+                                          contact.lastName || ""
+                                        }`.trim() ||
+                                        "Unknown"}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-5 whitespace-nowrap">
+                                <div className="space-y-2">
+                                  <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                                    {contact.phone || "No phone"}
+                                  </div>
+                                  {contact.phone && (
+                                    <button
+                                      onClick={() => handleClick(contact.phone)}
+                                      className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 bg-gradient-to-r from-blue-50/80 to-blue-100/60 dark:from-blue-900/40 dark:to-blue-800/40 backdrop-blur-sm border border-blue-200/50 dark:border-blue-700/50 rounded-xl hover:from-blue-100/90 hover:to-blue-200/80 dark:hover:from-blue-800/60 dark:hover:to-blue-700/60 transition-all duration-200 hover:shadow-lg hover:shadow-blue-500/20 dark:hover:shadow-blue-500/30 hover:scale-105 transform-gpu"
+                                    >
+                                      <Lucide
+                                        icon="MessageCircle"
+                                        className="w-3 h-3"
+                                      />
+                                      <span>Open Chat</span>
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-6 py-5 whitespace-nowrap">
+                                <div className="flex flex-wrap gap-2.5">
+                                  {contact.tags && contact.tags.length > 0 ? (
+                                    contact.tags
+                                      .slice(0, 2)
+                                      .map((tag, tagIndex) => (
+                                        <span
+                                          key={tagIndex}
+                                          className={`group/tag relative inline-flex items-center px-4 py-2 rounded-2xl text-xs font-bold backdrop-blur-xl transition-all duration-300 hover:scale-110 transform-gpu shadow-lg border-2 ${
+                                            employeeNames.some(
+                                              (name) =>
+                                                name.toLowerCase() ===
+                                                tag.toLowerCase()
+                                            )
+                                              ? "bg-gradient-to-r from-emerald-400/20 via-emerald-500/15 to-emerald-600/20 dark:from-emerald-400/25 dark:via-emerald-500/20 dark:to-emerald-600/25 text-emerald-700 dark:text-emerald-300 border-emerald-300/60 dark:border-emerald-600/60 shadow-emerald-500/20 dark:shadow-emerald-500/30 hover:shadow-emerald-500/30 dark:hover:shadow-emerald-500/40"
+                                              : "bg-gradient-to-r from-blue-400/20 via-blue-500/15 to-blue-600/20 dark:from-blue-400/25 dark:via-blue-500/20 dark:to-blue-600/25 text-blue-700 dark:text-blue-300 border-blue-300/60 dark:border-blue-600/60 shadow-blue-500/20 dark:shadow-blue-500/30 hover:shadow-blue-500/30 dark:hover:shadow-blue-500/40"
+                                          }`}
+                                        >
+                                          <span className="relative z-10">
+                                            {tag}
+                                          </span>
+                                          {userRole !== "3" && (
+                                            <button
+                                              className="ml-2 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 opacity-0 group-hover/tag:opacity-100 transition-all duration-200 p-1 rounded-full hover:bg-red-500/20 dark:hover:bg-red-400/20 z-20 relative transform hover:scale-125"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleRemoveTag(
+                                                  contact.contact_id!,
+                                                  tag
+                                                );
+                                              }}
+                                            >
+                                              <Lucide
+                                                icon="X"
+                                                className="w-3 h-3"
+                                              />
+                                            </button>
+                                          )}
+                                          <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-white/10 to-white/5 dark:from-white/5 dark:to-white/2 opacity-0 group-hover/tag:opacity-100 transition-opacity duration-300" />
+                                        </span>
+                                      ))
+                                  ) : (
+                                    <span className="inline-flex items-center px-4 py-2 rounded-2xl text-xs font-semibold bg-gradient-to-r from-slate-100/60 to-slate-200/40 dark:from-slate-700/60 dark:to-slate-800/40 text-slate-500 dark:text-slate-400 backdrop-blur-xl border border-slate-300/40 dark:border-slate-600/40 shadow-sm">
+                                      <Lucide
+                                        icon="Tag"
+                                        className="w-3 h-3 mr-1.5 opacity-60"
+                                      />
+                                      No tags
+                                    </span>
+                                  )}
+                                  {contact.tags && contact.tags.length > 2 && (
+                                    <span className="inline-flex items-center px-4 py-2 rounded-2xl text-xs font-bold bg-gradient-to-r from-slate-400/20 via-slate-500/15 to-slate-600/20 dark:from-slate-400/25 dark:via-slate-500/20 dark:to-slate-600/25 text-slate-600 dark:text-slate-400 backdrop-blur-xl border-2 border-slate-300/60 dark:border-slate-600/60 shadow-lg shadow-slate-500/20 dark:shadow-slate-500/30 hover:scale-110 transition-transform duration-300 cursor-pointer">
+                                      +{contact.tags.length - 2} more
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              {visibleColumns.ic && (
+                                <td className="px-6 py-5 whitespace-nowrap">
+                                  <div className="inline-flex items-center px-4 py-2.5 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 bg-gradient-to-r from-white/60 to-slate-50/40 dark:from-slate-700/60 dark:to-slate-800/40 backdrop-blur-xl border border-white/40 dark:border-slate-600/40 shadow-lg shadow-slate-200/20 dark:shadow-slate-900/30">
+                                    {contact.ic || "-"}
+                                  </div>
+                                </td>
+                              )}
+                              {visibleColumns.vehicleNumber && (
+                                <td className="px-6 py-5 whitespace-nowrap">
+                                  <div className="inline-flex items-center px-4 py-2.5 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 bg-gradient-to-r from-white/60 to-slate-50/40 dark:from-slate-700/60 dark:to-slate-800/40 backdrop-blur-xl border border-white/40 dark:border-slate-600/40 shadow-lg shadow-slate-200/20 dark:shadow-slate-900/30">
+                                    {contact.vehicleNumber || "-"}
+                                  </div>
+                                </td>
+                              )}
+                              {visibleColumns.branch && (
+                                <td className="px-6 py-5 whitespace-nowrap">
+                                  <div className="inline-flex items-center px-4 py-2.5 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 bg-gradient-to-r from-white/60 to-slate-50/40 dark:from-slate-700/60 dark:to-slate-800/40 backdrop-blur-xl border border-white/40 dark:border-slate-600/40 shadow-lg shadow-slate-200/20 dark:shadow-slate-900/30">
+                                    {contact.branch || "-"}
+                                  </div>
+                                </td>
+                              )}
+                              {visibleColumns.expiryDate && (
+                                <td className="px-6 py-5 whitespace-nowrap">
+                                  <div className="inline-flex items-center px-4 py-2.5 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 bg-gradient-to-r from-white/60 to-slate-50/40 dark:from-slate-700/60 dark:to-slate-800/40 backdrop-blur-xl border border-white/40 dark:border-slate-600/40 shadow-lg shadow-slate-200/20 dark:shadow-slate-900/30">
+                                    {contact.expiryDate
+                                      ? new Date(
+                                          contact.expiryDate
+                                        ).toLocaleDateString()
+                                      : "-"}
+                                  </div>
+                                </td>
+                              )}
+                              {visibleColumns.notes && (
+                                <td className="px-6 py-5 max-w-xs">
+                                  <div className="group relative">
+                                    <div
+                                      className="truncate font-semibold text-sm text-slate-700 dark:text-slate-200 bg-gradient-to-r from-white/60 to-slate-50/40 dark:from-slate-700/60 dark:to-slate-800/40 backdrop-blur-xl border border-white/40 dark:border-slate-600/40 rounded-2xl px-4 py-2.5 shadow-lg shadow-slate-200/20 dark:shadow-slate-900/30 cursor-pointer hover:shadow-xl transition-all duration-300"
+                                      title={contact.notes || ""}
+                                    >
+                                      {contact.notes || "-"}
+                                    </div>
+                                  </div>
+                                </td>
+                              )}
+                              <td className="px-6 py-5 whitespace-nowrap">
+                                <div className="inline-flex items-center px-4 py-2.5 rounded-2xl text-sm font-semibold text-slate-500 dark:text-slate-400 bg-gradient-to-r from-white/60 to-slate-50/40 dark:from-slate-700/60 dark:to-slate-800/40 backdrop-blur-xl border border-white/40 dark:border-slate-600/40 shadow-lg shadow-slate-200/20 dark:shadow-slate-900/30">
+                                  {contact.createdAt
+                                    ? new Date(
+                                        contact.createdAt
+                                      ).toLocaleDateString()
+                                    : contact.dateAdded
+                                    ? new Date(
+                                        contact.dateAdded
+                                      ).toLocaleDateString()
+                                    : "Unknown"}
+                                </div>
+                              </td>
+                              <td className="px-6 py-5 whitespace-nowrap text-right">
+                                <div className="flex items-center justify-end space-x-3 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0">
+                                  <Button
+                                    variant="outline-secondary"
+                                    size="sm"
+                                    className="group/btn relative bg-gradient-to-r from-white/80 to-slate-50/60 dark:from-slate-700/80 dark:to-slate-800/60 backdrop-blur-xl border-2 border-white/60 dark:border-slate-600/60 hover:border-blue-300/80 dark:hover:border-blue-500/80 transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-blue-500/20 dark:hover:shadow-blue-500/30 rounded-2xl p-3 hover:scale-110 transform-gpu overflow-hidden"
+                                    onClick={() => {
+                                      setCurrentContact(contact);
+                                      setViewContactModal(true);
+                                    }}
+                                  >
+                                    <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-violet-500/10 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300" />
+                                    <Lucide
+                                      icon="Eye"
+                                      className="w-4 h-4 text-slate-600 dark:text-slate-400 group-hover/btn:text-blue-600 dark:group-hover/btn:text-blue-400 transition-colors duration-300 relative z-10"
+                                    />
+                                  </Button>
+                                  <Button
+                                    variant="outline-secondary"
+                                    size="sm"
+                                    className="group/btn relative bg-gradient-to-r from-white/80 to-slate-50/60 dark:from-slate-700/80 dark:to-slate-800/60 backdrop-blur-xl border-2 border-white/60 dark:border-slate-600/60 hover:border-emerald-300/80 dark:hover:border-emerald-500/80 transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-emerald-500/20 dark:hover:shadow-emerald-500/30 rounded-2xl p-3 hover:scale-110 transform-gpu overflow-hidden"
+                                    onClick={() => {
+                                      setCurrentContact(contact);
+                                      setEditContactModal(true);
+                                    }}
+                                    disabled={userRole === "3"}
+                                  >
+                                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-400/10 to-green-500/10 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300" />
+                                    <Lucide
+                                      icon="Pencil"
+                                      className="w-4 h-4 text-slate-600 dark:text-slate-400 group-hover/btn:text-emerald-600 dark:group-hover/btn:text-emerald-400 transition-colors duration-300 relative z-10"
+                                    />
+                                  </Button>
+                                  <Button
+                                    variant="outline-danger"
+                                    size="sm"
+                                    className="group/btn relative bg-gradient-to-r from-red-50/80 to-red-100/60 dark:from-red-900/40 dark:to-red-800/40 backdrop-blur-xl border-2 border-red-200/60 dark:border-red-600/60 hover:border-red-400/80 dark:hover:border-red-500/80 transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-red-500/20 dark:hover:shadow-red-500/30 rounded-2xl p-3 hover:scale-110 transform-gpu overflow-hidden"
+                                    onClick={() => {
+                                      setCurrentContact(contact);
+                                      setDeleteConfirmationModal(true);
+                                    }}
+                                    disabled={userRole === "3"}
+                                  >
+                                    <div className="absolute inset-0 bg-gradient-to-r from-red-400/10 to-pink-500/10 opacity-0 group-hover/btn:opacity-100 transition-opacity duration-300" />
+                                    <Lucide
+                                      icon="Trash2"
+                                      className="w-4 h-4 text-red-500 dark:text-red-400 group-hover/btn:text-red-600 dark:group-hover/btn:text-red-300 transition-colors duration-300 relative z-10"
+                                    />
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+
+                {/* Enhanced Table Footer with Pagination */}
+                <div className="relative px-8 py-6 border-t-2 border-white/30 dark:border-slate-700/40 bg-gradient-to-r from-white/90 via-slate-50/80 to-white/60 dark:from-slate-800/90 dark:via-slate-700/80 dark:to-slate-800/60 backdrop-blur-2xl shadow-xl shadow-slate-200/20 dark:shadow-slate-900/30">
+                  <div className="absolute inset-0 bg-gradient-to-br from-slate-50/30 via-transparent to-blue-50/20 dark:from-slate-900/20 dark:via-transparent dark:to-blue-900/10 pointer-events-none" />
+
+                  <div className="relative flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="p-3 rounded-2xl bg-gradient-to-br from-blue-500/15 to-violet-500/10 dark:from-blue-400/20 dark:to-violet-400/15 backdrop-blur-xl border border-blue-200/50 dark:border-blue-700/50 shadow-lg">
                         <Lucide
-                          icon="Search"
-            className="w-4 h-4 text-blue-500 dark:text-blue-400"
+                          icon="Database"
+                          className="w-5 h-5 text-blue-600 dark:text-blue-400"
                         />
-        </div>
-      </div>
-                      )}
-  </div>
-                        </div>
+                      </div>
+                      <div className="bg-gradient-to-r from-white/80 to-slate-50/60 dark:from-slate-700/80 dark:to-slate-800/60 backdrop-blur-xl border border-white/50 dark:border-slate-600/50 rounded-2xl px-6 py-3 shadow-lg shadow-slate-200/20 dark:shadow-slate-900/30">
+                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                          Showing{" "}
+                          <span className="text-blue-600 dark:text-blue-400 font-extrabold">
+                            {itemOffset + 1}
+                          </span>{" "}
+                          to{" "}
+                          <span className="text-blue-600 dark:text-blue-400 font-extrabold">
+                            {Math.min(
+                              itemOffset + itemsPerPage,
+                              filteredContactsSearch.length
+                            )}
+                          </span>{" "}
+                          of{" "}
+                          <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">
+                            {filteredContactsSearch.length}
+                          </span>{" "}
+                          results
+                        </span>
+                      </div>
+                    </div>
 
-                  </>
-                )}
-              </div>
-              {/* Scheduled Messages Section */}
-
-              {!searchQuery && (
-               <div className="mt-2 mb-4">
-    <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center">
-      
-        <h2 className="text-lg sm:text-xl font-semibold text-gray-800 dark:text-gray-200">
-                      Scheduled Messages
-                    </h2>
-                    <button
-                      onClick={() => setShowScheduledMessages((prev) => !prev)}
-          className="ml-3 p-2 rounded-lg bg-white/20 dark:bg-gray-700/30 hover:bg-white/40 dark:hover:bg-gray-600/40 backdrop-blur-md transition-all duration-200"
-                    >
-                      <Lucide
-                        icon={showScheduledMessages ? "ChevronUp" : "ChevronDown"}
-            className="w-5 h-5 text-gray-700 dark:text-gray-300"
+                    <div className="flex items-center space-x-3">
+                      <ReactPaginate
+                        breakLabel={
+                          <div className="px-4 py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 bg-gradient-to-r from-white/60 to-slate-50/40 dark:from-slate-700/60 dark:to-slate-800/40 backdrop-blur-xl border border-white/50 dark:border-slate-600/50 rounded-xl shadow-lg">
+                            ...
+                          </div>
+                        }
+                        nextLabel={
+                          <div className="group flex items-center space-x-2 px-5 py-3 text-sm font-bold text-slate-700 dark:text-slate-300 bg-gradient-to-r from-white/80 to-slate-50/60 dark:from-slate-700/80 dark:to-slate-800/60 backdrop-blur-xl border-2 border-white/60 dark:border-slate-600/60 hover:border-blue-300/80 dark:hover:border-blue-500/80 rounded-2xl transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/20 dark:hover:shadow-blue-500/30 hover:scale-110 transform-gpu overflow-hidden">
+                            <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-violet-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                            <span className="relative z-10 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300">
+                              Next
+                            </span>
+                            <Lucide
+                              icon="ChevronRight"
+                              className="w-4 h-4 relative z-10 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300"
+                            />
+                          </div>
+                        }
+                        onPageChange={handlePageClick}
+                        pageRangeDisplayed={5}
+                        pageCount={pageCount}
+                        previousLabel={
+                          <div className="group flex items-center space-x-2 px-5 py-3 text-sm font-bold text-slate-700 dark:text-slate-300 bg-gradient-to-r from-white/80 to-slate-50/60 dark:from-slate-700/80 dark:to-slate-800/60 backdrop-blur-xl border-2 border-white/60 dark:border-slate-600/60 hover:border-emerald-300/80 dark:hover:border-emerald-500/80 rounded-2xl transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/20 dark:hover:shadow-emerald-500/30 hover:scale-110 transform-gpu overflow-hidden">
+                            <div className="absolute inset-0 bg-gradient-to-r from-emerald-400/10 to-green-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                            <Lucide
+                              icon="ChevronLeft"
+                              className="w-4 h-4 relative z-10 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-300"
+                            />
+                            <span className="relative z-10 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-300">
+                              Previous
+                            </span>
+                          </div>
+                        }
+                        renderOnZeroPageCount={null}
+                        className="flex items-center space-x-2"
+                        pageClassName=""
+                        pageLinkClassName="relative group inline-flex items-center justify-center min-w-[44px] h-11 px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-300 bg-gradient-to-r from-white/80 to-slate-50/60 dark:from-slate-700/80 dark:to-slate-800/60 backdrop-blur-xl border-2 border-white/60 dark:border-slate-600/60 hover:border-violet-300/80 dark:hover:border-violet-500/80 rounded-xl transition-all duration-300 hover:shadow-xl hover:shadow-violet-500/20 dark:hover:shadow-violet-500/30 hover:scale-110 transform-gpu overflow-hidden hover:text-violet-600 dark:hover:text-violet-400"
+                        activeClassName=""
+                        activeLinkClassName="!bg-gradient-to-r !from-blue-500/90 !via-violet-500/90 !to-purple-600/90 !text-white !shadow-2xl !shadow-blue-500/40 dark:!shadow-blue-500/50 !border-blue-400/60 dark:!border-blue-500/60 !scale-110 font-extrabold"
+                        previousClassName="inline-flex"
+                        nextClassName="inline-flex"
+                        previousLinkClassName=""
+                        nextLinkClassName=""
+                        disabledClassName="opacity-40 cursor-not-allowed hover:scale-100 hover:shadow-none"
                       />
-                    </button>
-      </div>
-      
-                    {selectedScheduledMessages.length > 0 && (
-        <div className="flex gap-3">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Sidebar - Scheduled Messages, Quick Actions & Statistics (30% width) */}
+            <div className="lg:w-80 lg:flex-shrink-0 space-y-8">
+              {/* Scheduled Messages Panel */}
+              <div className="group relative bg-white/70 dark:bg-slate-800/70 backdrop-blur-2xl rounded-3xl border border-white/30 dark:border-slate-700/30 shadow-2xl shadow-slate-200/20 dark:shadow-slate-900/40 overflow-hidden transition-all duration-500 hover:shadow-3xl hover:shadow-slate-200/30 dark:hover:shadow-slate-900/60 hover:scale-[1.02]">
+                {/* Subtle gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-50/20 via-transparent to-violet-50/20 dark:from-blue-900/10 dark:via-transparent dark:to-violet-900/10 pointer-events-none" />
+
+                <div className="relative px-6 py-6 border-b border-white/20 dark:border-slate-700/30 bg-gradient-to-r from-slate-50/40 to-white/20 dark:from-slate-800/40 dark:to-slate-700/20 backdrop-blur-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2.5 rounded-2xl bg-gradient-to-br from-blue-500/20 to-violet-500/20 dark:from-blue-400/20 dark:to-violet-400/20 backdrop-blur-sm border border-blue-200/40 dark:border-blue-700/40">
+                        <Lucide
+                          icon="Calendar"
+                          className="w-5 h-5 text-blue-600 dark:text-blue-400"
+                        />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
+                          Scheduled Messages
+                        </h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                          Manage your automation
+                        </p>
+                      </div>
+                      {/* Active Filters Indicator */}
+                      {(messageStatusFilter ||
+                        messageDateFilter ||
+                        messageTypeFilter ||
+                        messageRecipientFilter) && (
+                        <div className="relative">
+                          <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-blue-500/20 to-violet-500/20 dark:from-blue-400/20 dark:to-violet-400/20 text-blue-700 dark:text-blue-300 border border-blue-200/40 dark:border-blue-700/40 backdrop-blur-sm">
+                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-2 animate-pulse" />
+                            Filtered
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline-secondary"
+                        size="sm"
+                        className="bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm border-white/40 dark:border-slate-600/40 hover:bg-white/80 dark:hover:bg-slate-600/80 transition-all duration-300 shadow-lg hover:shadow-xl rounded-xl"
+                        onClick={() => setScheduledMessagesModal(true)}
+                      >
+                        <Lucide icon="ExternalLink" className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="relative p-6 space-y-4">
+                  {/* Simplified View - Show max 3 most recent */}
+                  {scheduledMessages && scheduledMessages.length > 0 ? (
+                    <>
+                      {applyAdvancedFilters(
+                        combineScheduledMessages(getFilteredScheduledMessages())
+                      )
+                        .sort(
+                          (a, b) =>
+                            new Date(b.scheduledTime).getTime() -
+                            new Date(a.scheduledTime).getTime()
+                        )
+                        .slice(0, 3)
+                        .map((message, index) => (
+                          <div
+                            key={message.id || index}
+                            className="group relative p-5 rounded-2xl bg-gradient-to-br from-white/80 to-white/40 dark:from-slate-700/80 dark:to-slate-800/40 backdrop-blur-xl border border-white/40 dark:border-slate-600/40 hover:border-blue-300/60 dark:hover:border-blue-500/60 transition-all duration-300 cursor-pointer hover:shadow-xl hover:shadow-blue-500/10 dark:hover:shadow-blue-500/20 hover:scale-[1.02] transform-gpu"
+                          >
+                            {/* Subtle inner glow */}
+                            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-50/30 via-transparent to-violet-50/30 dark:from-blue-900/10 dark:via-transparent dark:to-violet-900/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+
+                            <div className="relative flex items-start justify-between">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start space-x-3 mb-3">
+                                  <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500/20 to-violet-500/20 dark:from-blue-400/20 dark:to-violet-400/20 backdrop-blur-sm border border-blue-200/40 dark:border-blue-700/40 group-hover:scale-110 transition-transform duration-300">
+                                    <Lucide
+                                      icon="MessageSquare"
+                                      className="w-4 h-4 text-blue-600 dark:text-blue-400"
+                                    />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 leading-relaxed line-clamp-2 overflow-hidden">
+                                      {message.messageContent ||
+                                        message.message ||
+                                        "Untitled Campaign"}
+                                    </p>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 font-medium">
+                                      <span className="text-slate-400 dark:text-slate-500">
+                                        To{" "}
+                                      </span>
+                                      <span className="text-slate-800 dark:text-slate-200 font-bold bg-gradient-to-r from-blue-600/10 to-violet-600/10 dark:from-blue-400/20 dark:to-violet-400/20 px-2 py-0.5 rounded-md">
+                                        {Array.isArray(message.contactIds) &&
+                                        message.contactIds.length > 0
+                                          ? message.contactIds.length > 1
+                                            ? `${message.contactIds.length} contacts`
+                                            : (() => {
+                                                const phoneNumber =
+                                                  message.contactIds[0]
+                                                    ?.split("-")[1]
+                                                    ?.replace(/\D/g, "") || "";
+                                                const contact = contacts.find(
+                                                  (c) =>
+                                                    c.phone?.replace(
+                                                      /\D/g,
+                                                      ""
+                                                    ) === phoneNumber
+                                                );
+                                                return (
+                                                  contact?.contactName ||
+                                                  phoneNumber ||
+                                                  "Unknown"
+                                                );
+                                              })()
+                                          : message.contactId
+                                          ? (() => {
+                                              const phoneNumber =
+                                                message.contactId
+                                                  ?.split("-")[1]
+                                                  ?.replace(/\D/g, "") || "";
+                                              const contact = contacts.find(
+                                                (c) =>
+                                                  c.phone?.replace(
+                                                    /\D/g,
+                                                    ""
+                                                  ) === phoneNumber
+                                              );
+                                              return (
+                                                contact?.contactName ||
+                                                phoneNumber ||
+                                                "Unknown"
+                                              );
+                                            })()
+                                          : "0 contacts"}
+                                      </span>
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between gap-4">
+                                  <span
+                                    className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold backdrop-blur-sm border transition-all duration-200 ${
+                                      message.status === "sent"
+                                        ? "bg-gradient-to-r from-emerald-500/20 to-green-500/20 dark:from-emerald-400/20 dark:to-green-400/20 text-emerald-700 dark:text-emerald-300 border-emerald-200/40 dark:border-emerald-700/40"
+                                        : message.status === "failed"
+                                        ? "bg-gradient-to-r from-red-500/20 to-pink-500/20 dark:from-red-400/20 dark:to-pink-400/20 text-red-700 dark:text-red-300 border-red-200/40 dark:border-red-700/40"
+                                        : "bg-gradient-to-r from-orange-500/20 to-amber-500/20 dark:from-orange-400/20 dark:to-amber-400/20 text-orange-700 dark:text-orange-300 border-orange-200/40 dark:border-orange-700/40"
+                                    }`}
+                                  >
+                                    <div
+                                      className={`w-1.5 h-1.5 rounded-full mr-2 ${
+                                        message.status === "sent"
+                                          ? "bg-emerald-500"
+                                          : message.status === "failed"
+                                          ? "bg-red-500"
+                                          : "bg-orange-500 animate-pulse"
+                                      }`}
+                                    />
+                                    {message.status === "sent"
+                                      ? "Sent"
+                                      : message.status === "failed"
+                                      ? "Failed"
+                                      : "Scheduled"}
+                                  </span>
+                                  <span className="text-xs text-slate-400 dark:text-slate-500 font-medium ml-auto">
+                                    {message.scheduledTime
+                                      ? new Date(
+                                          message.scheduledTime
+                                        ).toLocaleString("en-US", {
+                                          month: "short",
+                                          day: "numeric",
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        })
+                                      : "No date"}
+                                  </span>
+                                </div>
+                              </div>
+                              <Button
+                                variant="outline-secondary"
+                                size="sm"
+                                className="ml-4 bg-white/60 dark:bg-slate-600/60 backdrop-blur-sm border-white/40 dark:border-slate-500/40 hover:bg-white/80 dark:hover:bg-slate-500/80 transition-all duration-300 shadow-lg hover:shadow-xl rounded-xl opacity-0 group-hover:opacity-100 hover:scale-110 transform-gpu"
+                                onClick={() => {
+                                  setSelectedMessageForView(message);
+                                  setViewMessageDetailsModal(true);
+                                }}
+                              >
+                                <Lucide icon="Eye" className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      {(() => {
+                        const filteredCount = applyAdvancedFilters(
+                          combineScheduledMessages(
+                            getFilteredScheduledMessages()
+                          )
+                        ).length;
+                        return (
+                          filteredCount > 3 && (
+                            <div className="text-center py-4">
+                              <button
+                                onClick={() => setScheduledMessagesModal(true)}
+                                className="group inline-flex items-center px-4 py-2.5 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-gradient-to-r from-blue-50/50 to-violet-50/50 dark:from-blue-900/20 dark:to-violet-900/20 backdrop-blur-sm border border-blue-200/40 dark:border-blue-700/40 rounded-xl hover:shadow-lg transition-all duration-300 hover:scale-105 transform-gpu"
+                              >
+                                <span>View all {filteredCount} messages</span>
+                                <Lucide
+                                  icon="ArrowRight"
+                                  className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform duration-200"
+                                />
+                              </button>
+                            </div>
+                          )
+                        );
+                      })()}
+                    </>
+                  ) : (
+                    /* Enhanced Empty State */
+                    <div className="text-center py-12">
+                      <div className="relative mx-auto w-20 h-20 mb-6">
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-violet-500/20 dark:from-blue-400/20 dark:to-violet-400/20 rounded-3xl backdrop-blur-sm border border-blue-200/40 dark:border-blue-700/40" />
+                        <div className="absolute inset-2 bg-gradient-to-br from-white/60 to-white/30 dark:from-slate-700/60 dark:to-slate-800/30 rounded-2xl backdrop-blur-sm flex items-center justify-center">
+                          <Lucide
+                            icon="Calendar"
+                            className="w-8 h-8 text-blue-500/70 dark:text-blue-400/70"
+                          />
+                        </div>
+                      </div>
+                      <h4 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        No Scheduled Messages
+                      </h4>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 max-w-48 mx-auto leading-relaxed">
+                        Schedule your first message to automate your
+                        communication
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Quick Actions Panel */}
+              <div className="group relative bg-white/70 dark:bg-slate-800/70 backdrop-blur-2xl rounded-3xl border border-white/30 dark:border-slate-700/30 shadow-2xl shadow-slate-200/20 dark:shadow-slate-900/40 overflow-hidden transition-all duration-500 hover:shadow-3xl hover:shadow-slate-200/30 dark:hover:shadow-slate-900/60 hover:scale-[1.02]">
+                {/* Subtle gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/20 via-transparent to-blue-50/20 dark:from-emerald-900/10 dark:via-transparent dark:to-blue-900/10 pointer-events-none" />
+
+                <div className="relative px-6 py-6 border-b border-white/20 dark:border-slate-700/30 bg-gradient-to-r from-slate-50/40 to-white/20 dark:from-slate-800/40 dark:to-slate-700/20 backdrop-blur-sm">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2.5 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-blue-500/20 dark:from-emerald-400/20 dark:to-blue-400/20 backdrop-blur-sm border border-emerald-200/40 dark:border-emerald-700/40">
+                      <Lucide
+                        icon="Zap"
+                        className="w-5 h-5 text-emerald-600 dark:text-emerald-400"
+                      />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
+                        Quick Actions
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                        Bulk operations & tools
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="relative p-6 space-y-4">
+                  {/* Assign User to Selected Contacts */}
+                  <div className="w-full">
+                    <Button
+                      variant="outline-secondary"
+                      className="w-full justify-between group bg-gradient-to-r from-white/60 to-white/40 dark:from-slate-700/60 dark:to-slate-800/40 backdrop-blur-xl border border-white/40 dark:border-slate-600/40 hover:border-blue-300/60 dark:hover:border-blue-500/60 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/10 dark:hover:shadow-blue-500/20 rounded-2xl p-4 hover:scale-[1.02] transform-gpu"
+                      disabled={
+                        selectedContacts.length === 0 || userRole === "3"
+                      }
+                      onClick={() => setShowAssignUserMenu(!showAssignUserMenu)}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500/20 to-violet-500/20 dark:from-blue-400/20 dark:to-violet-400/20 backdrop-blur-sm border border-blue-200/40 dark:border-blue-700/40 group-hover:scale-110 transition-transform duration-300">
+                          <Lucide
+                            icon="User"
+                            className="w-4 h-4 text-blue-600 dark:text-blue-400"
+                          />
+                        </div>
+                        <div className="text-left">
+                          <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                            Assign User
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            {selectedContacts.length} selected
+                          </div>
+                        </div>
+                      </div>
+                      <Lucide
+                        icon={showAssignUserMenu ? "ChevronUp" : "ChevronDown"}
+                        className="w-5 h-5 text-slate-600 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300"
+                      />
+                    </Button>
+
+                    {showAssignUserMenu && (
+                      <div className="mt-4 bg-white/90 dark:bg-slate-800/90 backdrop-blur-2xl border border-white/40 dark:border-slate-700/50 shadow-2xl shadow-slate-200/50 dark:shadow-slate-800/50 rounded-2xl p-4 space-y-3 overflow-y-auto max-h-96 transition-all duration-300 animate-in slide-in-from-top-2">
+                        <div className="mb-3">
+                          <div className="relative">
+                            <Lucide
+                              icon="Search"
+                              className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400"
+                            />
+                            <input
+                              type="text"
+                              placeholder="Search employees..."
+                              value={employeeSearch}
+                              onChange={(e) =>
+                                setEmployeeSearch(e.target.value)
+                              }
+                              className="w-full pl-10 pr-4 py-3 text-sm border border-white/40 dark:border-slate-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400/50 bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm text-slate-800 dark:text-slate-200 transition-all duration-200"
+                            />
+                          </div>
+                        </div>
+                        {(() => {
+                          const filteredEmployees = employeeList.filter(
+                            (employee) => {
+                              if (userRole === "4" || userRole === "2") {
+                                return (
+                                  employee.role === "2" &&
+                                  employee.name
+                                    .toLowerCase()
+                                    .includes(employeeSearch.toLowerCase())
+                                );
+                              }
+                              return employee.name
+                                .toLowerCase()
+                                .includes(employeeSearch.toLowerCase());
+                            }
+                          );
+
+                          if (filteredEmployees.length === 0) {
+                            return (
+                              <div className="p-6 text-center">
+                                <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-slate-100/80 to-slate-200/60 dark:from-slate-700/80 dark:to-slate-800/60 rounded-2xl backdrop-blur-sm border border-slate-200/40 dark:border-slate-600/40 flex items-center justify-center">
+                                  <Lucide
+                                    icon="Users"
+                                    className="w-8 h-8 text-slate-400"
+                                  />
+                                </div>
+                                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                                  No employees found
+                                </p>
+                              </div>
+                            );
+                          }
+
+                          return filteredEmployees.map((employee) => (
+                            <button
+                              key={employee.id}
+                              className="group flex w-full items-center px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-300 transition-all duration-200 hover:bg-gradient-to-r hover:from-blue-50/60 hover:to-violet-50/40 dark:hover:from-blue-900/20 dark:hover:to-violet-900/20 rounded-xl backdrop-blur-sm border border-transparent hover:border-blue-200/40 dark:hover:border-blue-700/40 hover:shadow-lg"
+                              onClick={() => {
+                                selectedContacts.forEach((contact) => {
+                                  handleAddTagToSelectedContacts(
+                                    employee.name,
+                                    contact
+                                  );
+                                });
+                                setShowAssignUserMenu(false);
+                              }}
+                            >
+                              <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500/20 to-violet-500/20 dark:from-blue-400/20 dark:to-violet-400/20 backdrop-blur-sm border border-blue-200/40 dark:border-blue-700/40 mr-3 group-hover:scale-110 transition-transform duration-300">
+                                <Lucide
+                                  icon="User"
+                                  className="h-4 w-4 text-blue-600 dark:text-blue-400"
+                                />
+                              </div>
+                              <span className="truncate">{employee.name}</span>
+                            </button>
+                          ));
+                        })()}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Add Tags to Selected Contacts */}
+                  <div className="w-full">
+                    <Button
+                      variant="outline-secondary"
+                      className="w-full justify-between group bg-gradient-to-r from-white/60 to-white/40 dark:from-slate-700/60 dark:to-slate-800/40 backdrop-blur-xl border border-white/40 dark:border-slate-600/40 hover:border-emerald-300/60 dark:hover:border-emerald-500/60 transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/10 dark:hover:shadow-emerald-500/20 rounded-2xl p-4 hover:scale-[1.02] transform-gpu"
+                      disabled={
+                        selectedContacts.length === 0 || userRole === "3"
+                      }
+                      onClick={() => setShowAddTagMenu(!showAddTagMenu)}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 rounded-xl bg-gradient-to-br from-emerald-500/20 to-green-500/20 dark:from-emerald-400/20 dark:to-green-400/20 backdrop-blur-sm border border-emerald-200/40 dark:border-emerald-700/40 group-hover:scale-110 transition-transform duration-300">
+                          <Lucide
+                            icon="Tag"
+                            className="w-4 h-4 text-emerald-600 dark:text-emerald-400"
+                          />
+                        </div>
+                        <div className="text-left">
+                          <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                            Add Tags
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            {selectedContacts.length} selected
+                          </div>
+                        </div>
+                      </div>
+                      <Lucide
+                        icon={showAddTagMenu ? "ChevronUp" : "ChevronDown"}
+                        className="w-5 h-5 text-slate-600 dark:text-slate-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-300"
+                      />
+                    </Button>
+
+                    {showAddTagMenu && (
+                      <div className="mt-4 bg-white/90 dark:bg-slate-800/90 backdrop-blur-2xl border border-white/40 dark:border-slate-700/50 shadow-2xl shadow-slate-200/50 dark:shadow-slate-800/50 rounded-2xl p-4 space-y-3 overflow-y-auto max-h-96 transition-all duration-300 animate-in slide-in-from-top-2">
                         <button
-                          onClick={handleSendSelectedNow}
-            className="px-2 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-green-500/90 to-green-600/90 hover:from-green-600/90 hover:to-green-700/90 backdrop-blur-md shadow-lg border border-green-400/20 rounded-lg sm:rounded-xl transition-all duration-200 hover:shadow-xl hover:scale-105"
+                          className="flex items-center p-3 font-semibold hover:bg-gradient-to-r hover:from-emerald-50/60 hover:to-green-50/40 dark:hover:from-emerald-900/20 dark:hover:to-green-900/20 w-full rounded-xl transition-all duration-200 backdrop-blur-sm border border-transparent hover:border-emerald-200/40 dark:hover:border-emerald-700/40 hover:shadow-lg group"
+                          onClick={() => {
+                            setShowAddTagModal(true);
+                            setShowAddTagMenu(false);
+                          }}
                         >
-            <Lucide icon="Send" className="w-4 h-4 mr-2 inline" />
-                          Send Selected ({selectedScheduledMessages.length})
+                          <div className="p-2 rounded-lg bg-gradient-to-br from-emerald-500/20 to-green-500/20 dark:from-emerald-400/20 dark:to-green-400/20 backdrop-blur-sm border border-emerald-200/40 dark:border-emerald-700/40 mr-3 group-hover:scale-110 transition-transform duration-300">
+                            <Lucide
+                              icon="Plus"
+                              className="w-4 h-4 text-emerald-600 dark:text-emerald-400"
+                            />
+                          </div>
+                          <span className="text-sm text-slate-700 dark:text-slate-300">
+                            Create New Tag
+                          </span>
                         </button>
+                        {tagList.map((tag) => (
+                          <button
+                            key={tag.id}
+                            className="flex items-center justify-between w-full hover:bg-gradient-to-r hover:from-blue-50/60 hover:to-violet-50/40 dark:hover:from-blue-900/20 dark:hover:to-violet-900/20 p-3 rounded-xl text-left text-sm font-medium transition-all duration-200 backdrop-blur-sm border border-transparent hover:border-blue-200/40 dark:hover:border-blue-700/40 hover:shadow-lg group"
+                            onClick={() => {
+                              selectedContacts.forEach((contact) => {
+                                handleAddTagToSelectedContacts(
+                                  tag.name,
+                                  contact
+                                );
+                              });
+                              setShowAddTagMenu(false);
+                            }}
+                          >
+                            <div className="flex items-center space-x-3">
+                              <div className="p-1.5 rounded-lg bg-gradient-to-br from-blue-500/20 to-violet-500/20 dark:from-blue-400/20 dark:to-violet-400/20 backdrop-blur-sm border border-blue-200/40 dark:border-blue-700/40 group-hover:scale-110 transition-transform duration-300">
+                                <Lucide
+                                  icon="Tag"
+                                  className="w-3 h-3 text-blue-600 dark:text-blue-400"
+                                />
+                              </div>
+                              <span className="text-slate-700 dark:text-slate-300">
+                                {tag.name}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Remove Tags from Selected Contacts */}
+                  <div className="w-full">
+                    <Button
+                      variant="outline-secondary"
+                      className="w-full justify-between group bg-gradient-to-r from-white/60 to-white/40 dark:from-slate-700/60 dark:to-slate-800/40 backdrop-blur-xl border border-white/40 dark:border-slate-600/40 hover:border-red-300/60 dark:hover:border-red-500/60 transition-all duration-300 hover:shadow-xl hover:shadow-red-500/10 dark:hover:shadow-red-500/20 rounded-2xl p-4 hover:scale-[1.02] transform-gpu"
+                      disabled={
+                        selectedContacts.length === 0 || userRole === "3"
+                      }
+                      onClick={() => setShowRemoveTagMenu(!showRemoveTagMenu)}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 rounded-xl bg-gradient-to-br from-red-500/20 to-pink-500/20 dark:from-red-400/20 dark:to-pink-400/20 backdrop-blur-sm border border-red-200/40 dark:border-red-700/40 group-hover:scale-110 transition-transform duration-300">
+                          <Lucide
+                            icon="Tags"
+                            className="w-4 h-4 text-red-600 dark:text-red-400"
+                          />
+                        </div>
+                        <div className="text-left">
+                          <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                            Remove Tags
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            {selectedContacts.length} selected
+                          </div>
+                        </div>
+                      </div>
+                      <Lucide
+                        icon={showRemoveTagMenu ? "ChevronUp" : "ChevronDown"}
+                        className="w-5 h-5 text-slate-600 dark:text-slate-400 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors duration-300"
+                      />
+                    </Button>
+
+                    {showRemoveTagMenu && (
+                      <div className="mt-4 bg-white/90 dark:bg-slate-800/90 backdrop-blur-2xl border border-white/40 dark:border-slate-700/50 shadow-2xl shadow-slate-200/50 dark:shadow-slate-800/50 rounded-2xl p-4 space-y-3 overflow-y-auto max-h-96 transition-all duration-300 animate-in slide-in-from-top-2">
                         <button
-                          onClick={handleDeleteSelected}
-            className="px-2 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-red-500/90 to-red-600/90 hover:from-red-600/90 hover:to-red-700/90 backdrop-blur-md shadow-lg border border-red-400/20 rounded-lg sm:rounded-xl transition-all duration-200 hover:shadow-xl hover:scale-105"
+                          className="flex items-center p-3 font-semibold hover:bg-gradient-to-r hover:from-red-50/60 hover:to-pink-50/40 dark:hover:from-red-900/20 dark:hover:to-pink-900/20 w-full rounded-xl transition-all duration-200 backdrop-blur-sm border border-transparent hover:border-red-200/40 dark:hover:border-red-700/40 hover:shadow-lg group text-red-600 dark:text-red-400"
+                          onClick={() => {
+                            selectedContacts.forEach((contact) => {
+                              handleRemoveTagsFromContact(
+                                contact,
+                                contact.tags || []
+                              );
+                            });
+                            setShowRemoveTagMenu(false);
+                          }}
                         >
-            <Lucide icon="Trash" className="w-4 h-4 mr-2 inline" />
-                          Delete Selected ({selectedScheduledMessages.length})
+                          <div className="p-2 rounded-lg bg-gradient-to-br from-red-500/20 to-pink-500/20 dark:from-red-400/20 dark:to-pink-400/20 backdrop-blur-sm border border-red-200/40 dark:border-red-700/40 mr-3 group-hover:scale-110 transition-transform duration-300">
+                            <Lucide
+                              icon="XCircle"
+                              className="w-4 h-4 text-red-600 dark:text-red-400"
+                            />
+                          </div>
+                          <span className="text-sm">Remove All Tags</span>
+                        </button>
+                        {tagList.map((tag) => (
+                          <button
+                            key={tag.id}
+                            className="flex items-center justify-between w-full hover:bg-gradient-to-r hover:from-slate-50/60 hover:to-gray-50/40 dark:hover:from-slate-900/20 dark:hover:to-gray-900/20 p-3 rounded-xl text-left text-sm font-medium transition-all duration-200 backdrop-blur-sm border border-transparent hover:border-slate-200/40 dark:hover:border-slate-700/40 hover:shadow-lg group"
+                            onClick={() => {
+                              selectedContacts.forEach((contact) => {
+                                handleRemoveTagsFromContact(contact, [
+                                  tag.name,
+                                ]);
+                              });
+                              setShowRemoveTagMenu(false);
+                            }}
+                          >
+                            <div className="flex items-center space-x-3">
+                              <div className="p-1.5 rounded-lg bg-gradient-to-br from-slate-500/20 to-gray-500/20 dark:from-slate-400/20 dark:to-gray-400/20 backdrop-blur-sm border border-slate-200/40 dark:border-slate-700/40 group-hover:scale-110 transition-transform duration-300">
+                                <Lucide
+                                  icon="Tag"
+                                  className="w-3 h-3 text-slate-600 dark:text-slate-400"
+                                />
+                              </div>
+                              <span className="text-slate-700 dark:text-slate-300">
+                                {tag.name}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Database Operations */}
+                  <div className="w-full">
+                    <Button
+                      variant="outline-secondary"
+                      className="w-full justify-between group bg-gradient-to-r from-white/60 to-white/40 dark:from-slate-700/60 dark:to-slate-800/40 backdrop-blur-xl border border-white/40 dark:border-slate-600/40 hover:border-violet-300/60 dark:hover:border-violet-500/60 transition-all duration-300 hover:shadow-xl hover:shadow-violet-500/10 dark:hover:shadow-violet-500/20 rounded-2xl p-4 hover:scale-[1.02] transform-gpu"
+                      disabled={isSyncing || userRole === "3"}
+                      onClick={() => setShowSyncMenu(!showSyncMenu)}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 rounded-xl bg-gradient-to-br from-violet-500/20 to-purple-500/20 dark:from-violet-400/20 dark:to-purple-400/20 backdrop-blur-sm border border-violet-200/40 dark:border-violet-700/40 group-hover:scale-110 transition-transform duration-300">
+                          <Lucide
+                            icon={isSyncing ? "Loader2" : "RefreshCw"}
+                            className={`w-4 h-4 text-violet-600 dark:text-violet-400 ${
+                              isSyncing ? "animate-spin" : ""
+                            }`}
+                          />
+                        </div>
+                        <div className="text-left">
+                          <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                            {isSyncing ? "Syncing..." : "Sync Database"}
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            {isSyncing ? "In progress..." : "Update data"}
+                          </div>
+                        </div>
+                      </div>
+                      <Lucide
+                        icon={showSyncMenu ? "ChevronUp" : "ChevronDown"}
+                        className="w-5 h-5 text-slate-600 dark:text-slate-400 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors duration-300"
+                      />
+                    </Button>
+
+                    {showSyncMenu && (
+                      <div className="mt-4 bg-white/90 dark:bg-slate-800/90 backdrop-blur-2xl border border-white/40 dark:border-slate-700/50 shadow-2xl shadow-slate-200/50 dark:shadow-slate-800/50 rounded-2xl p-4 space-y-3 transition-all duration-300 animate-in slide-in-from-top-2">
+                        <button
+                          className="flex items-center p-3 font-semibold hover:bg-gradient-to-r hover:from-violet-50/60 hover:to-purple-50/40 dark:hover:from-violet-900/20 dark:hover:to-purple-900/20 w-full rounded-xl transition-all duration-200 backdrop-blur-sm border border-transparent hover:border-violet-200/40 dark:hover:border-violet-700/40 hover:shadow-lg group"
+                          onClick={() => {
+                            setShowSyncConfirmationModal(true);
+                            setShowSyncMenu(false);
+                          }}
+                          disabled={isSyncing}
+                        >
+                          <div className="p-2 rounded-lg bg-gradient-to-br from-violet-500/20 to-purple-500/20 dark:from-violet-400/20 dark:to-purple-400/20 backdrop-blur-sm border border-violet-200/40 dark:border-violet-700/40 mr-3 group-hover:scale-110 transition-transform duration-300">
+                            <Lucide
+                              icon="MessageSquare"
+                              className="w-4 h-4 text-violet-600 dark:text-violet-400"
+                            />
+                          </div>
+                          <span className="text-sm text-slate-700 dark:text-slate-300">
+                            {isSyncing ? "Syncing..." : "Sync Chats"}
+                          </span>
+                        </button>
+
+                        <button
+                          className="flex items-center p-3 font-semibold hover:bg-gradient-to-r hover:from-blue-50/60 hover:to-indigo-50/40 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20 w-full rounded-xl transition-all duration-200 backdrop-blur-sm border border-transparent hover:border-blue-200/40 dark:hover:border-blue-700/40 hover:shadow-lg group"
+                          onClick={() => {
+                            setShowSyncNamesConfirmationModal(true);
+                            setShowSyncMenu(false);
+                          }}
+                          disabled={isSyncing}
+                        >
+                          <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500/20 to-indigo-500/20 dark:from-blue-400/20 dark:to-indigo-400/20 backdrop-blur-sm border border-blue-200/40 dark:border-blue-700/40 mr-3 group-hover:scale-110 transition-transform duration-300">
+                            <Lucide
+                              icon="FolderSync"
+                              className="w-4 h-4 text-blue-600 dark:text-blue-400"
+                            />
+                          </div>
+                          <span className="text-sm text-slate-700 dark:text-slate-300">
+                            {isSyncing ? "Syncing..." : "Sync Contact Names"}
+                          </span>
                         </button>
                       </div>
                     )}
                   </div>
 
-    {/* Message Filters */}
-    {showScheduledMessages && (
-      <div className="mb-3 p-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md rounded-lg border border-white/20 dark:border-gray-700/20 shadow-md">
-<div className="flex items-center mb-2">
-<h3 className="text-base font-medium text-gray-800 dark:text-gray-200">Filters</h3>
-          <button
-            onClick={() => {
-              setMessageStatusFilter("");
-              setMessageDateFilter("");
-              setMessageTypeFilter("");
-              setMessageRecipientFilter("");
-            }}
-            className="px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
-          >
-            <Lucide icon="X" className="w-4 h-4 mr-1 inline" />
-            Clear All
-          </button>
-        </div>
-        
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-          {/* Status Filter */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Status
-            </label>
-            <select
-              value={messageStatusFilter}
-              onChange={(e) => setMessageStatusFilter(e.target.value)}
-              className="w-full p-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-1 focus:ring-indigo-500/50 focus:border-transparent transition-all duration-200"
-            >
-              <option value="">All Statuses</option>
-              <option value="scheduled">Scheduled</option>
-              <option value="sent">Sent</option>
-              <option value="failed">Failed</option>
-              <option value="pending">Pending</option>
-            </select>
-          </div>
+                  {/* File Operations */}
+                  {userRole !== "2" && userRole !== "3" && userRole !== "5" && (
+                    <div className="w-full">
+                      <Button
+                        variant="outline-secondary"
+                        className="w-full justify-between group bg-gradient-to-r from-white/60 to-white/40 dark:from-slate-700/60 dark:to-slate-800/40 backdrop-blur-xl border border-white/40 dark:border-slate-600/40 hover:border-indigo-300/60 dark:hover:border-indigo-500/60 transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/10 dark:hover:shadow-indigo-500/20 rounded-2xl p-4 hover:scale-[1.02] transform-gpu"
+                        onClick={() => setShowExportMenu(!showExportMenu)}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-500/20 to-blue-500/20 dark:from-indigo-400/20 dark:to-blue-400/20 backdrop-blur-sm border border-indigo-200/40 dark:border-indigo-700/40 group-hover:scale-110 transition-transform duration-300">
+                            <Lucide
+                              icon="Download"
+                              className="w-4 h-4 text-indigo-600 dark:text-indigo-400"
+                            />
+                          </div>
+                          <div className="text-left">
+                            <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                              Export Contacts
+                            </div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400">
+                              Download data
+                            </div>
+                          </div>
+                        </div>
+                        <Lucide
+                          icon={showExportMenu ? "ChevronUp" : "ChevronDown"}
+                          className="w-5 h-5 text-slate-600 dark:text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors duration-300"
+                        />
+                      </Button>
 
-          {/* Date Filter */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Date Range
-            </label>
-            <select
-              value={messageDateFilter}
-              onChange={(e) => setMessageDateFilter(e.target.value)}
-              className="w-full p-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-1 focus:ring-indigo-500/50 focus:border-transparent transition-all duration-200"
-            >
-              <option value="">All Dates</option>
-              <option value="today">Today</option>
-              <option value="tomorrow">Tomorrow</option>
-              <option value="this-week">This Week</option>
-              <option value="next-week">Next Week</option>
-              <option value="this-month">This Month</option>
-              <option value="next-month">Next Month</option>
-            </select>
-          </div>
+                      {showExportMenu && (
+                        <div className="mt-4 bg-white/90 dark:bg-slate-800/90 backdrop-blur-2xl border border-white/40 dark:border-slate-700/50 shadow-2xl shadow-slate-200/50 dark:shadow-slate-800/50 rounded-2xl p-4 space-y-3 transition-all duration-300 animate-in slide-in-from-top-2">
+                          <button
+                            className="flex items-center p-3 font-semibold hover:bg-gradient-to-r hover:from-blue-50/60 hover:to-indigo-50/40 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20 w-full rounded-xl transition-all duration-200 backdrop-blur-sm border border-transparent hover:border-blue-200/40 dark:hover:border-blue-700/40 hover:shadow-lg group"
+                            onClick={() => {
+                              if (selectedContacts.length > 0) {
+                                exportContactsToCSV(selectedContacts);
+                              }
+                              setShowExportMenu(false);
+                            }}
+                            disabled={selectedContacts.length === 0}
+                          >
+                            <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500/20 to-indigo-500/20 dark:from-blue-400/20 dark:to-indigo-400/20 backdrop-blur-sm border border-blue-200/40 dark:border-blue-700/40 mr-3 group-hover:scale-110 transition-transform duration-300">
+                              <Lucide
+                                icon="Users"
+                                className="w-4 h-4 text-blue-600 dark:text-blue-400"
+                              />
+                            </div>
+                            <span className="text-sm text-slate-700 dark:text-slate-300">
+                              Export Selected Contacts
+                              <div className="text-xs text-slate-500 dark:text-slate-400">
+                                {selectedContacts.length} selected
+                              </div>
+                            </span>
+                          </button>
 
-          {/* Message Type Filter */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Message Type
-            </label>
-            <select
-              value={messageTypeFilter}
-              onChange={(e) => setMessageTypeFilter(e.target.value)}
-              className="w-full p-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-1 focus:ring-indigo-500/50 focus:border-transparent transition-all duration-200"
-            >
-              <option value="">All Types</option>
-              <option value="text">Text Only</option>
-              <option value="media">With Media</option>
-              <option value="document">With Document</option>
-              <option value="multiple">Multiple Messages</option>
-            </select>
-          </div>
-
-          {/* Recipient Filter */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Recipient
-            </label>
-            <select
-              value={messageRecipientFilter}
-              onChange={(e) => setMessageRecipientFilter(e.target.value)}
-              className="w-full p-1.5 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-1 focus:ring-indigo-500/50 focus:border-transparent transition-all duration-200"
-            >
-              <option value="">All Recipients</option>
-              <option value="single">Single Contact</option>
-              <option value="multiple">Multiple Contacts</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Active Filters Display */}
-        {(messageStatusFilter || messageDateFilter || messageTypeFilter || messageRecipientFilter) && (
-          <div className="mt-4 pt-4 border-t border-gray-200/50 dark:border-gray-700/50">
-            <div className="flex flex-wrap gap-2">
-              {messageStatusFilter && (
-                <span className="px-3 py-1.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full text-sm font-medium border border-indigo-200 dark:border-indigo-800">
-                  Status: {messageStatusFilter}
-                </span>
-              )}
-              {messageDateFilter && (
-                <span className="px-3 py-1.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-sm font-medium border border-green-200 dark:border-green-800">
-                  Date: {messageDateFilter}
-                </span>
-              )}
-              {messageTypeFilter && (
-                <span className="px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-sm font-medium border border-purple-200 dark:border-purple-800">
-                  Type: {messageTypeFilter}
-                </span>
-              )}
-              {messageRecipientFilter && (
-                <span className="px-3 py-1.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full text-sm font-medium border border-orange-200 dark:border-orange-800">
-                  Recipient: {messageRecipientFilter}
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    )}
-    
-                  {showScheduledMessages &&
-                    (getFilteredScheduledMessages().length > 0 ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-h-80 overflow-y-auto">
-          {combineScheduledMessages(getFilteredScheduledMessages())
-            .filter((message) => {
-              // Status filter
-              if (messageStatusFilter && message.status !== messageStatusFilter) return false;
-              
-              // Date filter
-              if (messageDateFilter && message.scheduledTime) {
-                const messageDate = new Date(message.scheduledTime);
-                const now = new Date();
-                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                const tomorrow = new Date(today);
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                
-                switch (messageDateFilter) {
-                  case "today":
-                    if (messageDate < today || messageDate >= tomorrow) return false;
-                    break;
-                  case "tomorrow":
-                    if (messageDate < tomorrow || messageDate >= new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000)) return false;
-                    break;
-                  case "this-week":
-                    const weekStart = new Date(today);
-                    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-                    const weekEnd = new Date(weekStart);
-                    weekEnd.setDate(weekEnd.getDate() + 7);
-                    if (messageDate < weekStart || messageDate >= weekEnd) return false;
-                    break;
-                  case "next-week":
-                    const nextWeekStart = new Date(today);
-                    nextWeekStart.setDate(nextWeekStart.getDate() - nextWeekStart.getDay() + 7);
-                    const nextWeekEnd = new Date(nextWeekStart);
-                    nextWeekEnd.setDate(nextWeekEnd.getDate() + 7);
-                    if (messageDate < nextWeekStart || messageDate >= nextWeekEnd) return false;
-                    break;
-                  case "this-month":
-                    if (messageDate.getMonth() !== now.getMonth() || messageDate.getFullYear() !== now.getFullYear()) return false;
-                    break;
-                  case "next-month":
-                    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-                    if (messageDate < nextMonth || messageDate.getMonth() !== nextMonth.getMonth()) return false;
-                    break;
-                }
-              }
-              
-              // Message type filter
-              if (messageTypeFilter) {
-                switch (messageTypeFilter) {
-                  case "text":
-                    if (message.mediaUrl || message.documentUrl || (message.messages && message.messages.length > 1)) return false;
-                    break;
-                  case "media":
-                    if (!message.mediaUrl) return false;
-                    break;
-                  case "document":
-                    if (!message.documentUrl) return false;
-                    break;
-                  case "multiple":
-                    if (!message.messages || message.messages.length <= 1) return false;
-                    break;
-                }
-              }
-              
-              // Recipient filter
-              if (messageRecipientFilter) {
-                const hasMultipleRecipients = Array.isArray(message.contactIds) && message.contactIds.length > 1;
-                if (messageRecipientFilter === "single" && hasMultipleRecipients) return false;
-                if (messageRecipientFilter === "multiple" && !hasMultipleRecipients) return false;
-              }
-              
-              return true;
-            })
-            .map((message) => (
-                          <div
-                            key={message.id}
-              className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-lg shadow-md border border-white/20 dark:border-gray-700/20 overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-102 flex flex-col h-full"
-            >
-             <div className="p-3 flex-grow">
-                <div className="flex justify-between items-center mb-3">
-                  <span className={`px-3 py-1.5 text-xs font-medium rounded-full ${
-                    message.status === "scheduled" 
-                      ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800"
-                      : "bg-gray-100 dark:bg-gray-700/30 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600"
-                  }`}>
-                    {message.status === "scheduled" ? "Scheduled" : message.status}
-                                </span>
-
-                                <input
-                                  type="checkbox"
-                    checked={selectedScheduledMessages.includes(message.id!)}
-                    onChange={() => toggleScheduledMessageSelection(message.id!)}
-                    className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-2 focus:ring-indigo-500/50 transition-all duration-200"
+                          <button
+                            className="flex items-center justify-between p-3 font-semibold hover:bg-gradient-to-r hover:from-emerald-50/60 hover:to-green-50/40 dark:hover:from-emerald-900/20 dark:hover:to-green-900/20 w-full rounded-xl transition-all duration-200 backdrop-blur-sm border border-transparent hover:border-emerald-200/40 dark:hover:border-emerald-700/40 hover:shadow-lg group"
+                            onClick={() => {
+                              setShowTagSelection(!showTagSelection);
+                            }}
+                          >
+                            <div className="flex items-center space-x-3">
+                              <div className="p-2 rounded-lg bg-gradient-to-br from-emerald-500/20 to-green-500/20 dark:from-emerald-400/20 dark:to-green-400/20 backdrop-blur-sm border border-emerald-200/40 dark:border-emerald-700/40 group-hover:scale-110 transition-transform duration-300">
+                                <Lucide
+                                  icon="Tag"
+                                  className="w-4 h-4 text-emerald-600 dark:text-emerald-400"
                                 />
                               </div>
-                
-                <div className="text-gray-800 dark:text-gray-200 mb-3 font-medium text-sm">
-                                {/* First Message */}
-                  <p className="line-clamp-2 leading-relaxed">
-                    {message.messageContent ? message.messageContent : "No message content"}
-                                </p>
+                              <span className="text-sm text-slate-700 dark:text-slate-300">
+                                Export by Tags
+                              </span>
+                            </div>
+                            <Lucide
+                              icon={
+                                showTagSelection ? "ChevronUp" : "ChevronDown"
+                              }
+                              className="w-4 h-4 text-slate-600 dark:text-slate-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-300"
+                            />
+                          </button>
 
-                                {/* Scheduled Time and Contact Info */}
-                  <div className="mt-3 pt-3 border-t border-gray-200/50 dark:border-gray-700/50">
-                    <div className="space-y-2 text-xs text-gray-600 dark:text-gray-400">
-                      <div className="flex items-center">
-                        <Lucide icon="Clock" className="w-4 h-4 mr-2 text-indigo-500" />
-                        <span className="font-semibold">Scheduled:</span>{" "}
-                        <span className="ml-1">
-                                      {message.scheduledTime
-                            ? new Date(message.scheduledTime).toLocaleString()
-                                        : "Not set"}
-                        </span>
-                                    </div>
-
-                                    {Array.isArray(message.contactIds) && message.contactIds.length > 0 ? (
-                        <div className="flex items-center">
-                          <Lucide icon="Users" className="w-4 h-4 mr-2 text-blue-500" />
-                                        <span className="font-semibold">Recipients:</span>{" "}
-                                        <span className="ml-1 flex flex-wrap gap-1">
-                            {message.contactIds.map((id: string) => {
-                                                  const phoneNumber = id?.split("-")[1]?.replace(/\D/g, "") || "";
-                                                  const contact = contacts.find(c => c.phone?.replace(/\D/g, "") === phoneNumber);
-                              return (
-                                <span key={id} className="truncate mr-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full text-xs">
-                                                      {contact?.contactName || phoneNumber || "Unknown"}
-                                                    </span>
-                                                  );
-                            })}
-                                        </span>
-                                      </div>
-                                    ) : (
-                        <div className="flex items-center">
-                          <Lucide icon="User" className="w-4 h-4 mr-2 text-blue-500" />
-                          <span className="font-semibold">Recipient:</span>{" "}
-                          <span className="ml-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full text-xs">
-                                        {(() => {
-                                          const phoneNumber = message.contactId?.split("-")[1]?.replace(/\D/g, "") || "";
-                                          const contact = contacts.find(c => c.phone?.replace(/\D/g, "") === phoneNumber);
-                                          return contact?.contactName || phoneNumber || "Unknown";
-                                        })()}
-                          </span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {/* Additional Messages */}
-                                {message.messages &&
-                                  message.messages.length > 0 &&
-                    message.messages.some((msg) => msg.message !== message.message) && (
-                      <div className="mt-3 pt-3 border-t border-gray-200/50 dark:border-gray-700/50">
-                        {message.messages.map((msg: any, index: number) => {
-                                          if (msg.message !== message.message) {
-                                            return (
-                              <div key={index} className="mt-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                                <p className="line-clamp-2 text-xs">
-                                                  Message {index + 2}: {msg.text}
-                                                </p>
-                                {message.messageDelays && message.messageDelays[index] > 0 && (
-                                  <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 block">
-                                    Delay: {message.messageDelays[index]} seconds
-                                                    </span>
-                                                  )}
-                                              </div>
-                                            );
-                                          }
-                                          return null;
-                        })}
-                                    </div>
-                                  )}
-
-                                {/* Message Settings */}
-                  <div className="mt-3 pt-3 border-t border-gray-200/50 dark:border-gray-700/50">
-                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-400">
-                                    {message.batchQuantity != undefined && (
-                        <div className="flex items-center">
-                          <Lucide icon="Box" className="w-3 h-3 mr-1 text-purple-500" />
-                          <span className="font-semibold">Batch:</span> {message.batchQuantity}
-                                      </div>
-                                    )}
-                                    {message.minDelay != undefined && (
-                        <div className="flex items-center">
-                          <Lucide icon="Timer" className="w-3 h-3 mr-1 text-orange-500" />
-                          <span className="font-semibold">Delay:</span> {message.minDelay}-{message.maxDelay}s
-                                      </div>
-                                    )}
-                                    {message.repeatInterval > 0 && (
-                        <div className="flex items-center">
-                          <Lucide icon="RotateCcw" className="w-3 h-3 mr-1 text-green-500" />
-                          <span className="font-semibold">Repeat:</span> Every {message.repeatInterval} {message.repeatUnit}
-                                      </div>
-                                    )}
-                                    {message.activateSleep != undefined && (
-                                      <>
-                          <div className="flex items-center">
-                            <Lucide icon="Moon" className="w-3 h-3 mr-1 text-blue-500" />
-                            <span className="font-semibold">Sleep After:</span> {message.sleepAfterMessages}
-                                        </div>
-                          <div className="flex items-center">
-                            <Lucide icon="Clock" className="w-3 h-3 mr-1 text-blue-500" />
-                            <span className="font-semibold">Duration:</span> {message.sleepDuration}m
-                                        </div>
-                                      </>
-                                    )}
-                                    {message.activeHours != undefined && (
-                        <div className="col-span-2 flex items-center">
-                          <Lucide icon="Sun" className="w-3 h-3 mr-1 text-yellow-500" />
-                          <span className="font-semibold">Active:</span> {message.activeHours?.start} - {message.activeHours?.end}
-                                      </div>
-                                    )}
-                                    {message.infiniteLoop && (
-                        <div className="col-span-2 flex items-center text-indigo-600 dark:text-indigo-400">
-                          <Lucide icon="RotateCcw" className="w-4 h-4 mr-1 animate-spin" />
-                          <span className="text-xs">Messages will loop indefinitely</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
+                          {showTagSelection && (
+                            <div className="ml-6 p-4 bg-gradient-to-br from-slate-50/80 to-gray-50/60 dark:from-slate-700/80 dark:to-gray-800/60 backdrop-blur-sm border border-slate-200/40 dark:border-slate-600/40 rounded-xl space-y-3 max-h-48 overflow-y-auto transition-all duration-300 animate-in slide-in-from-top-1">
+                              <div className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+                                Select tags to export:
                               </div>
-
-                {/* Media Indicators */}
-                <div className="flex items-center gap-3 mt-3 pt-3 border-t border-gray-200/50 dark:border-gray-700/50">
-                              {message.mediaUrl && (
-                    <div className="flex items-center text-xs text-gray-600 dark:text-gray-400">
-                      <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
-                      <Lucide icon="Image" className="w-3 h-3 mr-1" />
-                      <span>Media</span>
+                              {tagList.length === 0 ? (
+                                <div className="text-center py-4">
+                                  <div className="w-12 h-12 mx-auto mb-3 bg-gradient-to-br from-slate-100/80 to-slate-200/60 dark:from-slate-700/80 dark:to-slate-800/60 rounded-xl backdrop-blur-sm border border-slate-200/40 dark:border-slate-600/40 flex items-center justify-center">
+                                    <Lucide
+                                      icon="Tag"
+                                      className="w-6 h-6 text-slate-400"
+                                    />
+                                  </div>
+                                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                                    No tags available
+                                  </p>
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  {tagList.map((tag) => (
+                                    <label
+                                      key={tag.id}
+                                      className="flex items-center space-x-3 p-2 rounded-lg hover:bg-white/60 dark:hover:bg-slate-600/60 backdrop-blur-sm transition-all duration-200 cursor-pointer group"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        value={tag.name}
+                                        checked={exportSelectedTags.includes(
+                                          tag.name
+                                        )}
+                                        onChange={(e) => {
+                                          const isChecked = e.target.checked;
+                                          setExportSelectedTags((prev) =>
+                                            isChecked
+                                              ? [...prev, tag.name]
+                                              : prev.filter(
+                                                  (t) => t !== tag.name
+                                                )
+                                          );
+                                        }}
+                                        className="rounded border-slate-300 dark:border-slate-600 text-indigo-600 focus:ring-indigo-500/30 transition-colors"
+                                      />
+                                      <span className="text-sm text-slate-700 dark:text-slate-300 font-medium">
+                                        {tag.name}
+                                      </span>
+                                    </label>
+                                  ))}
                                 </div>
                               )}
-                              {message.documentUrl && (
-                    <div className="flex items-center text-xs text-gray-600 dark:text-gray-400">
-                      <div className="w-2 h-2 rounded-full bg-blue-500 mr-2"></div>
-                      <Lucide icon="File" className="w-3 h-3 mr-1" />
-                      <span>{message.fileName || "Document"}</span>
+                              {exportSelectedTags.length > 0 && (
+                                <div className="pt-3 border-t border-slate-200/50 dark:border-slate-600/50">
+                                  <button
+                                    onClick={() => {
+                                      exportContactsByTags(exportSelectedTags);
+                                      setShowTagSelection(false);
+                                      setShowExportMenu(false);
+                                      setExportSelectedTags([]);
+                                    }}
+                                    className="w-full px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-indigo-500/90 to-blue-500/90 hover:from-indigo-600/90 hover:to-blue-600/90 backdrop-blur-sm border border-indigo-400/30 rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-indigo-500/25 hover:scale-[1.02] transform-gpu"
+                                  >
+                                    Export {exportSelectedTags.length} Tag
+                                    {exportSelectedTags.length !== 1 ? "s" : ""}
+                                  </button>
                                 </div>
                               )}
                             </div>
+                          )}
+
+                          <button
+                            className="flex items-center p-3 font-semibold hover:bg-gradient-to-r hover:from-violet-50/60 hover:to-purple-50/40 dark:hover:from-violet-900/20 dark:hover:to-purple-900/20 w-full rounded-xl transition-all duration-200 backdrop-blur-sm border border-transparent hover:border-violet-200/40 dark:hover:border-violet-700/40 hover:shadow-lg group"
+                            onClick={() => {
+                              exportContactsToCSV(filteredContactsSearch);
+                              setShowExportMenu(false);
+                            }}
+                          >
+                            <div className="p-2 rounded-lg bg-gradient-to-br from-violet-500/20 to-purple-500/20 dark:from-violet-400/20 dark:to-purple-400/20 backdrop-blur-sm border border-violet-200/40 dark:border-violet-700/40 mr-3 group-hover:scale-110 transition-transform duration-300">
+                              <Lucide
+                                icon="Filter"
+                                className="w-4 h-4 text-violet-600 dark:text-violet-400"
+                              />
+                            </div>
+                            <span className="text-sm text-slate-700 dark:text-slate-300">
+                              Export Filtered Contacts
+                              <div className="text-xs text-slate-500 dark:text-slate-400">
+                                {filteredContactsSearch.length} contacts
+                              </div>
+                            </span>
+                          </button>
+
+                          <button
+                            className="flex items-center p-3 font-semibold hover:bg-gradient-to-r hover:from-slate-50/60 hover:to-gray-50/40 dark:hover:from-slate-900/20 dark:hover:to-gray-900/20 w-full rounded-xl transition-all duration-200 backdrop-blur-sm border border-transparent hover:border-slate-200/40 dark:hover:border-slate-700/40 hover:shadow-lg group"
+                            onClick={() => {
+                              exportContactsToCSV(contacts);
+                              setShowExportMenu(false);
+                            }}
+                          >
+                            <div className="p-2 rounded-lg bg-gradient-to-br from-slate-500/20 to-gray-500/20 dark:from-slate-400/20 dark:to-gray-400/20 backdrop-blur-sm border border-slate-200/40 dark:border-slate-700/40 mr-3 group-hover:scale-110 transition-transform duration-300">
+                              <Lucide
+                                icon="Database"
+                                className="w-4 h-4 text-slate-600 dark:text-slate-400"
+                              />
+                            </div>
+                            <span className="text-sm text-slate-700 dark:text-slate-300">
+                              Export All Contacts
+                              <div className="text-xs text-slate-500 dark:text-slate-400">
+                                {contacts.length} contacts
+                              </div>
+                            </span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Manage Tags */}
+                  <div className="w-full">
+                    <Button
+                      variant="outline-secondary"
+                      className="w-full justify-between group bg-gradient-to-r from-white/60 to-white/40 dark:from-slate-700/60 dark:to-slate-800/40 backdrop-blur-xl border border-white/40 dark:border-slate-600/40 hover:border-orange-300/60 dark:hover:border-orange-500/60 transition-all duration-300 hover:shadow-xl hover:shadow-orange-500/10 dark:hover:shadow-orange-500/20 rounded-2xl p-4 hover:scale-[1.02] transform-gpu"
+                      onClick={() => setShowManageTagsMenu(!showManageTagsMenu)}
+                      disabled={userRole === "3"}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 rounded-xl bg-gradient-to-br from-orange-500/20 to-amber-500/20 dark:from-orange-400/20 dark:to-amber-400/20 backdrop-blur-sm border border-orange-200/40 dark:border-orange-700/40 group-hover:scale-110 transition-transform duration-300">
+                          <Lucide
+                            icon="Settings"
+                            className="w-4 h-4 text-orange-600 dark:text-orange-400"
+                          />
+                        </div>
+                        <div className="text-left">
+                          <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                            Manage Tags
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            Create & organize
+                          </div>
+                        </div>
+                      </div>
+                      <Lucide
+                        icon={showManageTagsMenu ? "ChevronUp" : "ChevronDown"}
+                        className="w-5 h-5 text-slate-600 dark:text-slate-400 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors duration-300"
+                      />
+                    </Button>
+
+                    {showManageTagsMenu && (
+                      <div className="mt-4 bg-white/90 dark:bg-slate-800/90 backdrop-blur-2xl border border-white/40 dark:border-slate-700/50 shadow-2xl shadow-slate-200/50 dark:shadow-slate-800/50 rounded-2xl p-4 space-y-3 transition-all duration-300 animate-in slide-in-from-top-2">
+                        <button
+                          className="flex items-center p-3 font-semibold hover:bg-gradient-to-r hover:from-orange-50/60 hover:to-amber-50/40 dark:hover:from-orange-900/20 dark:hover:to-amber-900/20 w-full rounded-xl transition-all duration-200 backdrop-blur-sm border border-transparent hover:border-orange-200/40 dark:hover:border-orange-700/40 hover:shadow-lg group"
+                          onClick={() => {
+                            setShowAddTagModal(true);
+                            setShowManageTagsMenu(false);
+                          }}
+                        >
+                          <div className="p-2 rounded-lg bg-gradient-to-br from-orange-500/20 to-amber-500/20 dark:from-orange-400/20 dark:to-amber-400/20 backdrop-blur-sm border border-orange-200/40 dark:border-orange-700/40 mr-3 group-hover:scale-110 transition-transform duration-300">
+                            <Lucide
+                              icon="Plus"
+                              className="w-4 h-4 text-orange-600 dark:text-orange-400"
+                            />
+                          </div>
+                          <span className="text-sm text-slate-700 dark:text-slate-300">
+                            Add New Tag
+                          </span>
+                        </button>
+
+                        <button
+                          className="flex items-center p-3 font-semibold hover:bg-gradient-to-r hover:from-red-50/60 hover:to-pink-50/40 dark:hover:from-red-900/20 dark:hover:to-pink-900/20 w-full rounded-xl transition-all duration-200 backdrop-blur-sm border border-transparent hover:border-red-200/40 dark:hover:border-red-700/40 hover:shadow-lg group"
+                          onClick={() => {
+                            setShowDeleteTagModal(true);
+                            setShowManageTagsMenu(false);
+                          }}
+                        >
+                          <div className="p-2 rounded-lg bg-gradient-to-br from-red-500/20 to-pink-500/20 dark:from-red-400/20 dark:to-pink-400/20 backdrop-blur-sm border border-red-200/40 dark:border-red-700/40 mr-3 group-hover:scale-110 transition-transform duration-300">
+                            <Lucide
+                              icon="Trash2"
+                              className="w-4 h-4 text-red-600 dark:text-red-400"
+                            />
+                          </div>
+                          <span className="text-sm text-slate-700 dark:text-slate-300">
+                            Delete Tags
+                          </span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-              
-              {/* Action Buttons */}
-              <div className="bg-gray-50/80 dark:bg-gray-700/80 backdrop-blur-md px-3 py-2 flex justify-end gap-2 mt-auto">
+
+              {/* Statistics Panel */}
+              <div className="group relative bg-white/70 dark:bg-slate-800/70 backdrop-blur-2xl rounded-3xl border border-white/30 dark:border-slate-700/30 shadow-2xl shadow-slate-200/20 dark:shadow-slate-900/40 overflow-hidden transition-all duration-500 hover:shadow-3xl hover:shadow-slate-200/30 dark:hover:shadow-slate-900/60 hover:scale-[1.02]">
+                {/* Subtle gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-50/20 via-transparent to-amber-50/20 dark:from-orange-900/10 dark:via-transparent dark:to-amber-900/10 pointer-events-none" />
+
+                <div className="relative px-6 py-6 border-b border-white/20 dark:border-slate-700/30 bg-gradient-to-r from-slate-50/40 to-white/20 dark:from-slate-800/40 dark:to-slate-700/20 backdrop-blur-sm">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2.5 rounded-2xl bg-gradient-to-br from-orange-500/20 to-amber-500/20 dark:from-orange-400/20 dark:to-amber-400/20 backdrop-blur-sm border border-orange-200/40 dark:border-orange-700/40">
+                      <Lucide
+                        icon="BarChart3"
+                        className="w-5 h-5 text-orange-600 dark:text-orange-400"
+                      />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
+                        Statistics
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                        Overview & insights
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="relative p-6 space-y-5">
+                  <div className="flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-white/60 to-white/30 dark:from-slate-700/60 dark:to-slate-800/30 backdrop-blur-sm border border-white/40 dark:border-slate-600/40 hover:shadow-lg transition-all duration-300 group/stat">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 dark:from-blue-400/20 dark:to-indigo-400/20 backdrop-blur-sm border border-blue-200/40 dark:border-blue-700/40 group-hover/stat:scale-110 transition-transform duration-300">
+                        <Lucide
+                          icon="Users"
+                          className="w-4 h-4 text-blue-600 dark:text-blue-400"
+                        />
+                      </div>
+                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                        Total Contacts
+                      </span>
+                    </div>
+                    <span className="text-lg font-bold text-slate-800 dark:text-slate-100 bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
+                      {contacts.length.toLocaleString()}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-white/60 to-white/30 dark:from-slate-700/60 dark:to-slate-800/30 backdrop-blur-sm border border-white/40 dark:border-slate-600/40 hover:shadow-lg transition-all duration-300 group/stat">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 rounded-xl bg-gradient-to-br from-emerald-500/20 to-green-500/20 dark:from-emerald-400/20 dark:to-green-400/20 backdrop-blur-sm border border-emerald-200/40 dark:border-emerald-700/40 group-hover/stat:scale-110 transition-transform duration-300">
+                        <Lucide
+                          icon="Filter"
+                          className="w-4 h-4 text-emerald-600 dark:text-emerald-400"
+                        />
+                      </div>
+                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                        Filtered Results
+                      </span>
+                    </div>
+                    <span className="text-lg font-bold bg-gradient-to-r from-emerald-600 to-green-600 dark:from-emerald-400 dark:to-green-400 bg-clip-text text-transparent">
+                      {filteredContactsSearch.length.toLocaleString()}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-white/60 to-white/30 dark:from-slate-700/60 dark:to-slate-800/30 backdrop-blur-sm border border-white/40 dark:border-slate-600/40 hover:shadow-lg transition-all duration-300 group/stat">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 rounded-xl bg-gradient-to-br from-violet-500/20 to-purple-500/20 dark:from-violet-400/20 dark:to-purple-400/20 backdrop-blur-sm border border-violet-200/40 dark:border-violet-700/40 group-hover/stat:scale-110 transition-transform duration-300">
+                        <Lucide
+                          icon="CheckSquare"
+                          className="w-4 h-4 text-violet-600 dark:text-violet-400"
+                        />
+                      </div>
+                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                        Selected
+                      </span>
+                    </div>
+                    <span className="text-lg font-bold bg-gradient-to-r from-violet-600 to-purple-600 dark:from-violet-400 dark:to-purple-400 bg-clip-text text-transparent">
+                      {selectedContacts.length.toLocaleString()}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-white/60 to-white/30 dark:from-slate-700/60 dark:to-slate-800/30 backdrop-blur-sm border border-white/40 dark:border-slate-600/40 hover:shadow-lg transition-all duration-300 group/stat">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 rounded-xl bg-gradient-to-br from-orange-500/20 to-amber-500/20 dark:from-orange-400/20 dark:to-amber-400/20 backdrop-blur-sm border border-orange-200/40 dark:border-orange-700/40 group-hover/stat:scale-110 transition-transform duration-300">
+                        <Lucide
+                          icon="Calendar"
+                          className="w-4 h-4 text-orange-600 dark:text-orange-400"
+                        />
+                      </div>
+                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                        Scheduled Messages
+                      </span>
+                    </div>
+                    <span className="text-lg font-bold bg-gradient-to-r from-orange-600 to-amber-600 dark:from-orange-400 dark:to-amber-400 bg-clip-text text-transparent">
+                      {scheduledMessages.length.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Add Contact Modal */}
+        <Dialog
+          open={addContactModal}
+          onClose={() => setAddContactModal(false)}
+        >
+          <div className="fixed inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl">
+            <Dialog.Panel className="w-full max-w-2xl relative bg-white/10 dark:bg-slate-800/10 backdrop-blur-3xl rounded-3xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden transform hover:scale-[1.005] transition-all duration-300">
+              {/* Enhanced Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 via-violet-500/5 to-purple-500/10 dark:from-blue-600/10 dark:via-violet-700/5 dark:to-purple-600/10 pointer-events-none" />
+
+              {/* Top Shine Effect */}
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+
+              <div className="relative p-8">
+                <div className="flex items-center justify-between pb-6 border-b border-white/10 dark:border-slate-700/20">
+                  <div className="flex items-center space-x-4">
+                    <div className="relative p-4 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10">
+                      <Lucide
+                        icon="UserPlus"
+                        className="w-7 h-7 text-blue-400"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-violet-400/20 rounded-2xl blur-sm" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold bg-gradient-to-r from-white via-blue-100 to-violet-100 bg-clip-text text-transparent">
+                        Add New Contact
+                      </h3>
+                      <p className="text-white/60 mt-1">
+                        Create a new contact record
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setAddContactModal(false)}
+                    className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 text-slate-400 hover:text-white dark:hover:text-slate-200 transition-all duration-200 flex items-center justify-center backdrop-blur-sm border border-white/10"
+                  >
+                    <Lucide icon="X" className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="mt-8 space-y-8">
+                  {/* Personal Information Section */}
+                  <div className="space-y-6">
+                    <div className="flex items-center space-x-3 pb-4 border-b border-white/10">
+                      <div className="p-2 rounded-xl bg-emerald-500/10 backdrop-blur-sm border border-emerald-400/20">
+                        <Lucide
+                          icon="User"
+                          className="w-5 h-5 text-emerald-400"
+                        />
+                      </div>
+                      <h4 className="text-lg font-semibold bg-gradient-to-r from-emerald-300 to-emerald-100 bg-clip-text text-transparent">
+                        Personal Information
+                      </h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-white/80">
+                          Contact Name *
+                        </label>
+                        <FormInput
+                          type="text"
+                          value={newContact.contactName}
+                          onChange={(e) =>
+                            setNewContact({
+                              ...newContact,
+                              contactName: e.target.value,
+                            })
+                          }
+                          placeholder="Enter contact name"
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder-white/40 focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-200 backdrop-blur-sm"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-white/80">
+                          Last Name
+                        </label>
+                        <FormInput
+                          type="text"
+                          value={newContact.lastName}
+                          onChange={(e) =>
+                            setNewContact({
+                              ...newContact,
+                              lastName: e.target.value,
+                            })
+                          }
+                          placeholder="Enter last name"
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder-white/40 focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-200 backdrop-blur-sm"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-white/80">
+                          Phone Number *
+                        </label>
+                        <FormInput
+                          type="tel"
+                          value={newContact.phone}
+                          onChange={(e) =>
+                            setNewContact({
+                              ...newContact,
+                              phone: e.target.value,
+                            })
+                          }
+                          placeholder="e.g., +60123456789"
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder-white/40 focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-200 backdrop-blur-sm"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-white/80">
+                          Email
+                        </label>
+                        <FormInput
+                          type="email"
+                          value={newContact.email}
+                          onChange={(e) =>
+                            setNewContact({
+                              ...newContact,
+                              email: e.target.value,
+                            })
+                          }
+                          placeholder="Enter email address"
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder-white/40 focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-200 backdrop-blur-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Company Information Section */}
+                  <div className="space-y-6">
+                    <div className="flex items-center space-x-3 pb-4 border-b border-white/10">
+                      <div className="p-2 rounded-xl bg-blue-500/10 backdrop-blur-sm border border-blue-400/20">
+                        <Lucide
+                          icon="Building2"
+                          className="w-5 h-5 text-blue-400"
+                        />
+                      </div>
+                      <h4 className="text-lg font-semibold bg-gradient-to-r from-blue-300 to-blue-100 bg-clip-text text-transparent">
+                        Company Information
+                      </h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-white/80">
+                          Company Name
+                        </label>
+                        <FormInput
+                          type="text"
+                          value={newContact.companyName}
+                          onChange={(e) =>
+                            setNewContact({
+                              ...newContact,
+                              companyName: e.target.value,
+                            })
+                          }
+                          placeholder="Enter company name"
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder-white/40 focus:border-blue-400/50 focus:ring-2 focus:ring-blue-400/20 transition-all duration-200 backdrop-blur-sm"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-white/80">
+                          Branch
+                        </label>
+                        <FormInput
+                          type="text"
+                          value={newContact.branch}
+                          onChange={(e) =>
+                            setNewContact({
+                              ...newContact,
+                              branch: e.target.value,
+                            })
+                          }
+                          placeholder="Enter branch"
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder-white/40 focus:border-blue-400/50 focus:ring-2 focus:ring-blue-400/20 transition-all duration-200 backdrop-blur-sm"
+                        />
+                      </div>
+
+                      <div className="space-y-2 md:col-span-2">
+                        <label className="block text-sm font-medium text-white/80">
+                          Address
+                        </label>
+                        <FormInput
+                          type="text"
+                          value={newContact.address1}
+                          onChange={(e) =>
+                            setNewContact({
+                              ...newContact,
+                              address1: e.target.value,
+                            })
+                          }
+                          placeholder="Enter address"
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder-white/40 focus:border-blue-400/50 focus:ring-2 focus:ring-blue-400/20 transition-all duration-200 backdrop-blur-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Additional Details Section */}
+                  <div className="space-y-6">
+                    <div className="flex items-center space-x-3 pb-4 border-b border-white/10">
+                      <div className="p-2 rounded-xl bg-purple-500/10 backdrop-blur-sm border border-purple-400/20">
+                        <Lucide
+                          icon="FileText"
+                          className="w-5 h-5 text-purple-400"
+                        />
+                      </div>
+                      <h4 className="text-lg font-semibold bg-gradient-to-r from-purple-300 to-purple-100 bg-clip-text text-transparent">
+                        Additional Details
+                      </h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-white/80">
+                          Vehicle Number
+                        </label>
+                        <FormInput
+                          type="text"
+                          value={newContact.vehicleNumber}
+                          onChange={(e) =>
+                            setNewContact({
+                              ...newContact,
+                              vehicleNumber: e.target.value,
+                            })
+                          }
+                          placeholder="Enter vehicle number"
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder-white/40 focus:border-purple-400/50 focus:ring-2 focus:ring-purple-400/20 transition-all duration-200 backdrop-blur-sm"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-white/80">
+                          IC Number
+                        </label>
+                        <FormInput
+                          type="text"
+                          value={newContact.ic}
+                          onChange={(e) =>
+                            setNewContact({ ...newContact, ic: e.target.value })
+                          }
+                          placeholder="Enter IC number"
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder-white/40 focus:border-purple-400/50 focus:ring-2 focus:ring-purple-400/20 transition-all duration-200 backdrop-blur-sm"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-white/80">
+                          Expiry Date
+                        </label>
+                        <FormInput
+                          type="date"
+                          value={newContact.expiryDate}
+                          onChange={(e) =>
+                            setNewContact({
+                              ...newContact,
+                              expiryDate: e.target.value,
+                            })
+                          }
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder-white/40 focus:border-purple-400/50 focus:ring-2 focus:ring-purple-400/20 transition-all duration-200 backdrop-blur-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Notes Section */}
+                  <div className="space-y-6">
+                    <div className="flex items-center space-x-3 pb-4 border-b border-white/10">
+                      <div className="p-2 rounded-xl bg-orange-500/10 backdrop-blur-sm border border-orange-400/20">
+                        <Lucide
+                          icon="MessageSquare"
+                          className="w-5 h-5 text-orange-400"
+                        />
+                      </div>
+                      <h4 className="text-lg font-semibold bg-gradient-to-r from-orange-300 to-orange-100 bg-clip-text text-transparent">
+                        Notes
+                      </h4>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-white/80">
+                        Additional Notes
+                      </label>
+                      <textarea
+                        value={newContact.notes}
+                        onChange={(e) =>
+                          setNewContact({
+                            ...newContact,
+                            notes: e.target.value,
+                          })
+                        }
+                        placeholder="Enter any additional notes"
+                        rows={4}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder-white/40 focus:border-orange-400/50 focus:ring-2 focus:ring-orange-400/20 transition-all duration-200 backdrop-blur-sm resize-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-3 mt-10 pt-6 border-t border-white/10 dark:border-slate-700/20">
+                  <button
+                    onClick={() => setAddContactModal(false)}
+                    className="px-6 py-3 bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 backdrop-blur-sm border border-white/20 dark:border-slate-600/20 text-white/90 hover:text-white rounded-2xl transition-all duration-200 font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveNewContact}
+                    disabled={
+                      !newContact.contactName || !newContact.phone || isLoading
+                    }
+                    className="px-8 py-3 bg-gradient-to-r from-blue-500 via-violet-500 to-purple-500 hover:from-blue-600 hover:via-violet-600 hover:to-purple-600 border-0 text-white rounded-2xl transition-all duration-200 font-semibold shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  >
+                    {isLoading ? "Adding..." : "Add Contact"}
+                  </button>
+                </div>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
+
+        {/* View Contact Modal */}
+        <Dialog
+          open={viewContactModal}
+          onClose={() => setViewContactModal(false)}
+        >
+          <div className="fixed inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl">
+            <Dialog.Panel className="w-full max-w-3xl relative bg-white/10 dark:bg-slate-800/10 backdrop-blur-3xl rounded-3xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden overflow-y-auto transform hover:scale-[1.005] transition-all duration-300">
+              {/* Enhanced Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/10 via-blue-500/5 to-purple-500/10 dark:from-emerald-600/10 dark:via-blue-700/5 dark:to-purple-600/10 pointer-events-none" />
+
+              <div className="relative p-8">
+                <div className="flex items-center justify-between pb-6 border-b border-white/10 dark:border-slate-700/20">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-blue-500/20 backdrop-blur-sm flex items-center justify-center border border-white/10">
+                      <Lucide icon="Eye" className="w-6 h-6 text-emerald-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold bg-gradient-to-r from-white via-emerald-100 to-blue-100 dark:from-white dark:via-emerald-100 dark:to-blue-100 bg-clip-text text-transparent">
+                        Contact Details
+                      </h3>
+                      <p className="text-sm text-white/70 dark:text-slate-400 mt-1">
+                        View contact information
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setViewContactModal(false)}
+                    className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 text-slate-400 hover:text-white dark:hover:text-slate-200 transition-all duration-200 flex items-center justify-center backdrop-blur-sm border border-white/10"
+                  >
+                    <Lucide icon="X" className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {currentContact && (
+                  <div className="mt-8 space-y-8">
+                    {/* Contact Header */}
+                    <div className="text-center pb-8 border-b border-white/10 dark:border-slate-700/20">
+                      <div className="relative mx-auto mb-6 w-32 h-32">
+                        <div className="w-full h-full rounded-3xl bg-gradient-to-br from-emerald-500/80 via-blue-500/80 to-purple-600/80 backdrop-blur-sm flex items-center justify-center text-white font-bold text-4xl shadow-2xl shadow-emerald-500/20 dark:shadow-emerald-500/30 border border-white/20">
+                          {currentContact.profileUrl ? (
+                            <div className="w-full h-full rounded-2xl overflow-hidden shadow-xl shadow-blue-500/20 dark:shadow-blue-500/30 border border-white/30 dark:border-slate-600/30 group-hover/contact:scale-110 transition-transform duration-300">
+                              <img
+                                src={currentContact.profileUrl}
+                                alt={
+                                  currentContact.contactName ||
+                                  currentContact.firstName ||
+                                  "Contact"
+                                }
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  const target =
+                                    e.currentTarget as HTMLImageElement;
+                                  const fallback =
+                                    target.nextElementSibling as HTMLDivElement;
+                                  if (fallback) {
+                                    target.style.display = "none";
+                                    fallback.style.display = "flex";
+                                  }
+                                }}
+                              />
+                              <div className="hidden w-full h-full rounded-2xl bg-gradient-to-br from-blue-500/80 via-violet-500/80 to-purple-600/80 backdrop-blur-sm items-center justify-center text-white font-bold text-4xl">
+                                {currentContact.contactName
+                                  ? currentContact.contactName
+                                      .charAt(0)
+                                      .toUpperCase()
+                                  : currentContact.firstName
+                                      ?.charAt(0)
+                                      ?.toUpperCase() || "U"}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="w-full h-full rounded-2xl bg-gradient-to-br from-blue-500/80 via-violet-500/80 to-purple-600/80 backdrop-blur-sm flex items-center justify-center text-white font-bold text-4xl shadow-xl shadow-blue-500/20 dark:shadow-blue-500/30 border border-white/30 dark:border-slate-600/30 group-hover/contact:scale-110 transition-transform duration-300">
+                              {currentContact.contactName
+                                ? currentContact.contactName
+                                    .charAt(0)
+                                    .toUpperCase()
+                                : currentContact.firstName
+                                    ?.charAt(0)
+                                    ?.toUpperCase() || "U"}
+                            </div>
+                          )}
+                        </div>
+                        <div className="absolute -inset-3 bg-gradient-to-br from-emerald-400/20 to-purple-600/20 rounded-3xl blur-lg opacity-50" />
+                      </div>
+                      <h4 className="text-3xl font-bold bg-gradient-to-r from-white via-emerald-100 to-blue-100 dark:from-white dark:via-emerald-100 dark:to-blue-100 bg-clip-text text-transparent mb-3">
+                        {currentContact.contactName || "Unknown Contact"}
+                      </h4>
+                      <p className="text-white/80 dark:text-slate-300 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl px-6 py-3 inline-block font-medium">
+                        {currentContact.email || "No email"}
+                      </p>
+                    </div>
+
+                    {/* Contact Information Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-6">
+                        <div className="p-6 rounded-2xl bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 hover:bg-white/10 dark:hover:bg-slate-700/20 transition-all duration-300 shadow-inner">
+                          <div className="flex items-center space-x-3 mb-3">
+                            <label className="text-sm font-bold text-white/70 dark:text-slate-400 uppercase tracking-wider">
+                              Phone
+                            </label>
+                          </div>
+                          <p className="text-xl font-semibold text-white dark:text-slate-100">
+                            {currentContact.phone || "No phone"}
+                          </p>
+                        </div>
+
+                        <div className="p-6 rounded-2xl bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 hover:bg-white/10 dark:hover:bg-slate-700/20 transition-all duration-300 shadow-inner">
+                          <div className="flex items-center space-x-3 mb-3">
+                            <label className="text-sm font-bold text-white/70 dark:text-slate-400 uppercase tracking-wider">
+                              Company
+                            </label>
+                          </div>
+                          <p className="text-xl font-semibold text-white dark:text-slate-100">
+                            {currentContact.companyName || "No company"}
+                          </p>
+                        </div>
+
+                        <div className="p-6 rounded-2xl bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 hover:bg-white/10 dark:hover:bg-slate-700/20 transition-all duration-300 shadow-inner">
+                          <div className="flex items-center space-x-3 mb-3">
+                            <label className="text-sm font-bold text-white/70 dark:text-slate-400 uppercase tracking-wider">
+                              Address
+                            </label>
+                          </div>
+                          <p className="text-xl font-semibold text-white dark:text-slate-100">
+                            {currentContact.address1 || "No address"}
+                          </p>
+                        </div>
+
+                        <div className="p-6 rounded-2xl bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 hover:bg-white/10 dark:hover:bg-slate-700/20 transition-all duration-300 shadow-inner">
+                          <div className="flex items-center space-x-3 mb-3">
+                            <label className="text-sm font-bold text-white/70 dark:text-slate-400 uppercase tracking-wider">
+                              Branch
+                            </label>
+                          </div>
+                          <p className="text-xl font-semibold text-white dark:text-slate-100">
+                            {currentContact.branch || "No branch"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-6">
+                        <div className="p-6 rounded-2xl bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 hover:bg-white/10 dark:hover:bg-slate-700/20 transition-all duration-300 shadow-inner">
+                          <div className="flex items-center space-x-3 mb-3">
+                            <label className="text-sm font-bold text-white/70 dark:text-slate-400 uppercase tracking-wider">
+                              Vehicle Number
+                            </label>
+                          </div>
+                          <p className="text-xl font-semibold text-white dark:text-slate-100">
+                            {currentContact.vehicleNumber ||
+                              "No vehicle number"}
+                          </p>
+                        </div>
+
+                        <div className="p-6 rounded-2xl bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 hover:bg-white/10 dark:hover:bg-slate-700/20 transition-all duration-300 shadow-inner">
+                          <div className="flex items-center space-x-3 mb-3">
+                            <label className="text-sm font-bold text-white/70 dark:text-slate-400 uppercase tracking-wider">
+                              IC Number
+                            </label>
+                          </div>
+                          <p className="text-xl font-semibold text-white dark:text-slate-100">
+                            {currentContact.ic || "No IC number"}
+                          </p>
+                        </div>
+
+                        <div className="p-6 rounded-2xl bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 hover:bg-white/10 dark:hover:bg-slate-700/20 transition-all duration-300 shadow-inner">
+                          <div className="flex items-center space-x-3 mb-3">
+                            <label className="text-sm font-bold text-white/70 dark:text-slate-400 uppercase tracking-wider">
+                              Expiry Date
+                            </label>
+                          </div>
+                          <p className="text-xl font-semibold text-white dark:text-slate-100">
+                            {currentContact.expiryDate
+                              ? new Date(
+                                  currentContact.expiryDate
+                                ).toLocaleDateString()
+                              : "No expiry date"}
+                          </p>
+                        </div>
+
+                        <div className="p-6 rounded-2xl bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 hover:bg-white/10 dark:hover:bg-slate-700/20 transition-all duration-300 shadow-inner">
+                          <div className="flex items-center space-x-3 mb-3">
+                            <label className="text-sm font-bold text-white/70 dark:text-slate-400 uppercase tracking-wider">
+                              Date Added
+                            </label>
+                          </div>
+                          <p className="text-xl font-semibold text-white dark:text-slate-100">
+                            {currentContact.createdAt
+                              ? new Date(
+                                  currentContact.createdAt
+                                ).toLocaleDateString()
+                              : currentContact.dateAdded
+                              ? new Date(
+                                  currentContact.dateAdded
+                                ).toLocaleDateString()
+                              : "Unknown"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Notes Section */}
+                    {currentContact.notes && (
+                      <div className="p-6 rounded-2xl bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 shadow-inner">
+                        <div className="flex items-center space-x-3 mb-4">
+                          <Lucide
+                            icon="FileText"
+                            className="w-5 h-5 text-indigo-400"
+                          />
+                          <label className="text-lg font-bold text-white/90 dark:text-slate-200">
+                            Notes
+                          </label>
+                        </div>
+                        <p className="text-white/90 dark:text-slate-100 leading-relaxed text-base">
+                          {currentContact.notes}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Tags Section */}
+                    {currentContact.tags && currentContact.tags.length > 0 && (
+                      <div className="p-6 rounded-2xl bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 shadow-inner">
+                        <div className="flex items-center space-x-3 mb-4">
+                          <Lucide
+                            icon="Tags"
+                            className="w-5 h-5 text-rose-400"
+                          />
+                          <label className="text-lg font-bold text-white/90 dark:text-slate-200">
+                            Tags
+                          </label>
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                          {currentContact.tags.map((tag, index) => (
+                            <span
+                              key={index}
+                              className="inline-flex items-center px-4 py-2 rounded-2xl text-sm font-semibold bg-gradient-to-r from-rose-500/20 to-pink-500/20 border border-rose-400/30 text-rose-200 backdrop-blur-sm"
+                            >
+                              <Lucide icon="Tag" className="w-3 h-3 mr-2" />
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex justify-end space-x-3 mt-10 pt-6 border-t border-white/10 dark:border-slate-700/20">
+                  <button
+                    onClick={() => setViewContactModal(false)}
+                    className="px-6 py-3 bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 backdrop-blur-sm border border-white/20 dark:border-slate-600/20 text-white/90 hover:text-white rounded-2xl transition-all duration-200 font-medium"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => {
+                      setViewContactModal(false);
+                      setEditContactModal(true);
+                    }}
+                    disabled={userRole === "3"}
+                    className="px-8 py-3 bg-gradient-to-r from-emerald-500 via-blue-500 to-purple-500 hover:from-emerald-600 hover:via-blue-600 hover:to-purple-600 border-0 text-white rounded-2xl transition-all duration-200 font-semibold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <Lucide icon="UserCog" className="w-4 h-4" />
+                      <span>Edit Contact</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
+
+        {/* Delete Confirmation Modal */}
+        <Dialog
+          open={deleteConfirmationModal}
+          onClose={() => setDeleteConfirmationModal(false)}
+        >
+          <div className="fixed inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl">
+            <Dialog.Panel className="w-full max-w-md relative bg-white/90 dark:bg-slate-800/90 backdrop-blur-2xl rounded-3xl border border-white/30 dark:border-slate-700/30 shadow-2xl shadow-slate-200/20 dark:shadow-slate-900/40 overflow-hidden">
+              {/* Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-red-50/20 via-transparent to-pink-50/20 dark:from-red-900/10 dark:via-transparent dark:to-pink-900/10 pointer-events-none" />
+
+              <div className="relative p-8">
+                <div className="text-center">
+                  <div className="relative mx-auto mb-6">
+                    <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-3xl bg-gradient-to-br from-red-500/20 to-pink-500/20 dark:from-red-400/20 dark:to-pink-400/20 backdrop-blur-xl border border-red-200/50 dark:border-red-700/50 shadow-2xl shadow-red-500/20 dark:shadow-red-500/30">
+                      <Lucide
+                        icon="AlertTriangle"
+                        className="h-8 w-8 text-red-600 dark:text-red-400"
+                      />
+                    </div>
+                    <div className="absolute -inset-2 bg-gradient-to-br from-red-400/20 to-pink-600/20 rounded-3xl blur opacity-50" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-3">
+                    Delete Contact
+                  </h3>
+                  <p className="text-slate-600 dark:text-slate-400 mb-8 leading-relaxed bg-gradient-to-r from-white/60 to-slate-50/40 dark:from-slate-700/60 dark:to-slate-800/40 backdrop-blur-xl border border-white/40 dark:border-slate-600/40 rounded-2xl px-4 py-3">
+                    Are you sure you want to delete this contact? This action
+                    cannot be undone.
+                  </p>
+                </div>
+
+                <div className="flex justify-end space-x-4">
+                  <Button
+                    variant="outline-secondary"
+                    onClick={() => setDeleteConfirmationModal(false)}
+                    className="px-6 py-3 bg-gradient-to-r from-white/80 to-slate-50/60 dark:from-slate-700/80 dark:to-slate-800/60 backdrop-blur-xl border-2 border-white/60 dark:border-slate-600/60 hover:border-slate-300/80 dark:hover:border-slate-500/80 rounded-2xl font-bold transition-all duration-300 hover:shadow-xl hover:scale-105 transform-gpu"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="outline-danger"
+                    onClick={handleDeleteContact}
+                    disabled={isLoading}
+                    className="px-6 py-3 bg-gradient-to-r from-red-500/90 via-pink-500/90 to-red-600/90 text-white border-2 border-red-400/60 dark:border-red-500/60 rounded-2xl font-bold transition-all duration-300 hover:shadow-xl hover:shadow-red-500/30 dark:hover:shadow-red-500/40 hover:scale-105 transform-gpu disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isLoading ? "Deleting..." : "Delete"}
+                  </Button>
+                </div>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
+
+        {/* Mass Delete Modal */}
+        <Dialog
+          open={showMassDeleteModal}
+          onClose={() => setShowMassDeleteModal(false)}
+        >
+          <div className="fixed inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl">
+            <Dialog.Panel className="w-full max-w-md relative bg-white/90 dark:bg-slate-800/90 backdrop-blur-2xl rounded-3xl border border-white/30 dark:border-slate-700/30 shadow-2xl shadow-slate-200/20 dark:shadow-slate-900/40 overflow-hidden">
+              {/* Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-50/20 via-transparent to-red-50/20 dark:from-orange-900/10 dark:via-transparent dark:to-red-900/10 pointer-events-none" />
+
+              <div className="relative p-8">
+                <div className="text-center">
+                  <div className="relative mx-auto mb-6">
+                    <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-3xl bg-gradient-to-br from-orange-500/20 to-red-500/20 dark:from-orange-400/20 dark:to-red-400/20 backdrop-blur-xl border border-orange-200/50 dark:border-orange-700/50 shadow-2xl shadow-orange-500/20 dark:shadow-orange-500/30">
+                      <Lucide
+                        icon="AlertTriangle"
+                        className="h-8 w-8 text-orange-600 dark:text-orange-400"
+                      />
+                    </div>
+                    <div className="absolute -inset-2 bg-gradient-to-br from-orange-400/20 to-red-600/20 rounded-3xl blur opacity-50" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-3">
+                    Delete Selected Contacts
+                  </h3>
+                  <div className="bg-gradient-to-r from-white/60 to-slate-50/40 dark:from-slate-700/60 dark:to-slate-800/40 backdrop-blur-xl border border-white/40 dark:border-slate-600/40 rounded-2xl px-4 py-4 mb-8">
+                    <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                      Are you sure you want to delete{" "}
+                      <span className="font-bold text-orange-600 dark:text-orange-400">
+                        {selectedContacts.length}
+                      </span>{" "}
+                      selected contacts? This action cannot be undone.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-4">
+                  <Button
+                    variant="outline-secondary"
+                    onClick={() => setShowMassDeleteModal(false)}
+                    className="px-6 py-3 bg-gradient-to-r from-white/80 to-slate-50/60 dark:from-slate-700/80 dark:to-slate-800/60 backdrop-blur-xl border-2 border-white/60 dark:border-slate-600/60 hover:border-slate-300/80 dark:hover:border-slate-500/80 rounded-2xl font-bold transition-all duration-300 hover:shadow-xl hover:scale-105 transform-gpu"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="outline-danger"
+                    onClick={handleMassDelete}
+                    disabled={isMassDeleting}
+                    className="px-6 py-3 bg-gradient-to-r from-orange-500/90 via-red-500/90 to-pink-600/90 text-white border-2 border-orange-400/60 dark:border-orange-500/60 rounded-2xl font-bold transition-all duration-300 hover:shadow-xl hover:shadow-orange-500/30 dark:hover:shadow-orange-500/40 hover:scale-105 transform-gpu disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isMassDeleting ? "Deleting..." : "Delete All"}
+                  </Button>
+                </div>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
+
+        {/* Add Tag Modal */}
+        <Dialog
+          open={showAddTagModal}
+          onClose={() => setShowAddTagModal(false)}
+        >
+          <div className="fixed inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl">
+            <Dialog.Panel className="w-full max-w-md relative bg-white/10 dark:bg-slate-800/10 backdrop-blur-3xl rounded-3xl border border-white/20 dark:border-slate-700/20 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden transform hover:scale-[1.02] transition-all duration-300">
+              {/* Enhanced Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 via-purple-500/5 to-pink-500/10 dark:from-blue-600/10 dark:via-purple-700/5 dark:to-pink-600/10 pointer-events-none" />
+
+              {/* Top Shine Effect */}
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+
+              <div className="relative p-8">
+                <div className="flex items-center justify-between pb-6 border-b border-white/10 dark:border-slate-700/20">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500/20 to-violet-500/20 backdrop-blur-sm flex items-center justify-center border border-white/10">
+                      <Lucide icon="Tag" className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <h3 className="text-xl font-bold bg-gradient-to-r from-white via-blue-100 to-violet-100 dark:from-white dark:via-blue-100 dark:to-violet-100 bg-clip-text text-transparent">
+                      Add New Tag
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setShowAddTagModal(false)}
+                    className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 text-slate-400 hover:text-white dark:hover:text-slate-200 transition-all duration-200 flex items-center justify-center backdrop-blur-sm border border-white/10"
+                  >
+                    <Lucide icon="X" className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="mt-8 space-y-2">
+                  <label className="block text-sm font-semibold text-white/90 dark:text-slate-200 mb-3">
+                    Tag Name
+                  </label>
+                  <div className="relative">
+                    <FormInput
+                      type="text"
+                      value={newTag}
+                      onChange={(e) => setNewTag(e.target.value)}
+                      placeholder="Enter a descriptive tag name..."
+                      className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl px-4 py-4 text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-blue-400/50 focus:ring-2 focus:ring-blue-400/20 transition-all duration-200 shadow-inner"
+                    />
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-violet-500/5 pointer-events-none" />
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-3 mt-10 pt-6 border-t border-white/10 dark:border-slate-700/20">
+                  <Button
+                    variant="outline-secondary"
+                    onClick={() => setShowAddTagModal(false)}
+                    className="px-6 py-3 bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 backdrop-blur-sm border border-white/20 dark:border-slate-600/20 text-white/90 hover:text-white rounded-2xl transition-all duration-200 font-medium"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={handleSaveNewTag}
+                    disabled={!newTag.trim() || isLoading}
+                    className="px-8 py-3 bg-gradient-to-r from-blue-500 via-purple-500 to-violet-500 hover:from-blue-600 hover:via-purple-600 hover:to-violet-600 border-0 text-white rounded-2xl transition-all duration-200 font-semibold shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105"
+                  >
+                    {isLoading ? (
+                      <div className="flex items-center space-x-2">
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Adding...</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-2">
+                        <Lucide icon="Plus" className="w-4 h-4" />
+                        <span>Add Tag</span>
+                      </div>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
+
+        {/* Filters Modal */}
+        <Dialog
+          open={showFiltersModal}
+          onClose={() => setShowFiltersModal(false)}
+        >
+          <div className="fixed inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl">
+            <Dialog.Panel className="w-full max-w-lg relative bg-white/10 dark:bg-slate-800/10 backdrop-blur-3xl rounded-3xl border border-white/20 dark:border-slate-700/20 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden transform hover:scale-[1.01] transition-all duration-300">
+              {/* Enhanced Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/10 via-teal-500/5 to-cyan-500/10 dark:from-emerald-600/10 dark:via-teal-700/5 dark:to-cyan-600/10 pointer-events-none" />
+
+              {/* Top Shine Effect */}
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+
+              <div className="relative p-8">
+                <div className="flex items-center justify-between pb-6 border-b border-white/10 dark:border-slate-700/20">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 backdrop-blur-sm flex items-center justify-center border border-white/10">
+                      <Lucide
+                        icon="Filter"
+                        className="w-5 h-5 text-emerald-400"
+                      />
+                    </div>
+                    <h3 className="text-xl font-bold bg-gradient-to-r from-white via-emerald-100 to-teal-100 dark:from-white dark:via-emerald-100 dark:to-teal-100 bg-clip-text text-transparent">
+                      Filter Contacts
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setShowFiltersModal(false)}
+                    className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 text-slate-400 hover:text-white dark:hover:text-slate-200 transition-all duration-200 flex items-center justify-center backdrop-blur-sm border border-white/10"
+                  >
+                    <Lucide icon="X" className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="mt-8 space-y-8">
+                  {/* Tag Filters */}
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-2">
+                      <Lucide
+                        icon="Tags"
+                        className="w-5 h-5 text-emerald-400"
+                      />
+                      <h4 className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                        Filter by Tags
+                      </h4>
+                    </div>
+                    <div className="space-y-3 max-h-60 overflow-y-auto bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 dark:border-slate-600/20 shadow-inner">
+                      {tagList.map((tag) => (
+                        <label
+                          key={tag.id}
+                          className="group flex items-center p-3 rounded-xl hover:bg-white/10 dark:hover:bg-slate-600/20 transition-all duration-200 cursor-pointer border border-transparent hover:border-white/10"
+                        >
+                          <div className="relative">
+                            <input
+                              type="checkbox"
+                              checked={selectedTagFilters.includes(tag.name)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedTagFilters((prev) => [
+                                    ...prev,
+                                    tag.name,
+                                  ]);
+                                } else {
+                                  setSelectedTagFilters((prev) =>
+                                    prev.filter((t) => t !== tag.name)
+                                  );
+                                }
+                              }}
+                              className="w-5 h-5 rounded-lg border-2 border-white/30 text-emerald-500 focus:ring-emerald-500/20 focus:ring-2 bg-white/5 backdrop-blur-sm transition-all duration-200"
+                            />
+                            <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-emerald-400/20 to-teal-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                          </div>
+                          <span className="ml-4 text-sm font-medium text-white/80 dark:text-slate-300 group-hover:text-white transition-colors duration-200">
+                            {tag.name}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* User Filters */}
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-2">
+                      <Lucide icon="Users" className="w-5 h-5 text-teal-400" />
+                      <h4 className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                        Filter by Assigned User
+                      </h4>
+                    </div>
+                    <div className="space-y-3 max-h-60 overflow-y-auto bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 dark:border-slate-600/20 shadow-inner">
+                      {employeeList.map((employee) => (
+                        <label
+                          key={employee.id}
+                          className="group flex items-center p-3 rounded-xl hover:bg-white/10 dark:hover:bg-slate-600/20 transition-all duration-200 cursor-pointer border border-transparent hover:border-white/10"
+                        >
+                          <div className="relative">
+                            <input
+                              type="checkbox"
+                              checked={selectedUserFilters.includes(
+                                employee.name
+                              )}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedUserFilters((prev) => [
+                                    ...prev,
+                                    employee.name,
+                                  ]);
+                                } else {
+                                  setSelectedUserFilters((prev) =>
+                                    prev.filter((u) => u !== employee.name)
+                                  );
+                                }
+                              }}
+                              className="w-5 h-5 rounded-lg border-2 border-white/30 text-teal-500 focus:ring-teal-500/20 focus:ring-2 bg-white/5 backdrop-blur-sm transition-all duration-200"
+                            />
+                            <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-teal-400/20 to-cyan-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                          </div>
+                          <span className="ml-4 text-sm font-medium text-white/80 dark:text-slate-300 group-hover:text-white transition-colors duration-200">
+                            {employee.name}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-between mt-10 pt-6 border-t border-white/10 dark:border-slate-700/20">
+                  <Button
+                    variant="outline-secondary"
+                    onClick={() => {
+                      setSelectedTagFilters([]);
+                      setSelectedUserFilters([]);
+                    }}
+                    className="px-6 py-3 bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 backdrop-blur-sm border border-white/20 dark:border-slate-600/20 text-white/90 hover:text-white rounded-2xl transition-all duration-200 font-medium"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <Lucide icon="RotateCcw" className="w-4 h-4" />
+                      <span>Clear All</span>
+                    </div>
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={() => setShowFiltersModal(false)}
+                    className="px-8 py-3 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-600 hover:via-teal-600 hover:to-cyan-600 border-0 text-white rounded-2xl transition-all duration-200 font-semibold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transform hover:scale-105"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <Lucide icon="Check" className="w-4 h-4" />
+                      <span>Apply Filters</span>
+                    </div>
+                  </Button>
+                </div>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
+
+        {/* Date Filter Modal */}
+        <Dialog
+          open={showDateFilterModal}
+          onClose={() => setShowDateFilterModal(false)}
+        >
+          <div className="fixed inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl">
+            <Dialog.Panel className="w-full max-w-md relative bg-white/10 dark:bg-slate-800/10 backdrop-blur-3xl rounded-3xl border border-white/20 dark:border-slate-700/20 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden transform hover:scale-[1.02] transition-all duration-300">
+              {/* Enhanced Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-400/10 via-pink-500/5 to-rose-500/10 dark:from-purple-600/10 dark:via-pink-700/5 dark:to-rose-600/10 pointer-events-none" />
+
+              {/* Top Shine Effect */}
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+
+              <div className="relative p-8">
+                <div className="flex items-center justify-between pb-6 border-b border-white/10 dark:border-slate-700/20">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 backdrop-blur-sm flex items-center justify-center border border-white/10">
+                      <Lucide
+                        icon="Calendar"
+                        className="w-5 h-5 text-purple-400"
+                      />
+                    </div>
+                    <h3 className="text-xl font-bold bg-gradient-to-r from-white via-purple-100 to-pink-100 dark:from-white dark:via-purple-100 dark:to-pink-100 bg-clip-text text-transparent">
+                      Filter by Date
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setShowDateFilterModal(false)}
+                    className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 text-slate-400 hover:text-white dark:hover:text-slate-200 transition-all duration-200 flex items-center justify-center backdrop-blur-sm border border-white/10"
+                  >
+                    <Lucide icon="X" className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="mt-8 space-y-6">
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-2">
+                      <Lucide
+                        icon="Calendar"
+                        className="w-4 h-4 text-purple-400"
+                      />
+                      <label className="block text-sm font-semibold text-white/90 dark:text-slate-200">
+                        Start Date
+                      </label>
+                    </div>
+                    <div className="relative group">
+                      <FormInput
+                        type="date"
+                        value={dateFilterStart}
+                        onChange={(e) => setDateFilterStart(e.target.value)}
+                        className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl px-4 py-4 text-white dark:text-slate-200 focus:border-purple-400/50 focus:ring-2 focus:ring-purple-400/20 transition-all duration-200 shadow-inner"
+                      />
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-2">
+                      <Lucide
+                        icon="Calendar"
+                        className="w-4 h-4 text-pink-400"
+                      />
+                      <label className="block text-sm font-semibold text-white/90 dark:text-slate-200">
+                        End Date
+                      </label>
+                    </div>
+                    <div className="relative group">
+                      <FormInput
+                        type="date"
+                        value={dateFilterEnd}
+                        onChange={(e) => setDateFilterEnd(e.target.value)}
+                        className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl px-4 py-4 text-white dark:text-slate-200 focus:border-pink-400/50 focus:ring-2 focus:ring-pink-400/20 transition-all duration-200 shadow-inner"
+                      />
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-pink-500/5 to-rose-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-between mt-10 pt-6 border-t border-white/10 dark:border-slate-700/20">
+                  <Button
+                    variant="outline-secondary"
+                    onClick={clearDateFilter}
+                    className="px-6 py-3 bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 backdrop-blur-sm border border-white/20 dark:border-slate-600/20 text-white/90 hover:text-white rounded-2xl transition-all duration-200 font-medium"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <Lucide icon="RotateCcw" className="w-4 h-4" />
+                      <span>Clear Filter</span>
+                    </div>
+                  </Button>
+                  <div className="flex space-x-3">
+                    <Button
+                      variant="outline-secondary"
+                      onClick={() => setShowDateFilterModal(false)}
+                      className="px-6 py-3 bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 backdrop-blur-sm border border-white/20 dark:border-slate-600/20 text-white/90 hover:text-white rounded-2xl transition-all duration-200 font-medium"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="primary"
+                      onClick={applyDateFilter}
+                      className="px-8 py-3 bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 hover:from-purple-600 hover:via-pink-600 hover:to-rose-600 border-0 text-white rounded-2xl transition-all duration-200 font-semibold shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transform hover:scale-105"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <Lucide icon="Check" className="w-4 h-4" />
+                        <span>Apply Filter</span>
+                      </div>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
+
+        {/* Columns Modal */}
+        <Dialog
+          open={showColumnsModal}
+          onClose={() => setShowColumnsModal(false)}
+        >
+          <div className="fixed inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl">
+            <Dialog.Panel className="w-full max-w-sm relative bg-white/10 dark:bg-slate-800/10 backdrop-blur-3xl rounded-3xl border border-white/20 dark:border-slate-700/20 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden transform hover:scale-[1.02] transition-all duration-300">
+              {/* Enhanced Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/10 via-teal-500/5 to-blue-500/10 dark:from-cyan-600/10 dark:via-teal-700/5 dark:to-blue-600/10 pointer-events-none" />
+
+              {/* Top Shine Effect */}
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+
+              <div className="relative p-8">
+                <div className="flex items-center space-x-3 pb-6 border-b border-white/10 dark:border-slate-700/20">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-teal-500/20 backdrop-blur-sm flex items-center justify-center border border-white/10">
+                    <Lucide icon="Grid2x2" className="w-5 h-5 text-cyan-400" />
+                  </div>
+                  <Dialog.Title className="text-xl font-bold bg-gradient-to-r from-white via-cyan-100 to-teal-100 dark:from-white dark:via-cyan-100 dark:to-teal-100 bg-clip-text text-transparent">
+                    Manage Columns
+                  </Dialog.Title>
+                </div>
+
+                <div className="space-y-3 max-h-60 overflow-y-auto mt-8">
+                  {Object.entries(visibleColumns).map(([column, isVisible]) => {
+                    // Check if this is a custom field
+                    const isCustomField = column.startsWith("customField_");
+                    const displayName = isCustomField
+                      ? column.replace("customField_", "")
+                      : column;
+
+                    // Don't allow deletion of essential columns
+                    const isEssentialColumn = [
+                      "checkbox",
+                      "contact",
+                      "phone",
+                      "actions",
+                    ].includes(column);
+
+                    return (
+                      <div
+                        key={column}
+                        className="group flex items-center px-4 py-4 hover:bg-white/10 dark:hover:bg-slate-600/20 rounded-2xl transition-all duration-200 border border-white/10 dark:border-slate-600/20 bg-white/5 dark:bg-slate-700/10 backdrop-blur-sm"
+                      >
+                        <label className="flex items-center text-left w-full cursor-pointer">
+                          <div className="relative">
+                            <input
+                              type="checkbox"
+                              checked={isVisible}
+                              onChange={() => {
+                                setVisibleColumns((prev) => ({
+                                  ...prev,
+                                  [column]: !isVisible,
+                                }));
+                              }}
+                              className="w-5 h-5 rounded-lg border-2 border-white/30 text-cyan-500 focus:ring-cyan-500/20 focus:ring-2 bg-white/5 backdrop-blur-sm transition-all duration-200"
+                            />
+                            <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-cyan-400/20 to-teal-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                          </div>
+                          <span className="ml-4 text-sm font-medium capitalize text-white/80 dark:text-slate-300 group-hover:text-white transition-colors duration-200">
+                            {isCustomField
+                              ? `${displayName} (Custom)`
+                              : displayName}
+                          </span>
+                        </label>
+                        <div className="flex items-center ml-auto">
+                          {!isEssentialColumn && (
+                            <button
+                              onClick={() => {
+                                setVisibleColumns((prev) => {
+                                  const newColumns = { ...prev };
+                                  delete newColumns[column];
+                                  return newColumns;
+                                });
+                              }}
+                              className="ml-3 p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 focus:outline-none transition-all duration-200 rounded-xl backdrop-blur-sm border border-red-400/20 hover:border-red-400/40"
+                              title="Delete column"
+                            >
+                              <Lucide icon="Trash2" className="w-4 h-4" />
+                            </button>
+                          )}
+                          {isEssentialColumn && (
+                            <span className="text-xs text-cyan-400 font-medium bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-400/20">
+                              Required
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-10 flex justify-end space-x-3 pt-6 border-t border-white/10 dark:border-slate-700/20">
+                  <button
+                    onClick={() => setShowColumnsModal(false)}
+                    className="px-6 py-3 text-sm font-medium text-white/90 bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 backdrop-blur-sm border border-white/20 dark:border-slate-600/20 rounded-2xl hover:text-white transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/20"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => {
+                      // Show confirmation dialog before resetting
+                      if (
+                        window.confirm(
+                          "This will restore all default columns. Are you sure?"
+                        )
+                      ) {
+                        // Reset to default columns
+                        setVisibleColumns({
+                          checkbox: true,
+                          contact: true,
+                          phone: true,
+                          tags: true,
+                          ic: true,
+                          expiryDate: true,
+                          vehicleNumber: true,
+                          branch: true,
+                          notes: true,
+                          // Add any other default columns you want to include
+                        });
+                      }
+                    }}
+                    className="px-8 py-3 text-sm font-semibold text-white bg-gradient-to-r from-cyan-500 via-teal-500 to-blue-500 hover:from-cyan-600 hover:via-teal-600 hover:to-blue-600 rounded-2xl border-0 shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/20 transform hover:scale-105"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <Lucide icon="RotateCcw" className="w-4 h-4" />
+                      <span>Reset to Default</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
+
+        {/* Delete Tag Modal - Tag List for Deletion */}
+        {showDeleteTagModal && (
+          <Dialog
+            open={showDeleteTagModal}
+            onClose={() => setShowDeleteTagModal(false)}
+          >
+            <div className="fixed inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl">
+              <Dialog.Panel className="w-full max-w-2xl relative bg-white/10 dark:bg-slate-800/10 backdrop-blur-3xl rounded-3xl border border-white/20 dark:border-slate-700/20 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden transform hover:scale-[1.005] transition-all duration-300 max-h-[90vh]">
+                {/* Enhanced Gradient Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-red-400/10 via-pink-500/5 to-rose-500/10 dark:from-red-600/10 dark:via-pink-700/5 dark:to-rose-600/10 pointer-events-none" />
+
+                {/* Top Shine Effect */}
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+
+                <div className="relative p-8">
+                  <div className="flex items-center justify-between pb-6 border-b border-white/10 dark:border-slate-700/20">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-red-500/20 to-pink-500/20 backdrop-blur-sm flex items-center justify-center border border-white/10">
+                        <Lucide
+                          icon="Trash2"
+                          className="w-5 h-5 text-red-400"
+                        />
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-bold bg-gradient-to-r from-white via-red-100 to-pink-100 dark:from-white dark:via-red-100 dark:to-pink-100 bg-clip-text text-transparent">
+                          Delete Tags
+                        </h3>
+                        <p className="text-white/70 text-sm mt-1">
+                          Select tags to delete from your system
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowDeleteTagModal(false)}
+                      className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 text-white/80 hover:text-white transition-all duration-200 flex items-center justify-center backdrop-blur-sm border border-white/10 shadow-lg hover:shadow-xl"
+                    >
+                      <Lucide icon="X" className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="mt-8">
+                    {tagList.length === 0 ? (
+                      <div className="text-center py-12">
+                        <div className="relative mx-auto mb-6 w-20 h-20">
+                          <div className="absolute inset-0 bg-gradient-to-br from-slate-500/20 to-gray-500/20 rounded-3xl backdrop-blur-sm border border-white/10" />
+                          <div className="absolute inset-2 bg-gradient-to-br from-slate-400/10 to-gray-400/10 rounded-2xl" />
+                          <Lucide
+                            icon="Tag"
+                            className="w-10 h-10 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-slate-400"
+                          />
+                        </div>
+                        <h4 className="text-lg font-semibold text-white/90 mb-2">
+                          No Tags Found
+                        </h4>
+                        <p className="text-white/60 text-sm">
+                          There are no tags available to delete.
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="mb-6">
+                          <p className="text-white/80 text-sm leading-relaxed bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl rounded-2xl p-4 border border-white/10">
+                            <span className="text-red-300 font-medium">
+                              ⚠️ Warning:
+                            </span>{" "}
+                            Deleting tags will remove them from all contacts.
+                            This action cannot be undone.
+                          </p>
+                        </div>
+
+                        <div className="space-y-3 max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/20 scrollbar-track-transparent">
+                          {tagList.map((tag) => (
+                            <div
+                              key={tag.id}
+                              className="group relative p-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl rounded-2xl border border-white/10 dark:border-slate-600/20 hover:border-red-400/30 transition-all duration-300 hover:shadow-lg hover:shadow-red-500/10"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-4">
+                                  <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500/20 to-violet-500/20 dark:from-blue-400/20 dark:to-violet-400/20 backdrop-blur-sm border border-blue-200/40 dark:border-blue-700/40">
+                                    <Lucide
+                                      icon="Tag"
+                                      className="w-4 h-4 text-blue-400"
+                                    />
+                                  </div>
+                                  <div>
+                                    <h4 className="text-white/90 font-semibold">
+                                      {tag.name}
+                                    </h4>
+                                  </div>
+                                </div>
                                 <button
-                                onClick={() => handleSendNow(message)}
-                                className="px-2 py-1.5 text-xs font-medium text-white bg-gradient-to-r from-green-500/90 to-green-600/90 hover:from-green-600/90 hover:to-green-700/90 backdrop-blur-md shadow-sm border border-green-400/20 rounded-md transition-all duration-200 hover:shadow-md hover:scale-102"
-                                title="Send message immediately"
+                                  onClick={() => {
+                                    if (
+                                      window.confirm(
+                                        `Are you sure you want to delete the tag "${tag.name}"? This will remove it from all contacts and cannot be undone.`
+                                      )
+                                    ) {
+                                      setTagToDelete(tag);
+                                      handleConfirmDeleteTag();
+                                    }
+                                  }}
+                                  className="px-4 py-2 bg-gradient-to-r from-red-500/80 to-pink-600/80 hover:from-red-600/90 hover:to-pink-700/90 text-white rounded-xl transition-all duration-200 font-semibold shadow-lg shadow-red-500/25 hover:shadow-red-500/40 transform hover:scale-105 flex items-center space-x-2 group-hover:scale-110"
+                                >
+                                  <Lucide icon="Trash2" className="w-4 h-4" />
+                                  <span>Delete</span>
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {tagList.length > 0 && (
+                          <div className="mt-6 pt-6 border-t border-white/10 dark:border-slate-700/20">
+                            <div className="flex items-center justify-between">
+                              <div className="text-white/70 text-sm">
+                                <span className="font-medium">
+                                  {tagList.length}
+                                </span>{" "}
+                                tag{tagList.length !== 1 ? "s" : ""} available
+                              </div>
+                              <button
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      `Are you sure you want to delete ALL ${tagList.length} tags? This will remove them from all contacts and cannot be undone.`
+                                    )
+                                  ) {
+                                    // Handle bulk delete - you'll need to implement this function
+                                    handleBulkDeleteTags();
+                                  }
+                                }}
+                                className="px-6 py-3 bg-gradient-to-r from-red-600/90 to-rose-700/90 hover:from-red-700 hover:to-rose-800 text-white rounded-2xl transition-all duration-200 font-bold shadow-lg shadow-red-600/30 hover:shadow-red-600/50 transform hover:scale-105 flex items-center space-x-2"
                               >
-                  <Lucide icon="Send" className="w-3 h-3 mr-1 inline" />
-                                Send Now
-                              </button>
-                              <button
-                  onClick={() => handleEditScheduledMessage(message)}
-                  className="px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-200 bg-white/80 dark:bg-gray-600/80 hover:bg-white dark:hover:bg-gray-500 backdrop-blur-md border border-gray-200 dark:border-gray-600 rounded-lg transition-all duration-200 hover:shadow-md"
-                >
-                  <Lucide icon="Pencil" className="w-3 h-3 mr-1 inline" />
-                                Edit
-                              </button>
-                              <button
-                  onClick={() => handleDeleteScheduledMessage(message.id!)}
-                  className="px-3 py-2 text-xs font-medium text-white bg-gradient-to-r from-red-500/90 to-red-600/90 hover:from-red-600/90 hover:to-red-700/90 backdrop-blur-md shadow-md border border-red-400/20 rounded-lg transition-all duration-200 hover:shadow-lg hover:scale-105"
-                >
-                  <Lucide icon="Trash" className="w-3 h-3 mr-1 inline" />
-                                Delete
+                                <Lucide icon="Trash" className="w-4 h-4" />
+                                <span>Delete All Tags</span>
                               </button>
                             </div>
                           </div>
-                        ))}
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  <div className="flex justify-end mt-8 pt-6 border-t border-white/10 dark:border-slate-700/20">
+                    <button
+                      onClick={() => setShowDeleteTagModal(false)}
+                      className="px-8 py-3 bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 backdrop-blur-sm border border-white/20 dark:border-slate-600/20 text-white/90 hover:text-white rounded-2xl transition-all duration-200 font-medium shadow-lg hover:shadow-xl"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <Lucide icon="X" className="w-4 h-4" />
+                        <span>Close</span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </Dialog.Panel>
+            </div>
+          </Dialog>
+        )}
+
+        {/* CSV Import Modal */}
+        <Dialog
+          open={showCsvImportModal}
+          onClose={() => setShowCsvImportModal(false)}
+        >
+          <div className="fixed inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl">
+            <Dialog.Panel className="w-full max-w-md relative bg-white/10 dark:bg-slate-800/10 backdrop-blur-3xl rounded-3xl border border-white/20 dark:border-slate-700/20 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden transform hover:scale-[1.02] transition-all duration-300">
+              {/* Enhanced Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-400/10 via-blue-500/5 to-cyan-500/10 dark:from-indigo-600/10 dark:via-blue-700/5 dark:to-cyan-600/10 pointer-events-none" />
+
+              {/* Top Shine Effect */}
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+
+              <div className="relative p-8">
+                <div className="flex items-center space-x-3 pb-6 border-b border-white/10 dark:border-slate-700/20">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-blue-500/20 backdrop-blur-sm flex items-center justify-center border border-white/10">
+                    <Lucide icon="Upload" className="w-5 h-5 text-indigo-400" />
+                  </div>
+                  <h3 className="text-xl font-bold bg-gradient-to-r from-white via-indigo-100 to-blue-100 dark:from-white dark:via-indigo-100 dark:to-blue-100 bg-clip-text text-transparent">
+                    Import CSV
+                  </h3>
+                </div>
+
+                <div className="mt-8 space-y-6">
+                  <div className="space-y-3">
+                    <label className="block text-sm font-semibold text-white/90 dark:text-slate-200">
+                      Select CSV File
+                    </label>
+                    <div className="relative group">
+                      <input
+                        type="file"
+                        accept=".csv"
+                        onChange={handleCsvFileSelect}
+                        className="block w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl px-4 py-4 text-white dark:text-slate-200 focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/20 transition-all duration-200 shadow-inner file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-indigo-500/20 file:text-indigo-300 hover:file:bg-indigo-500/30"
+                      />
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-indigo-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                    </div>
+                    <button
+                      onClick={handleDownloadSampleCsv}
+                      className="text-sm text-indigo-300 hover:text-indigo-200 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors font-medium underline underline-offset-2"
+                    >
+                      ↓ Download Sample CSV
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="block text-sm font-semibold text-white/90 dark:text-slate-200">
+                      Select Tags
+                    </label>
+                    <div className="max-h-40 overflow-y-auto bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl rounded-2xl p-4 border border-white/20 dark:border-slate-600/20 shadow-inner space-y-2">
+                      {tagList.map((tag) => (
+                        <label
+                          key={tag.id}
+                          className="group flex items-center p-3 rounded-xl hover:bg-white/10 dark:hover:bg-slate-600/20 transition-all duration-200 cursor-pointer border border-transparent hover:border-white/10"
+                        >
+                          <div className="relative">
+                            <input
+                              type="checkbox"
+                              value={tag.name}
+                              checked={selectedImportTags.includes(tag.name)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedImportTags([
+                                    ...selectedImportTags,
+                                    tag.name,
+                                  ]);
+                                } else {
+                                  setSelectedImportTags(
+                                    selectedImportTags.filter(
+                                      (t) => t !== tag.name
+                                    )
+                                  );
+                                }
+                              }}
+                              className="w-5 h-5 rounded-lg border-2 border-white/30 text-indigo-500 focus:ring-indigo-500/20 focus:ring-2 bg-white/5 backdrop-blur-sm transition-all duration-200"
+                            />
+                            <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-indigo-400/20 to-blue-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                          </div>
+                          <span className="ml-4 text-sm font-medium text-white/80 dark:text-slate-300 group-hover:text-white transition-colors duration-200">
+                            {tag.name}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="block text-sm font-semibold text-white/90 dark:text-slate-200">
+                      Add New Tags (comma-separated)
+                    </label>
+                    <div className="relative group">
+                      <input
+                        type="text"
+                        value={importTags.join(", ")}
+                        onChange={(e) =>
+                          setImportTags(
+                            e.target.value.split(",").map((tag) => tag.trim())
+                          )
+                        }
+                        className="block w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl px-4 py-4 text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/20 transition-all duration-200 shadow-inner"
+                        placeholder="Enter new tags separated by commas..."
+                      />
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-indigo-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-3 mt-10 pt-6 border-t border-white/10 dark:border-slate-700/20">
+                  <button
+                    className="px-6 py-3 bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 backdrop-blur-sm border border-white/20 dark:border-slate-600/20 text-white/90 hover:text-white rounded-2xl transition-all duration-200 font-medium"
+                    onClick={() => setShowCsvImportModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="px-8 py-3 bg-gradient-to-r from-indigo-500 via-blue-500 to-cyan-500 hover:from-indigo-600 hover:via-blue-600 hover:to-cyan-600 border-0 text-white rounded-2xl transition-all duration-200 font-semibold shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                    onClick={handleCsvImport}
+                    disabled={!selectedCsvFile || isLoading}
+                  >
+                    {isLoading ? (
+                      <div className="flex items-center space-x-2">
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Importing...</span>
                       </div>
                     ) : (
-        <div className="text-center py-12">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-gray-700/50 flex items-center justify-center">
-            <Lucide icon="Clock" className="w-8 h-8 text-gray-400" />
-          </div>
-          <p className="text-gray-500 dark:text-gray-400 text-lg font-medium">
-            No scheduled messages found
-          </p>
-          <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
-            {messageStatusFilter || messageDateFilter || messageTypeFilter || messageRecipientFilter 
-              ? "Try adjusting your filters or clear them to see all messages"
-              : "Schedule your first message to get started"
-            }
-          </p>
+                      <div className="flex items-center space-x-2">
+                        <Lucide icon="Upload" className="w-4 h-4" />
+                        <span>Import</span>
                       </div>
-                    ))}
+                    )}
+                  </button>
                 </div>
-              )}
-              {/* Edit Scheduled Message Modal */}
-              <Dialog
-                open={editScheduledMessageModal}
-                onClose={() => setEditScheduledMessageModal(false)}
-              >
-                <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-    <Dialog.Panel className="w-full max-w-2xl p-6 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl shadow-2xl border border-white/20 dark:border-gray-700/20 max-h-[90vh] overflow-y-auto">
-      <div className="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
-        <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gradient-to-r from-indigo-500/90 to-indigo-600/90 flex items-center justify-center text-white mr-4">
-          <Lucide icon="Pencil" className="w-6 h-6" />
-        </div>
-        <div>
-          <span className="text-xl font-semibold text-gray-900 dark:text-white">
-                      Edit Scheduled Message
-          </span>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Modify your scheduled message details
-          </p>
-                    </div>
-      </div>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
 
-      <div className="mt-6 space-y-6">
-        {/* Message Content */}
-        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Message Content
-          </label>
-                    <textarea
-            className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all duration-200 resize-none"
-            value={blastMessage}
-                      onChange={(e) => setBlastMessage(e.target.value)}
-            rows={4}
-            placeholder="Enter your message here..."
-                    ></textarea>
-          
-          {/* Placeholders Section */}
-          <div className="mt-4">
-                      <button
-                        type="button"
-              className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium transition-colors duration-200"
-                        onClick={() => setShowPlaceholders(!showPlaceholders)}
+        {/* Sync Confirmation Modal */}
+        <Dialog
+          open={showSyncConfirmationModal}
+          onClose={() => setShowSyncConfirmationModal(false)}
+        >
+          <div className="fixed inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl">
+            <Dialog.Panel className="w-full max-w-md relative bg-white/10 dark:bg-slate-800/10 backdrop-blur-3xl rounded-3xl border border-white/20 dark:border-slate-700/20 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden transform hover:scale-[1.02] transition-all duration-300">
+              {/* Enhanced Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-400/10 via-orange-500/5 to-yellow-500/10 dark:from-amber-600/10 dark:via-orange-700/5 dark:to-yellow-600/10 pointer-events-none" />
+
+              {/* Top Shine Effect */}
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+
+              <div className="relative p-8">
+                <div className="text-center">
+                  <div className="relative mx-auto mb-6 w-20 h-20">
+                    <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-3xl backdrop-blur-sm border border-white/10" />
+                    <div className="absolute inset-2 bg-gradient-to-br from-amber-400/10 to-orange-400/10 rounded-2xl" />
+                    <Lucide
+                      icon="AlertTriangle"
+                      className="w-10 h-10 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-amber-400"
+                    />
+                  </div>
+                  <h3 className="text-2xl font-bold bg-gradient-to-r from-white via-amber-100 to-orange-100 dark:from-white dark:via-amber-100 dark:to-orange-100 bg-clip-text text-transparent mb-4">
+                    Sync Database?
+                  </h3>
+                  <div className="text-white/80 dark:text-slate-300 text-sm leading-relaxed space-y-2">
+                    <p>
+                      This action will sync the database and may take some time.
+                    </p>
+                    <p className="text-amber-300 font-medium">
+                      It may affect your current data.
+                    </p>
+                    <p className="text-xs text-white/60 mt-3 bg-white/5 rounded-xl p-3 border border-white/10">
+                      You can choose to sync from Neon (default) or from
+                      Firebase to Neon.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-col sm:flex-row justify-center items-center gap-3 mt-10 pt-6 border-t border-white/10 dark:border-slate-700/20">
+                  <button
+                    className="px-6 py-3 bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 backdrop-blur-sm border border-white/20 dark:border-slate-600/20 text-white/90 hover:text-white rounded-2xl transition-all duration-200 font-medium"
+                    onClick={() => setShowSyncConfirmationModal(false)}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <Lucide icon="X" className="w-4 h-4" />
+                      <span>Cancel</span>
+                    </div>
+                  </button>
+                  <button
+                    className="px-6 py-3 bg-gradient-to-r from-indigo-500 via-blue-500 to-cyan-500 hover:from-indigo-600 hover:via-blue-600 hover:to-cyan-600 border-0 text-white rounded-2xl transition-all duration-200 font-semibold shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                    onClick={handleConfirmSync}
+                    disabled={isSyncing || isSyncingFirebase}
+                  >
+                    {isSyncing ? (
+                      <div className="flex items-center space-x-2">
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Syncing...</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-2">
+                        <Lucide icon="Database" className="w-4 h-4" />
+                        <span>Sync (Neon)</span>
+                      </div>
+                    )}
+                  </button>
+                  <button
+                    className="px-6 py-3 bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 hover:from-emerald-600 hover:via-green-600 hover:to-teal-600 border-0 text-white rounded-2xl transition-all duration-200 font-semibold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                    onClick={handleConfirmSyncFirebase}
+                    disabled={isSyncing || isSyncingFirebase}
+                  >
+                    {isSyncingFirebase ? (
+                      <div className="flex items-center space-x-2">
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Syncing...</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-2">
+                        <Lucide icon="Cloud" className="w-4 h-4" />
+                        <span>Sync Firebase</span>
+                      </div>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
+
+        {/* Sync Names Confirmation Modal */}
+        <Dialog
+          open={showSyncNamesConfirmationModal}
+          onClose={() => setShowSyncNamesConfirmationModal(false)}
+        >
+          <div className="fixed inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl">
+            <Dialog.Panel className="w-full max-w-md relative bg-white/10 dark:bg-slate-800/10 backdrop-blur-3xl rounded-3xl border border-white/20 dark:border-slate-700/20 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden transform hover:scale-[1.02] transition-all duration-300">
+              {/* Enhanced Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-violet-400/10 via-purple-500/5 to-indigo-500/10 dark:from-violet-600/10 dark:via-purple-700/5 dark:to-indigo-600/10 pointer-events-none" />
+
+              {/* Top Shine Effect */}
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+
+              <div className="relative p-8">
+                <div className="text-center">
+                  <div className="relative mx-auto mb-6 w-20 h-20">
+                    <div className="absolute inset-0 bg-gradient-to-br from-violet-500/20 to-purple-500/20 rounded-3xl backdrop-blur-sm border border-white/10" />
+                    <div className="absolute inset-2 bg-gradient-to-br from-violet-400/10 to-purple-400/10 rounded-2xl" />
+                    <Lucide
+                      icon="Users"
+                      className="w-10 h-10 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-violet-400"
+                    />
+                  </div>
+                  <h3 className="text-2xl font-bold bg-gradient-to-r from-white via-violet-100 to-purple-100 dark:from-white dark:via-violet-100 dark:to-purple-100 bg-clip-text text-transparent mb-4">
+                    Sync Contact Names?
+                  </h3>
+                  <div className="text-white/80 dark:text-slate-300 text-sm leading-relaxed space-y-2">
+                    <p>
+                      This action will sync all contact names and may take some
+                      time.
+                    </p>
+                    <p className="text-violet-300 font-medium">
+                      It may affect your current contact data.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex justify-center space-x-4 mt-10 pt-6 border-t border-white/10 dark:border-slate-700/20">
+                  <button
+                    className="px-6 py-3 bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 backdrop-blur-sm border border-white/20 dark:border-slate-600/20 text-white/90 hover:text-white rounded-2xl transition-all duration-200 font-medium"
+                    onClick={() => setShowSyncNamesConfirmationModal(false)}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <Lucide icon="X" className="w-4 h-4" />
+                      <span>Cancel</span>
+                    </div>
+                  </button>
+                  <button
+                    className="px-8 py-3 bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500 hover:from-violet-600 hover:via-purple-600 hover:to-indigo-600 border-0 text-white rounded-2xl transition-all duration-200 font-semibold shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 transform hover:scale-105"
+                    onClick={handleConfirmSyncNames}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <Lucide icon="RefreshCw" className="w-4 h-4" />
+                      <span>Confirm Sync</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
+
+        {/* Blast Message Modal */}
+        <Dialog
+          open={blastMessageModal}
+          onClose={() => setBlastMessageModal(false)}
+        >
+          <div className="fixed inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl">
+            <Dialog.Panel className="w-full max-w-4xl relative bg-white/10 dark:bg-slate-800/10 backdrop-blur-3xl rounded-3xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden overflow-y-auto transform hover:scale-[1.005] transition-all duration-300">
+              {/* Enhanced Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 via-violet-500/5 to-purple-500/10 dark:from-blue-600/10 dark:via-violet-700/5 dark:to-purple-600/10 pointer-events-none" />
+
+              <div className="relative p-8">
+                <div className="flex items-center justify-between pb-6 border-b border-white/10 dark:border-slate-700/20">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500/20 to-violet-500/20 backdrop-blur-sm flex items-center justify-center border border-white/10">
+                      <Lucide icon="Send" className="w-6 h-6 text-blue-400" />
+                    </div>
+                    <h3 className="text-2xl font-bold bg-gradient-to-r from-white via-blue-100 to-violet-100 dark:from-white dark:via-blue-100 dark:to-violet-100 bg-clip-text text-transparent">
+                      Blast Message
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setBlastMessageModal(false)}
+                    className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 text-slate-400 hover:text-white dark:hover:text-slate-200 transition-all duration-200 flex items-center justify-center backdrop-blur-sm border border-white/10"
+                  >
+                    <Lucide icon="X" className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="mt-8 space-y-8">
+                  {/* Recipients Selection */}
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-3">
+                      <Lucide icon="Users" className="w-5 h-5 text-blue-400" />
+                      <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                        Recipients ({selectedContacts.length} selected)
+                      </label>
+                    </div>
+                    <div className="bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl rounded-2xl p-6 max-h-48 overflow-y-auto border border-white/20 dark:border-slate-600/20 shadow-inner">
+                      {selectedContacts.length > 0 ? (
+                        <div className="space-y-3">
+                          {selectedContacts
+                            .slice(0, 10)
+                            .map((contact, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center p-3 bg-white/10 dark:bg-slate-600/20 rounded-xl backdrop-blur-sm border border-white/10"
+                              >
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-sm font-medium mr-3 shadow-lg">
+                                  {contact.contactName
+                                    ?.charAt(0)
+                                    ?.toUpperCase() || "U"}
+                                </div>
+                                <span className="text-white/90 dark:text-slate-200 font-medium">
+                                  {contact.contactName || contact.phone}
+                                </span>
+                              </div>
+                            ))}
+                          {selectedContacts.length > 10 && (
+                            <div className="text-sm text-white/70 dark:text-slate-400 bg-white/5 dark:bg-slate-600/10 rounded-xl p-3 text-center backdrop-blur-sm border border-white/10">
+                              ... and {selectedContacts.length - 10} more
+                              contacts
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-center text-white/60 dark:text-slate-400 py-8">
+                          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-white/10 to-slate-500/20 dark:from-slate-700/50 dark:to-slate-600/50 flex items-center justify-center mx-auto mb-4 backdrop-blur-sm border border-white/10">
+                            <Lucide
+                              icon="Users"
+                              className="w-8 h-8 opacity-50"
+                            />
+                          </div>
+                          <p className="font-medium text-white/80">
+                            No contacts selected
+                          </p>
+                          <p className="text-xs mt-1 text-white/60">
+                            Please select contacts first to send messages
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Phone Selection */}
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-3">
+                      <Lucide
+                        icon="Smartphone"
+                        className="w-5 h-5 text-violet-400"
+                      />
+                      <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                        Select Phone
+                      </label>
+                    </div>
+                    <div className="relative group">
+                      <select
+                        id="phone"
+                        name="phone"
+                        value={phoneIndex === null ? "" : phoneIndex}
+                        onChange={(e) =>
+                          setPhoneIndex(
+                            e.target.value === ""
+                              ? null
+                              : Number(e.target.value)
+                          )
+                        }
+                        className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 focus:border-violet-400/50 focus:ring-2 focus:ring-violet-400/20 transition-all duration-200 shadow-inner"
                       >
-              {showPlaceholders ? "Hide Placeholders" : "Show Placeholders"}
-                      </button>
-                      {showPlaceholders && (
-              <div className="mt-3 space-y-3">
-                <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
-                  Click to insert placeholders:
-                </p>
-                
-                {/* Standard Fields */}
-                <div className="space-y-2">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Standard Fields</p>
-                  <div className="flex flex-wrap gap-2">
+                        <option value="" className="bg-slate-800 text-white">
+                          Select a phone
+                        </option>
+                        {Object.keys(phoneNames).length > 0 ? (
+                          Object.keys(phoneNames).map((index) => {
+                            const phoneIndexOption = parseInt(index);
+                            const qrCode = qrCodes[phoneIndexOption];
+                            const statusInfo = qrCode
+                              ? getStatusInfo(qrCode.status)
+                              : isLoadingStatus
+                              ? {
+                                  text: "Checking...",
+                                  color:
+                                    "bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200",
+                                  icon: "RefreshCw",
+                                }
+                              : {
+                                  text: "Not Connected",
+                                  color:
+                                    "bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200",
+                                  icon: "XCircle",
+                                };
+                            return (
+                              <option
+                                key={phoneIndexOption}
+                                value={phoneIndexOption}
+                                className="bg-slate-800 text-white"
+                              >
+                                {`${getPhoneName(phoneIndexOption)} - ${
+                                  qrCode ? "✅" : isLoadingStatus ? "⏳" : "❌"
+                                } ${statusInfo.text}`}
+                              </option>
+                            );
+                          })
+                        ) : (
+                          <option
+                            value=""
+                            disabled
+                            className="bg-slate-800 text-white"
+                          >
+                            No phones available - Please check your
+                            configuration
+                          </option>
+                        )}
+                      </select>
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-violet-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                      {isLoadingStatus && (
+                        <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                          <LoadingIcon icon="three-dots" className="w-5 h-5" />
+                        </div>
+                      )}
+                    </div>
+                    {phoneIndex !== null && phoneNames[phoneIndex] && (
+                      <div
+                        className={`inline-flex items-center px-4 py-2 rounded-full text-xs font-medium backdrop-blur-sm border border-white/10 ${
+                          qrCodes[phoneIndex]
+                            ? "bg-emerald-500/20 text-emerald-300"
+                            : "bg-red-500/20 text-red-300"
+                        }`}
+                      >
+                        <Lucide
+                          icon={
+                            qrCodes[phoneIndex]
+                              ? getStatusInfo(qrCodes[phoneIndex].status).icon
+                              : "XCircle"
+                          }
+                          className="w-4 h-4 mr-2"
+                        />
+                        {qrCodes[phoneIndex]
+                          ? getStatusInfo(qrCodes[phoneIndex].status).text
+                          : isLoadingStatus
+                          ? "Checking..."
+                          : "Not Connected"}
+                      </div>
+                    )}
+
+                    {/* Help message when phones are not connected */}
+                    {Object.keys(phoneNames).length > 0 &&
+                      !Object.values(qrCodes).some(
+                        (qr) =>
+                          qr &&
+                          ["ready", "authenticated"].includes(
+                            qr.status?.toLowerCase()
+                          )
+                      ) && (
+                        <div className="text-xs text-amber-300 bg-amber-500/10 backdrop-blur-sm p-4 rounded-2xl border border-amber-400/20">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Lucide icon="AlertTriangle" className="w-4 h-4" />
+                            <span className="font-medium">
+                              Connection Required
+                            </span>
+                          </div>
+                          <p>
+                            No phones are currently connected. Please ensure
+                            your WhatsApp bot is running and connected before
+                            sending messages.
+                          </p>
+                        </div>
+                      )}
+                  </div>
+
+                  {/* Message Content */}
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-3">
+                      <Lucide
+                        icon="MessageSquare"
+                        className="w-5 h-5 text-blue-400"
+                      />
+                      <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                        Message Content
+                      </label>
+                    </div>
+                    <div className="relative group">
+                      <textarea
+                        value={blastMessage}
+                        onChange={(e) => setBlastMessage(e.target.value)}
+                        placeholder="Enter your message here..."
+                        rows={6}
+                        className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-blue-400/50 focus:ring-2 focus:ring-blue-400/20 transition-all duration-200 resize-none shadow-inner"
+                      />
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-violet-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-white/60 dark:text-slate-400 bg-white/5 dark:bg-slate-700/20 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10">
+                        Character count: {blastMessage.length}
+                      </span>
+                      <Button
+                        variant="outline-secondary"
+                        size="sm"
+                        onClick={() => setShowPlaceholders(!showPlaceholders)}
+                        className="bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 backdrop-blur-sm border border-white/20 dark:border-slate-600/20 text-white/90 hover:text-white rounded-2xl transition-all duration-200 font-medium"
+                      >
+                        <Lucide icon="Code" className="w-4 h-4 mr-2" />
+                        Placeholders
+                      </Button>
+                    </div>
+
+                    {showPlaceholders && (
+                      <div className="p-6 bg-blue-500/10 backdrop-blur-xl rounded-2xl border border-blue-400/20">
+                        <p className="text-sm font-medium text-blue-300 mb-4 flex items-center gap-2">
+                          <Lucide icon="Code" className="w-4 h-4" />
+                          Available Placeholders:
+                        </p>
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          {[
+                            "contactName",
+                            "firstName",
+                            "lastName",
+                            "phone",
+                            "email",
+                            "company",
+                            "branch",
+                            "vehicleNumber",
+                            "ic",
+                            "expiryDate",
+                          ].map((placeholder) => (
+                            <button
+                              key={placeholder}
+                              onClick={() => insertPlaceholder(placeholder)}
+                              className="text-left p-3 rounded-xl bg-white/10 dark:bg-blue-800/30 text-blue-200 dark:text-blue-200 hover:bg-white/20 dark:hover:bg-blue-700/50 transition-all duration-200 border border-blue-400/20 backdrop-blur-sm font-mono"
+                            >
+                              @{"{"}${placeholder}
+                              {"}"}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Media Upload */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3">
+                        <Lucide
+                          icon="Image"
+                          className="w-5 h-5 text-emerald-400"
+                        />
+                        <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                          Media File (Optional)
+                        </label>
+                      </div>
+                      <div className="relative group">
+                        <input
+                          type="file"
+                          accept="image/*,video/*"
+                          onChange={handleMediaUpload}
+                          className="w-full text-sm text-white/80 dark:text-slate-400 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl p-4 transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-gradient-to-r file:from-blue-500 file:to-violet-600 file:text-white hover:file:from-blue-600 hover:file:to-violet-700 file:transition-all file:duration-200 shadow-inner"
+                        />
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-emerald-500/5 to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                        {selectedMedia && (
+                          <div className="mt-3 flex items-center justify-between bg-emerald-500/10 backdrop-blur-sm px-4 py-3 rounded-xl border border-emerald-400/20">
+                            <div className="flex items-center space-x-3 min-w-0 flex-1">
+                              <Lucide
+                                icon="Image"
+                                className="w-4 h-4 text-emerald-400 flex-shrink-0"
+                              />
+                              <span className="text-xs text-emerald-300 truncate font-medium">
+                                {selectedMedia.name.length > 30
+                                  ? `${selectedMedia.name.substring(0, 30)}...`
+                                  : selectedMedia.name}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => setSelectedMedia(null)}
+                              className="ml-2 w-6 h-6 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 transition-all duration-200 flex items-center justify-center flex-shrink-0"
+                            >
+                              <Lucide icon="X" className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3">
+                        <Lucide
+                          icon="FileText"
+                          className="w-5 h-5 text-orange-400"
+                        />
+                        <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                          Document File (Optional)
+                        </label>
+                      </div>
+                      <div className="relative group">
+                        <input
+                          type="file"
+                          accept=".pdf,.doc,.docx,.txt"
+                          onChange={handleDocumentUpload}
+                          className="w-full text-sm text-white/80 dark:text-slate-400 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl p-4 transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-gradient-to-r file:from-emerald-500 file:to-teal-600 file:text-white hover:file:from-emerald-600 hover:file:to-teal-700 file:transition-all file:duration-200 shadow-inner"
+                        />
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-500/5 to-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                        {selectedDocument && (
+                          <div className="mt-3 flex items-center justify-between bg-orange-500/10 backdrop-blur-sm px-4 py-3 rounded-xl border border-orange-400/20">
+                            <div className="flex items-center space-x-3 min-w-0 flex-1">
+                              <Lucide
+                                icon="FileText"
+                                className="w-4 h-4 text-orange-400 flex-shrink-0"
+                              />
+                              <span className="text-xs text-orange-300 truncate font-medium">
+                                {selectedDocument.name.length > 30
+                                  ? `${selectedDocument.name.substring(
+                                      0,
+                                      30
+                                    )}...`
+                                  : selectedDocument.name}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => setSelectedDocument(null)}
+                              className="ml-2 w-6 h-6 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 transition-all duration-200 flex items-center justify-center flex-shrink-0"
+                            >
+                              <Lucide icon="X" className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Scheduling Options */}
+                  <div className="bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 dark:border-slate-600/20 shadow-inner space-y-6">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500/20 to-purple-500/20 backdrop-blur-sm flex items-center justify-center border border-white/10">
+                        <Lucide
+                          icon="Calendar"
+                          className="w-5 h-5 text-violet-400"
+                        />
+                      </div>
+                      <h4 className="text-xl font-bold text-white/90 dark:text-slate-200">
+                        Scheduling Options
+                      </h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-3">
+                        <label className="block text-sm font-semibold text-white/80 dark:text-slate-400">
+                          Schedule Date
+                        </label>
+                        <DatePickerComponent
+                          selected={blastStartDate}
+                          onChange={(date: Date) => setBlastStartDate(date)}
+                          dateFormat="MMMM d, yyyy"
+                          className="w-full px-4 py-3 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-sm text-white dark:text-slate-200 shadow-inner focus:border-violet-400/50 focus:ring-2 focus:ring-violet-400/20 transition-all duration-200"
+                        />
+                      </div>
+
+                      <div className="space-y-3">
+                        <label className="block text-sm font-semibold text-white/80 dark:text-slate-400">
+                          Schedule Time
+                        </label>
+                        <DatePickerComponent
+                          selected={blastStartTime}
+                          onChange={(time: Date) => setBlastStartTime(time)}
+                          showTimeSelect
+                          showTimeSelectOnly
+                          timeIntervals={15}
+                          timeCaption="Time"
+                          dateFormat="h:mm aa"
+                          className="w-full px-4 py-3 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-sm text-white dark:text-slate-200 shadow-inner focus:border-violet-400/50 focus:ring-2 focus:ring-violet-400/20 transition-all duration-200"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-3">
+                        <label className="block text-sm font-semibold text-white/80 dark:text-slate-400">
+                          Batch Size
+                        </label>
+                        <FormInput
+                          type="number"
+                          value={batchQuantity}
+                          onChange={(e) =>
+                            setBatchQuantity(Number(e.target.value))
+                          }
+                          min="1"
+                          max="100"
+                          className="w-full px-4 py-3 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl shadow-inner focus:border-violet-400/50 focus:ring-2 focus:ring-violet-400/20 transition-all duration-200 text-white"
+                        />
+                      </div>
+
+                      <div className="space-y-3">
+                        <label className="block text-sm font-semibold text-white/80 dark:text-slate-400">
+                          Delay (Minutes)
+                        </label>
+                        <FormInput
+                          type="number"
+                          value={repeatInterval}
+                          onChange={(e) =>
+                            setRepeatInterval(Number(e.target.value))
+                          }
+                          min="0"
+                          className="w-full px-4 py-3 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl shadow-inner focus:border-violet-400/50 focus:ring-2 focus:ring-violet-400/20 transition-all duration-200 text-white"
+                        />
+                      </div>
+
+                      <div className="space-y-3">
+                        <label className="block text-sm font-semibold text-white/80 dark:text-slate-400">
+                          Delay Unit
+                        </label>
+                        <FormSelect
+                          value={repeatUnit}
+                          onChange={(e) =>
+                            setRepeatUnit(
+                              e.target.value as "minutes" | "hours" | "days"
+                            )
+                          }
+                          className="w-full px-4 py-3 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl shadow-inner focus:border-violet-400/50 focus:ring-2 focus:ring-violet-400/20 transition-all duration-200 text-white"
+                        >
+                          <option
+                            value="minutes"
+                            className="bg-slate-800 text-white"
+                          >
+                            Minutes
+                          </option>
+                          <option
+                            value="hours"
+                            className="bg-slate-800 text-white"
+                          >
+                            Hours
+                          </option>
+                          <option
+                            value="days"
+                            className="bg-slate-800 text-white"
+                          >
+                            Days
+                          </option>
+                        </FormSelect>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Progress Bar (shown during sending) */}
+                  {isScheduling && (
+                    <div className="bg-blue-500/10 backdrop-blur-xl rounded-3xl p-6 border border-blue-400/20 shadow-inner">
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-sm font-medium text-blue-300 flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center">
+                            <Lucide
+                              icon="Clock"
+                              className="w-4 h-4 text-white"
+                            />
+                          </div>
+                          Scheduling messages...
+                        </span>
+                        <span className="text-sm text-blue-300 font-semibold bg-blue-500/20 px-4 py-2 rounded-full backdrop-blur-sm border border-blue-400/20">
+                          {Math.round(progress)}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-blue-900/30 rounded-full h-4 backdrop-blur-sm border border-blue-400/20">
+                        <div
+                          className="bg-gradient-to-r from-blue-500 to-violet-600 h-4 rounded-full transition-all duration-500 shadow-lg"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-between items-center mt-10 pt-6 border-t border-white/10 dark:border-slate-700/20">
+                  <div className="text-sm text-white/70 dark:text-slate-400 bg-white/5 dark:bg-slate-700/20 backdrop-blur-sm px-4 py-3 rounded-full border border-white/10">
+                    <div className="flex items-center space-x-2">
+                      <Lucide icon="Users" className="w-4 h-4" />
+                      <span>{selectedContacts.length} recipients selected</span>
+                    </div>
+                  </div>
+                  <div className="flex space-x-3">
+                    <Button
+                      variant="outline-secondary"
+                      onClick={() => setBlastMessageModal(false)}
+                      disabled={isScheduling}
+                      className="px-6 py-3 bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 backdrop-blur-sm border border-white/20 dark:border-slate-600/20 text-white/90 hover:text-white rounded-2xl transition-all duration-200 font-medium"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="primary"
+                      onClick={sendBlastMessage}
+                      disabled={
+                        selectedContacts.length === 0 ||
+                        !blastMessage.trim() ||
+                        phoneIndex === null ||
+                        phoneIndex === undefined ||
+                        !phoneNames[phoneIndex] ||
+                        isScheduling
+                      }
+                      className="px-8 py-3 bg-gradient-to-r from-blue-500 via-violet-500 to-purple-500 hover:from-blue-600 hover:via-violet-600 hover:to-purple-600 border-0 text-white rounded-2xl transition-all duration-200 font-semibold shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                    >
+                      {isScheduling ? (
+                        <div className="flex items-center space-x-2">
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          <span>Scheduling...</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          <Lucide icon="Send" className="w-4 h-4" />
+                          <span>Schedule Message</span>
+                        </div>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
+
+        {/* Edit Scheduled Message Modal */}
+        <Dialog
+          open={editScheduledMessageModal}
+          onClose={() => setEditScheduledMessageModal(false)}
+        >
+          <div className="fixed inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl">
+            <Dialog.Panel className="w-full max-w-lg relative bg-white/10 dark:bg-slate-800/10 backdrop-blur-3xl rounded-3xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden overflow-y-auto transform hover:scale-[1.005] transition-all duration-300">
+              {/* Enhanced Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-400/10 via-purple-500/5 to-blue-500/10 dark:from-indigo-600/10 dark:via-purple-700/5 dark:to-blue-600/10 pointer-events-none" />
+
+              <div className="relative p-8">
+                <div className="flex items-center justify-between pb-6 border-b border-white/10 dark:border-slate-700/20">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 backdrop-blur-sm flex items-center justify-center border border-white/10">
+                      <Lucide
+                        icon="PenTool"
+                        className="w-6 h-6 text-indigo-400"
+                      />
+                    </div>
+                    <h3 className="text-2xl font-bold bg-gradient-to-r from-white via-indigo-100 to-purple-100 dark:from-white dark:via-indigo-100 dark:to-purple-100 bg-clip-text text-transparent">
+                      Edit Scheduled Message
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setEditScheduledMessageModal(false)}
+                    className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 text-slate-400 hover:text-white dark:hover:text-slate-200 transition-all duration-200 flex items-center justify-center backdrop-blur-sm border border-white/10"
+                  >
+                    <Lucide icon="X" className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="mt-8 space-y-6">
+                  {/* Message Content */}
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3">
+                      <Lucide
+                        icon="MessageSquare"
+                        className="w-5 h-5 text-indigo-400"
+                      />
+                      <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                        Message Content
+                      </label>
+                    </div>
+                    <textarea
+                      value={blastMessage}
+                      onChange={(e) => setBlastMessage(e.target.value)}
+                      rows={4}
+                      className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/20 transition-all duration-200 resize-none shadow-inner"
+                    />
+                  </div>
+
+                  {/* Placeholders */}
+                  <div className="space-y-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowPlaceholders(!showPlaceholders)}
+                      className="flex items-center space-x-2 text-indigo-300 hover:text-indigo-200 transition-colors duration-200"
+                    >
+                      <Lucide icon="Code" className="w-4 h-4" />
+                      <span className="text-sm font-medium">
+                        {showPlaceholders
+                          ? "Hide Placeholders"
+                          : "Show Placeholders"}
+                      </span>
+                    </button>
+                    {showPlaceholders && (
+                      <div className="p-6 bg-indigo-500/10 backdrop-blur-xl rounded-2xl border border-indigo-400/20 space-y-4">
+                        <p className="text-sm font-medium text-indigo-300 flex items-center gap-2">
+                          <Lucide icon="Info" className="w-4 h-4" />
+                          Click to insert:
+                        </p>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
                           {[
                             "contactName",
                             "firstName",
@@ -6280,49 +10199,67 @@ const handleConfirmSyncFirebase = async () => {
                             <button
                               key={field}
                               type="button"
-                        className="px-3 py-1.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800/40 transition-all duration-200 border border-blue-200 dark:border-blue-800"
                               onClick={() => insertPlaceholder(field)}
+                              className="text-left p-3 rounded-xl bg-white/10 dark:bg-indigo-800/30 text-indigo-200 dark:text-indigo-200 hover:bg-white/20 dark:hover:bg-indigo-700/50 transition-all duration-200 border border-indigo-400/20 backdrop-blur-sm font-mono"
                             >
-                        @{field}
+                              @{"{"}${field}
+                              {"}"}
                             </button>
                           ))}
-                  </div>
-                </div>
+                        </div>
 
-                          {/* Custom Fields Placeholders */}
-                          {(() => {
-                            const allCustomFields = new Set<string>();
-                  if (selectedContacts && selectedContacts.length > 0) {
-                                      selectedContacts.forEach((contact) => {
-                                if (contact.customFields) {
-                        Object.keys(contact.customFields).forEach((key) => allCustomFields.add(key));
-                                }
-                              });
-                            }
-                  if (allCustomFields.size === 0 && contacts && contacts.length > 0) {
-                              contacts.forEach((contact) => {
-                                if (contact.customFields) {
-                        Object.keys(contact.customFields).forEach((key) => allCustomFields.add(key));
-                                }
-                              });
-                            }
-                            if (allCustomFields.size > 0) {
-                              return (
-                      <div className="space-y-2">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Custom Fields</p>
-                        <div className="flex flex-wrap gap-2">
+                        {/* Custom Fields Placeholders */}
+                        {(() => {
+                          const allCustomFields = new Set<string>();
+
+                          if (selectedContacts && selectedContacts.length > 0) {
+                            selectedContacts.forEach((contact) => {
+                              if (contact.customFields) {
+                                Object.keys(contact.customFields).forEach(
+                                  (key) => allCustomFields.add(key)
+                                );
+                              }
+                            });
+                          }
+
+                          if (
+                            allCustomFields.size === 0 &&
+                            contacts &&
+                            contacts.length > 0
+                          ) {
+                            contacts.forEach((contact) => {
+                              if (contact.customFields) {
+                                Object.keys(contact.customFields).forEach(
+                                  (key) => allCustomFields.add(key)
+                                );
+                              }
+                            });
+                          }
+
+                          if (allCustomFields.size > 0) {
+                            return (
+                              <div className="space-y-3 pt-3 border-t border-indigo-400/20">
+                                <p className="text-sm font-medium text-emerald-300 flex items-center gap-2">
+                                  <Lucide icon="Settings" className="w-4 h-4" />
+                                  Custom Fields:
+                                </p>
+                                <div className="grid grid-cols-2 gap-2 text-xs">
                                   {Array.from(allCustomFields).map((field) => (
                                     <button
                                       key={field}
                                       type="button"
-                              className="px-3 py-1.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-800/40 transition-all duration-200 border border-green-200 dark:border-green-800"
                                       onClick={() => {
                                         const placeholder = `@{${field}}`;
                                         const newMessages = [...messages];
                                         if (newMessages.length > 0) {
-                                  const currentText = newMessages[focusedMessageIndex].text;
+                                          const currentText =
+                                            newMessages[focusedMessageIndex]
+                                              .text;
                                           const newText =
-                                    currentText.slice(0, cursorPosition) +
+                                            currentText.slice(
+                                              0,
+                                              cursorPosition
+                                            ) +
                                             placeholder +
                                             currentText.slice(cursorPosition);
 
@@ -6331,3095 +10268,1814 @@ const handleConfirmSyncFirebase = async () => {
                                             text: newText,
                                           };
                                           setMessages(newMessages);
-                                  setCursorPosition(cursorPosition + placeholder.length);
-                                }
-                              }}
-                            >
-                              @{field}
+
+                                          setCursorPosition(
+                                            cursorPosition + placeholder.length
+                                          );
+                                        }
+                                      }}
+                                      className="text-left p-3 rounded-xl bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30 transition-all duration-200 border border-emerald-400/20 backdrop-blur-sm font-mono"
+                                    >
+                                      @{"{"}${field}
+                                      {"}"}
                                     </button>
                                   ))}
-                        </div>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
-                              );
-                            }
-                            return null;
-                          })()}
-                        </div>
-                      )}
-                    </div>
-        </div>
-
-        {/* Schedule Settings */}
-        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                        Scheduled Time
-                      </label>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm text-gray-600 dark:text-gray-400 mb-1 block">Date</label>
-                        <DatePickerComponent
-                          selected={
-                            currentScheduledMessage?.scheduledTime
-                              ? new Date(currentScheduledMessage.scheduledTime)
-                              : null
-                          }
-                          onChange={(date: Date | null) =>
-                            date &&
-                            setCurrentScheduledMessage({
-                              ...currentScheduledMessage!,
-                              scheduledTime: date.toISOString(),
-                            })
-                          }
-                          dateFormat="MMMM d, yyyy"
-                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all duration-200"
-                        />
-            </div>
-            <div>
-              <label className="text-sm text-gray-600 dark:text-gray-400 mb-1 block">Time</label>
-                        <DatePickerComponent
-                          selected={
-                            currentScheduledMessage?.scheduledTime
-                              ? new Date(currentScheduledMessage.scheduledTime)
-                              : null
-                          }
-                          onChange={(date: Date | null) =>
-                            date &&
-                            setCurrentScheduledMessage({
-                              ...currentScheduledMessage!,
-                              scheduledTime: date.toISOString(),
-                            })
-                          }
-                          showTimeSelect
-                          showTimeSelectOnly
-                          timeIntervals={15}
-                          timeCaption="Time"
-                          dateFormat="h:mm aa"
-                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all duration-200"
-                        />
-                      </div>
-                    </div>
-        </div>
-
-        {/* Media Upload */}
-        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Attach Media (Image or Video)
-                      </label>
-                      <input
-                        type="file"
-                        accept="image/*,video/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                if (file.type.startsWith("video/") && file.size > 20 * 1024 * 1024) {
-                  toast.error("The video file is too big. Please select a file smaller than 20MB.");
-                              return;
-                            }
-                            try {
-                              handleEditMediaUpload(e);
-                            } catch (error) {
-                  toast.error("Upload unsuccessful. Please try again.");
-                            }
-                          }
-                        }}
-            className="block w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all duration-200"
-                      />
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Supported: Images, Videos (max 20MB)
-          </p>
-                    </div>
-
-        {/* Document Upload */}
-        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Attach Document
-                      </label>
-                      <input
-                        type="file"
-                        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
-                        onChange={(e) => handleEditDocumentUpload(e)}
-            className="block w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all duration-200"
-                      />
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Supported: PDF, Word, Excel, PowerPoint files
-          </p>
-                    </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex justify-end mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                      <button
-          className="px-6 py-2.5 mr-3 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-200"
-                        onClick={() => setEditScheduledMessageModal(false)}
-                      >
-                        Cancel
-                      </button>
-                      <button
-          className="px-6 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-indigo-500/90 to-indigo-600/90 hover:from-indigo-600/90 hover:to-indigo-700/90 backdrop-blur-md shadow-lg border border-indigo-400/20 rounded-lg transition-all duration-200 hover:shadow-xl hover:scale-105"
-                        onClick={handleSaveScheduledMessage}
-                      >
-          <Lucide icon="Save" className="w-4 h-4 mr-2 inline" />
-          Save Changes
-                      </button>
-                                  </div>
-                  </Dialog.Panel>
-                </div>
-              </Dialog>
-            </div>
-          </div>
-        </div>
-        <div className="flex flex-col">
-        <div className="px-4 sm:px-20">
-        <div className="sticky top-0 backdrop-blur-md z-10 py-2 sm:py-4 border-b border-gray-200/50 dark:border-gray-700/50">    <div className="flex flex-col md:flex-row items-start md:items-center justify-between">
-      <div className="flex-grow">
-      <div className="flex items-center mb-1 sm:mb-2">
-        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-r from-blue-500/90 to-blue-600/90 backdrop-blur-md shadow-lg border border-blue-400/20 flex items-center justify-center mr-2 sm:mr-3">
-          <Lucide icon="Users" className="w-5 h-5 text-white" />
-        </div>
-          <span className="text-lg sm:text-xl font-semibold text-gray-800 dark:text-gray-200">
-  Contacts
-</span>
-        </div>
-        
-        {/* All Action Buttons in ONE ROW */}
-        <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-6 flex-nowrap overflow-x-auto">
-          <button
-            onClick={handleSelectAll}
-            className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-gray-500/90 to-gray-600/90 hover:from-gray-600/90 hover:to-gray-700/90 backdrop-blur-md shadow-lg border border-gray-400/20 text-white text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2 transition-all duration-200 hover:shadow-xl hover:scale-105 whitespace-nowrap flex-shrink-0"
-          >
-            <Lucide
-              icon={selectedContacts.length === filteredContacts.length ? "CheckSquare" : "Square"}
-              className="w-4 h-4"
-            />
-            Select All
-          </button>
-          
-          <button
-            onClick={() => handleSelectCurrentPage()}
-            className="px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-gray-500/90 to-gray-600/90 hover:from-gray-600/90 hover:to-gray-700/90 backdrop-blur-md shadow-lg border border-gray-400/20 text-white text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2 transition-all duration-200 hover:shadow-xl hover:scale-105 whitespace-nowrap flex-shrink-0"
-          >
-            <Lucide
-              icon={currentContacts.every((contact) =>
-                selectedContacts.some((sc) => sc.id === contact.id)
-              ) ? "CheckSquare" : "Square"}
-              className="w-4 h-4"
-            />
-            Select Page
-          </button>
-          
-          {selectedContacts.length > 0 &&
-            currentContacts.some((contact) =>
-              selectedContacts.map((c) => c.id).includes(contact.id)
-            ) && (
-              <button
-                onClick={handleDeselectPage}
-                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-orange-500/90 to-orange-600/90 hover:from-orange-600/90 hover:to-orange-700/90 backdrop-blur-md shadow-lg border border-orange-400/20 text-white text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:shadow-xl hover:scale-105 whitespace-nowrap flex-shrink-0"
-              >
-                <Lucide icon="X" className="w-4 h-4" />
-                Deselect Page
-              </button>
-            )}
-
-          <button
-            onClick={() => setShowColumnsModal(true)}
-            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500/90 to-indigo-600/90 hover:from-indigo-600/90 hover:to-indigo-700/90 backdrop-blur-md shadow-lg border border-indigo-400/20 text-white text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:shadow-xl hover:scale-105 whitespace-nowrap flex-shrink-0"
-          >
-            <Lucide icon="Grid2x2" className="w-4 h-4" />
-            Show/Hide Columns
-          </button>
-
-          <button
-            onClick={() => setShowDateFilterModal(true)}
-            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500/90 to-purple-600/90 hover:from-purple-600/90 hover:to-purple-700/90 backdrop-blur-md shadow-lg border border-purple-400/20 text-white text-sm font-medium flex items-center gap-2 transition-all duration-200 hover:shadow-xl hover:scale-105 whitespace-nowrap flex-shrink-0"
-          >
-            <Lucide icon="Calendar" className="w-4 h-4" />
-            Filter by Date
-          </button>
-        </div>
-
-        {/* Selected Contacts Actions */}
-        {selectedContacts.length > 0 && (
-          <div className="flex flex-wrap items-center gap-3 ">
-            <div className="px-4 py-2.5 bg-gradient-to-r from-blue-500/90 to-blue-600/90 backdrop-blur-md shadow-lg border border-blue-400/20 rounded-xl text-white">
-              <span className="text-sm font-medium">
-                {selectedContacts.length} selected
-              </span>
-              <button
-                onClick={() => setSelectedContacts([])}
-                className="ml-3 text-white hover:text-blue-200 transition-colors duration-200"
-              >
-                <Lucide icon="X" className="w-4 h-4" />
-              </button>
-            </div>
-            
-            <button
-              className={`px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-all duration-200 hover:shadow-xl hover:scale-105 ${
-                userRole === "3"
-                  ? "bg-gray-400/90 cursor-not-allowed"
-                  : "bg-gradient-to-r from-red-500/90 to-red-600/90 hover:from-red-600/90 hover:to-red-700/90 backdrop-blur-md shadow-lg border border-red-400/20"
-              }`}
-              onClick={() => {
-                if (userRole !== "3") {
-                  setShowMassDeleteModal(true);
-                } else {
-                  toast.error("You don't have permission to delete contacts.");
-                }
-              }}
-              disabled={userRole === "3"}
-            >
-              <Lucide icon="Trash" className="w-4 h-4 mr-2 inline" />
-              Delete Selected
-            </button>
-          </div>
-        )}
-
-        {/* Active Filters Display */}
-        <div className="flex flex-wrap items-center gap-2 ">
-          {/* Tag Filters */}
-          {selectedTagFilter && (
-            <span className="px-3 py-2 text-sm font-medium rounded-xl bg-blue-100/90 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200/50 dark:border-blue-800/50 backdrop-blur-md shadow-sm">
-              {selectedTagFilter}
-              <button
-                className="ml-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors duration-200"
-                onClick={() => handleTagFilterChange("")}
-              >
-                <Lucide icon="X" className="w-4 h-4" />
-              </button>
-            </span>
-          )}
-          
-          {excludedTags.map((tag) => (
-            <span
-              key={tag}
-              className="px-3 py-2 text-sm font-medium rounded-xl bg-red-100/90 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200/50 dark:border-red-800/50 backdrop-blur-md shadow-sm"
-            >
-              {tag}
-              <button
-                className="ml-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors duration-200"
-                onClick={() => handleRemoveExcludedTag(tag)}
-              >
-                <Lucide icon="X" className="w-4 h-4" />
-              </button>
-            </span>
-          ))}
-
-          {/* Selected Tag Filters */}
-          {selectedTagFilters.map((tag) => (
-            <span
-              key={tag}
-              className="px-3 py-2 text-sm font-medium rounded-xl bg-blue-100/90 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200/50 dark:border-blue-800/50 backdrop-blur-md shadow-sm"
-            >
-              {tag}
-              <button
-                className="ml-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-800 transition-colors duration-200"
-                onClick={() => handleTagFilterChange(tag)}
-              >
-                <Lucide icon="X" className="w-4 h-4" />
-              </button>
-            </span>
-          ))}
-
-          {/* Selected User Filters */}
-          {selectedUserFilters.map((user) => (
-            <span
-              key={user}
-              className="px-3 py-2 text-sm font-medium rounded-xl bg-green-100/90 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200/50 dark:border-green-800/50 backdrop-blur-md shadow-sm"
-            >
-              {user}
-              <button
-                className="ml-2 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-800 transition-colors duration-200"
-                onClick={() => handleUserFilterChange(user)}
-              >
-                <Lucide icon="X" className="w-4 h-4" />
-              </button>
-            </span>
-          ))}
-
-          {/* Active Date Filter */}
-          {activeDateFilter && (
-            <span className="px-3 py-2 text-sm font-medium rounded-xl bg-purple-100/90 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200/50 dark:border-purple-800/50 backdrop-blur-md shadow-sm">
-              Created At
-              {activeDateFilter.start
-                ? ` from ${new Date(activeDateFilter.start).toLocaleDateString(undefined, {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                  })}`
-                : ""}
-              {activeDateFilter.end
-                ? ` to ${new Date(activeDateFilter.end).toLocaleDateString(undefined, {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                  })}`
-                : ""}
-              <button
-                className="ml-2 text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-800 transition-colors duration-200"
-                onClick={clearDateFilter}
-              >
-                <Lucide icon="X" className="w-4 h-4" />
-              </button>
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Pagination */}
-      <div className="flex justify-end items-center font-medium">
-        <ReactPaginate
-          breakLabel="..."
-          nextLabel="Next >"
-          onPageChange={handlePageClick}
-          pageRangeDisplayed={5}
-          pageCount={pageCount}
-          previousLabel="< Previous"
-          renderOnZeroPageCount={null}
-          containerClassName="flex justify-center items-center"
-          pageClassName="mx-1"
-          pageLinkClassName="px-3 py-2 rounded-lg bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm backdrop-blur-md border border-gray-200/50 dark:border-gray-700/50 transition-all duration-200"
-          previousClassName="mx-1"
-          nextClassName="mx-1"
-          previousLinkClassName="px-3 py-2 rounded-lg bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm backdrop-blur-md border border-gray-200/50 dark:border-gray-700/50 transition-all duration-200"
-          nextLinkClassName="px-3 py-2 rounded-lg bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-sm backdrop-blur-md border border-gray-200/50 dark:border-gray-700/50 transition-all duration-200"
-          disabledClassName="opacity-50 cursor-not-allowed"
-          activeClassName="font-bold"
-          activeLinkClassName="bg-blue-500/90 text-white hover:bg-blue-600/90 dark:bg-blue-600/90 dark:text-white dark:hover:bg-blue-700/90 shadow-lg"
-        />
-      </div>
-    </div>
-        </div>
-  </div>
-
-        {/* Table Container with Glassmorphic Design */}
-        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-md rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 overflow-hidden">         
-        {isLoadingContacts ? (
-  <div className="flex flex-col items-center justify-center py-20">
-    <LoadingIcon icon="oval" className="w-8 h-8" />
-    <div className="mt-4 text-center">
-      <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-        Loading contacts...
-      </h3>
-      <p className="text-sm text-gray-500 dark:text-gray-400">
-        Please wait while we fetch your contacts
-      </p>
-    </div>
-  </div>
-) : (
-         <div className="overflow-x-auto">
-    <div
-className="h-[calc(100vh-60px)] overflow-y-auto overscroll-contain touch-pan-y"
-ref={contactListRef}
-    >
-      {/* Desktop Table */}
-      <table
-        className="w-full border-collapse hidden sm:table"
-        style={{ minWidth: "800px" }}
-      >
-        <DragDropContext onDragEnd={handleColumnReorder}>
-          <Droppable droppableId="thead" direction="horizontal">
-            {(provided) => (
-              <thead
-                ref={provided.innerRef}
-                {...provided.droppableProps}
-                className="sticky top-0 bg-white/95 dark:bg-gray-700/95 backdrop-blur-md z-10 border-b border-gray-200/50 dark:border-gray-600/50"
-              >
-                <tr className="text-left">
-                  {columnOrder.map((columnId, index) => {
-                    if (
-                      !visibleColumns[
-                        columnId.replace("customField_", "")
-                      ]
-                    )
-                      return null;
-
-                    return (
-                      <Draggable
-                        key={columnId}
-                        draggableId={columnId}
-                        index={index}
-                      >
-                        {(provided) => (
-                          <th
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            {...provided.dragHandleProps}
-                            className={`p-1 sm:p-2 text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 cursor-move hover:bg-gray-50/80 dark:hover:bg-gray-600/80 transition-all duration-200 ${                              columnId === "branch" ? "min-w-[200px]" : ""
-                            } ${
-                              columnId === "vehicleNumber" ? "min-w-[120px]" : ""
-                            }`}
-                          >
-                            {columnId === "checkbox" && (
-                              <input
-                                type="checkbox"
-                                checked={
-                                  currentContacts.length > 0 &&
-                                  currentContacts.every((contact) =>
-                                    selectedContacts.some(
-                                      (c) => c.phone === contact.phone
-                                    )
-                                  )
-                                }
-                                onChange={() =>
-                                  handleSelectCurrentPage()
-                                }
-                                className="rounded border-gray-300 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400/50 transition-all duration-200"
-                              />
-                            )}
-                            {columnId === "contact" && (
-                              <div
-                                className="flex items-center hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200"
-                                onClick={() =>
-                                  handleSort("contactName")
-                                }
-                              >
-                                Contact
-                                {sortField === "contactName" && (
-                                  <Lucide
-                                    icon={
-                                      sortDirection === "asc"
-                                        ? "ChevronUp"
-                                        : "ChevronDown"
-                                    }
-                                    className="w-4 h-4 ml-2 text-blue-500"
-                                  />
-                                )}
-                              </div>
-                            )}
-                            {columnId === "phone" && (
-                              <div
-                                className="flex items-center hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200"
-                                onClick={() => handleSort("phone")}
-                              >
-                                Phone
-                                {sortField === "phone" && (
-                                  <Lucide
-                                    icon={
-                                      sortDirection === "asc"
-                                        ? "ChevronUp"
-                                        : "ChevronDown"
-                                    }
-                                    className="w-4 h-4 ml-2 text-blue-500"
-                                  />
-                                )}
-                              </div>
-                            )}
-                            {columnId === "tags" && (
-                              <div
-                                className="flex items-center hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200"
-                                onClick={() => handleSort("tags")}
-                              >
-                                Tags
-                                {sortField === "tags" && (
-                                  <Lucide
-                                    icon={
-                                      sortDirection === "asc"
-                                        ? "ChevronUp"
-                                        : "ChevronDown"
-                                    }
-                                    className="w-4 h-4 ml-2 text-blue-500"
-                                  />
-                                )}
-                              </div>
-                            )}
-                            {columnId === "ic" && (
-                              <div
-                                className="flex items-center hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200"
-                                onClick={() => handleSort("ic")}
-                              >
-                                IC
-                                {sortField === "ic" && (
-                                  <Lucide
-                                    icon={
-                                      sortDirection === "asc"
-                                        ? "ChevronUp"
-                                        : "ChevronDown"
-                                    }
-                                    className="w-4 h-4 ml-2 text-blue-500"
-                                  />
-                                )}
-                              </div>
-                            )}
-                            {columnId === "expiryDate" && (
-                              <div
-                                className="flex items-center hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200"
-                                onClick={() =>
-                                  handleSort("expiryDate")
-                                }
-                              >
-                                Expiry Date
-                                {sortField === "expiryDate" && (
-                                  <Lucide
-                                    icon={
-                                      sortDirection === "asc"
-                                        ? "ChevronUp"
-                                        : "ChevronDown"
-                                    }
-                                    className="w-4 h-4 ml-2 text-blue-500"
-                                  />
-                                )}
-                              </div>
-                            )}
-                            {columnId === "vehicleNumber" && (
-                              <div
-                                className="flex items-center min-w-[120px] hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200"
-                                onClick={() =>
-                                  handleSort("vehicleNumber")
-                                }
-                              >
-                                Vehicle Number
-                                {sortField === "vehicleNumber" && (
-                                  <Lucide
-                                    icon={
-                                      sortDirection === "asc"
-                                        ? "ChevronUp"
-                                        : "ChevronDown"
-                                    }
-                                    className="w-4 h-4 ml-2 text-blue-500"
-                                  />
-                                )}
-                              </div>
-                            )}
-                            {columnId === "branch" && (
-                              <div
-                                className="flex items-center min-w-[200px] hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200"
-                                onClick={() => handleSort("branch")}
-                              >
-                                Branch
-                                {sortField === "branch" && (
-                                  <Lucide
-                                    icon={
-                                      sortDirection === "asc"
-                                        ? "ChevronUp"
-                                        : "ChevronDown"
-                                    }
-                                    className="w-4 h-4 ml-2 text-blue-500"
-                                  />
-                                )}
-                              </div>
-                            )}
-                            {columnId === "notes" && (
-                              <div
-                                className="flex items-center hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200"
-                                onClick={() => handleSort("notes")}
-                              >
-                                Notes
-                                {sortField === "notes" && (
-                                  <Lucide
-                                    icon={
-                                      sortDirection === "asc"
-                                        ? "ChevronUp"
-                                        : "ChevronDown"
-                                    }
-                                    className="w-4 h-4 ml-2 text-blue-500"
-                                  />
-                                )}
-                              </div>
-                            )}
-                            {columnId === "createdAt" && (
-                              <div
-                                className="flex items-center hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200"
-                                onClick={() =>
-                                  handleSort("createdAt")
-                                }
-                              >
-                                Created At
-                                {sortField === "createdAt" && (
-                                  <Lucide
-                                    icon={
-                                      sortDirection === "asc"
-                                        ? "ChevronUp"
-                                        : "ChevronDown"
-                                    }
-                                    className="w-4 h-4 ml-2 text-blue-500"
-                                  />
-                                )}
-                              </div>
-                            )}
-                            {columnId === "actions" && (
-                              <div className="flex items-center">
-                                Actions
-                              </div>
-                            )}
-                            {columnId.startsWith("customField_") && (
-                              <div
-                                className="flex items-center hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200"
-                                onClick={() => handleSort(columnId)}
-                              >
-                                {columnId
-                                  .replace("customField_", "")
-                                  .replace(/^\w/, (c) =>
-                                    c.toUpperCase()
-                                  )}
-                                {sortField === columnId && (
-                                  <Lucide
-                                    icon={
-                                      sortDirection === "asc"
-                                        ? "ChevronUp"
-                                        : "ChevronDown"
-                                    }
-                                    className="w-4 h-4 ml-2 text-blue-500"
-                                  />
-                                )}
-                              </div>
-                            )}
-                          </th>
-                        )}
-                      </Draggable>
-                    );
-                  })}
-                  {provided.placeholder}
-                </tr>
-              </thead>
-            )}
-          </Droppable>
-          <tbody className="divide-y divide-gray-200/50 dark:divide-gray-700/50">
-            {getDisplayedContacts().map((contact, index) => (
-              <tr
-                key={index}
-                className={`hover:bg-gray-50/80 dark:hover:bg-gray-700/80 transition-all duration-200 ${
-                  selectedContacts.some(
-                    (c) => c.phone === contact.phone
-                  )
-                    ? "bg-blue-50/80 dark:bg-blue-900/20 border-l-4 border-l-blue-500"
-                    : ""
-                }`}
-              >
-                {columnOrder.map((columnId) => {
-                  if (
-                    !visibleColumns[
-                      columnId.replace("customField_", "")
-                    ]
-                  )
-                    return null;
-
-                  return (
-                    <td
-                      key={`${contact.id}-${columnId}`}
-                   className="p-1 sm:p-2 text-xs"
-                    >
-                      {columnId === "checkbox" && (
-                        <input
-                          type="checkbox"
-                          checked={selectedContacts.some(
-                            (c) => c.phone === contact.phone
-                          )}
-                          onChange={() =>
-                            toggleContactSelection(contact)
-                          }
-                          className="rounded border-gray-300 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400/50 transition-all duration-200"
-                        />
-                      )}
-                      {columnId === "contact" && (
-                        <div className="flex items-center">
-                          {contact.profileUrl ? (
-                            <img
-                              src={contact.profileUrl}
-                              alt={contact.contactName || "Profile"}
-                              className="w-8 h-8 rounded-full object-cover mr-3 shadow-sm border-2 border-white dark:border-gray-600"
-                            />
-                          ) : (
-                            <div className="w-8 h-8 mr-3 border-2 border-gray-300 dark:border-gray-600 rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-700 shadow-sm">
-                              {contact.chat_id &&
-                              contact.chat_id.includes("@g.us") ? (
-                                <Lucide
-                                  icon="Users"
-                                  className="w-4 h-4 text-gray-500 dark:text-gray-400"
-                                />
-                              ) : (
-                                <Lucide
-                                  icon="User"
-                                  className="w-4 h-4 text-gray-500 dark:text-gray-400"
-                                />
-                              )}
-                            </div>
-                          )}
-                          <span className="font-medium text-xs text-gray-900 dark:text-white">
-                            {contact.contactName
-                              ? contact.lastName
-                                ? `${contact.contactName} ${contact.lastName}`
-                                : contact.contactName
-                              : contact.phone}
-                          </span>
-                        </div>
-                      )}
-                      {columnId === "phone" && (
-                        <span className="text-gray-600 dark:text-gray-400 font-mono text-xs">
-                          {contact.phone ?? contact.source}
-                        </span>
-                      )}
-                      {columnId === "tags" && (
-                        <div className="flex flex-wrap gap-1 sm:gap-2">
-                          {contact.tags && contact.tags.length > 0 ? (
-                            contact.tags.map((tag, index) => (
-                              <div
-                                key={index}
-                                className="relative group"
-                              >
-                                <span
-className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs font-medium rounded-full inline-flex justify-center items-center shadow-sm transition-all duration-200 flex-shrink-0 ${                                    employeeNames.includes(
-                                      tag.toLowerCase()
-                                    )
-                                      ? "bg-gradient-to-r from-green-500/90 to-green-600/90 text-white border border-green-400/20"
-                                      : "bg-gradient-to-r from-blue-500/90 to-blue-600/90 text-white border border-blue-400/20"
-                                  }`}
-                                >
-                                  {tag.charAt(0).toUpperCase() +
-                                    tag.slice(1)}
-                                </span>
-                                <button
-                                  className="absolute right-0 top-0 transform translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-200 text-red-500 hover:text-red-700"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleRemoveTag(contact.contact_id!, tag);
-                                  }}
-                                >
-                                  <div className="w-4 h-4 bg-red-600 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-800 rounded-full flex items-center justify-center shadow-md">
-                                    <Lucide
-                                      icon="X"
-                                      className="w-3 h-3 text-white"
-                                    />
-                                  </div>
-                                </button>
-                              </div>
-                            ))
-                          ) : (
-                            <span className="text-sm text-gray-500 dark:text-gray-400 italic">
-                              No tags
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      {columnId === "notes" && (
-                        <span className="text-gray-600 dark:text-gray-400 text-sm">
-                          {contact.notes || "-"}
-                        </span>
-                      )}
-                      {columnId === "createdAt" && (
-                        <span className="text-gray-600 dark:text-gray-400 text-xs font-mono">
-                          {contact.createdAt
-                            ? (() => {
-                                try {
-                                  let dateValue = contact.createdAt;
-                                  if (
-                                    typeof dateValue === "object" &&
-                                    dateValue !== null &&
-                                    "seconds" in dateValue &&
-                                    "nanoseconds" in dateValue
-                                  ) {
-                                    return new Date(
-                                      (dateValue as any).seconds *
-                                        1000
-                                    ).toLocaleDateString("en-US", {
-                                      year: "numeric",
-                                      month: "short",
-                                      day: "numeric",
-                                    });
-                                  }
-                                  const date = new Date(dateValue);
-                                  return isNaN(date.getTime())
-                                    ? "Invalid Date"
-                                    : date.toLocaleDateString(
-                                        "en-US",
-                                        {
-                                          year: "numeric",
-                                          month: "short",
-                                          day: "numeric",
-                                        }
-                                      );
-                                } catch (e) {
-                                  console.error(
-                                    "Error formatting date:",
-                                    e,
-                                    contact.createdAt
-                                  );
-                                  return "Invalid Date";
-                                }
-                              })()
-                            : "-"}
-                        </span>
-                      )}
-                      {columnId === "actions" && (
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => {
-                              setCurrentContact(contact);
-                              setEditContactModal(true);
-                            }}
-                            className="p-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all duration-200"
-                            title="View/Edit"
-                          >
-                            <Lucide icon="Eye" className="w-5 h-5" />
-                          </button>
-                          <button
-                            onClick={() => handleClick(contact.phone)}
-                            className="p-2 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-all duration-200"
-                            title="Chat"
-                          >
-                            <Lucide
-                              icon="MessageSquare"
-                              className="w-5 h-5"
-                            />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setCurrentContact(contact);
-                              setDeleteConfirmationModal(true);
-                            }}
-                            className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
-                            title="Delete"
-                          >
-                            <Lucide
-                              icon="Trash"
-                              className="w-5 h-5"
-                            />
-                          </button>
-                        </div>
-                      )}
-                      {columnId === "ic" && (
-                        <span className="text-gray-600 dark:text-gray-400 font-mono text-xs">
-                          {contact.ic || "-"}
-                        </span>
-                      )}
-                      {columnId === "expiryDate" && (
-                        <span className="text-gray-600 dark:text-gray-400 text-sm">
-                          {contact.expiryDate || "-"}
-                        </span>
-                      )}
-                      {columnId === "vehicleNumber" && (
-                        <span className="text-gray-600 dark:text-gray-400 min-w-[120px] block font-mono text-sm">
-                          {contact.vehicleNumber || "-"}
-                        </span>
-                      )}
-                      {columnId === "branch" && (
-                        <span className="text-gray-600 dark:text-gray-400 min-w-[200px] block text-sm">
-                          {contact.branch || "-"}
-                        </span>
-                      )}
-                      {columnId.startsWith("customField_") && (
-                        <span className="text-gray-600 dark:text-gray-400 text-sm">
-                          {contact.customFields?.[
-                            columnId.replace("customField_", "")
-                          ] || "-"}
-                        </span>
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </DragDropContext>
-      </table>
-
-      {/* Mobile Layout - Enhanced Design */}
-      <div className="sm:hidden space-y-4 p-4">
-      {getDisplayedContacts().map((contact, index) => {
-          const isSelected = selectedContacts.some(
-            (c) => c.phone === contact.phone
-          );
-          return (
-            <div
-              key={index}
-              className={`p-4 rounded-xl border transition-all duration-200 ${
-                isSelected
-                  ? "bg-blue-50/80 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 shadow-md"
-                  : "bg-white/90 dark:bg-gray-800/90 border-gray-200/50 dark:border-gray-700/50 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-2 sm:mb-4">
-              <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => toggleContactSelection(contact)}
-                    className="rounded border-gray-300 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400/50 transition-all duration-200"
-                  />
-                  {contact.profileUrl ? (
-                    <img
-                      src={contact.profileUrl}
-                      alt={contact.contactName || "Profile"}
-                      className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover shadow-sm border-2 border-white dark:border-gray-600"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 border-2 border-gray-300 dark:border-gray-600 rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-700 shadow-sm">
-                      {contact.chat_id &&
-                      contact.chat_id.includes("@g.us") ? (
-                        <Lucide
-                          icon="Users"
-                          className="w-6 h-6 text-gray-500 dark:text-gray-400"
-                        />
-                      ) : (
-                        <Lucide
-                          icon="User"
-                          className="w-6 h-6 text-gray-500 dark:text-gray-400"
-                        />
-                      )}
-                    </div>
-                  )}
-              <div className="flex-1 min-w-0">
-  <div className="font-semibold text-gray-900 dark:text-white text-base sm:text-lg truncate">
-    {contact.contactName
-      ? contact.lastName
-        ? `${contact.contactName} ${contact.lastName}`
-        : contact.contactName
-      : contact.phone}
-  </div>
-  <div className="text-sm text-gray-600 dark:text-gray-400 font-mono truncate">
-    {contact.phone ?? contact.source}
-  </div>
-</div>
-                </div>
-
-                <div className="flex space-x-1 sm:space-x-2">
-                  <button
-                    onClick={() => {
-                      setCurrentContact(contact);
-                      setEditContactModal(true);
-                    }}
-                    className="p-2 sm:p-2.5 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all duration-200"
-                    title="View/Edit"
-                  >
-                    <Lucide icon="Eye" className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => handleClick(contact.phone)}
-                    className="p-2.5 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-all duration-200"
-                    title="Chat"
-                  >
-                    <Lucide
-                      icon="MessageSquare"
-                      className="w-5 h-5"
-                    />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setCurrentContact(contact);
-                      setDeleteConfirmationModal(true);
-                    }}
-                    className="p-2.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
-                    title="Delete"
-                  >
-                    <Lucide icon="Trash" className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-              <div className="flex flex-nowrap gap-1 overflow-x-auto pb-1">
-                  {contact.tags && contact.tags.length > 0 ? (
-                    contact.tags.map((tag, index) => (
-                      <div key={index} className="relative group">
-                        <span
-                          className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs font-medium rounded-full inline-flex justify-center items-center shadow-sm transition-all duration-200 flex-shrink-0 ${
-                            employeeNames.includes(tag.toLowerCase())
-                              ? "bg-gradient-to-r from-green-500/90 to-green-600/90 text-white border border-green-400/20"
-                              : "bg-gradient-to-r from-blue-500/90 to-blue-600/90 text-white border border-blue-400/20"
-                          }`}
-                        >
-                          {tag.charAt(0).toUpperCase() + tag.slice(1)}
-                        </span>
-                        <button
-                          className="absolute right-0 top-0 transform translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-200 text-red-500 hover:text-red-700"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRemoveTag(contact.contact_id!, tag);
-                          }}
-                        >
-                          <div className="w-4 h-4 bg-red-600 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-800 rounded-full flex items-center justify-center shadow-md">
-                            <Lucide
-                              icon="X"
-                              className="w-3 h-3 text-white"
-                            />
-                          </div>
-                        </button>
-                      </div>
-                    ))
-                  ) : (
-                    <span className="text-sm text-gray-500 dark:text-gray-400 italic">
-                      No tags
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  </div>
-  )}
-</div>
-          <Dialog
-            open={addContactModal}
-            onClose={() => setAddContactModal(false)}
-          >
-            <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-    <Dialog.Panel className="w-full max-w-md p-6 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl shadow-2xl border border-white/20 dark:border-gray-700/20">
-                <div className="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
-        <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center text-white mr-4">
-                    <Lucide icon="User" className="w-6 h-6" />
-                  </div>
-                  <div>
-          <span className="text-xl font-semibold text-gray-900 dark:text-white">
-            Add New Contact
-                    </span>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Create a new contact in your database
-          </p>
-                  </div>
-                </div>
-      
-                <div className="mt-6 space-y-4">
-                  <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      First Name
-                    </label>
-                    <input
-                      type="text"
-            className="block w-full px-3 py-2.5 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white backdrop-blur-sm transition-all duration-200"
-                      value={newContact.contactName}
-                      onChange={(e) =>
-                        setNewContact({
-                          ...newContact,
-                          contactName: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-        
-                  <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Last Name
-                    </label>
-                    <input
-                      type="text"
-            className="block w-full px-3 py-2.5 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white backdrop-blur-sm transition-all duration-200"
-                      value={newContact.lastName}
-                      onChange={(e) =>
-                        setNewContact({
-                          ...newContact,
-                          lastName: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-        
-                  <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      IC
-                    </label>
-                    <input
-                      type="text"
-            className="block w-full px-3 py-2.5 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white backdrop-blur-sm transition-all duration-200"
-                      value={newContact.ic}
-                      onChange={(e) =>
-                        setNewContact({ ...newContact, ic: e.target.value })
-                      }
-                    />
-                  </div>
-
-                  <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Email
-                    </label>
-                    <input
-                      type="text"
-            className="block w-full px-3 py-2.5 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white backdrop-blur-sm transition-all duration-200"
-                      value={newContact.email}
-                      onChange={(e) =>
-                        setNewContact({ ...newContact, email: e.target.value })
-                      }
-                    />
-                  </div>
-        
-                  <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Phone
-                    </label>
-                    <input
-                      type="text"
-            className="block w-full px-3 py-2.5 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white backdrop-blur-sm transition-all duration-200"
-                      value={newContact.phone}
-                      onChange={(e) =>
-                        setNewContact({ ...newContact, phone: e.target.value })
-                      }
-                    />
-                  </div>
-        
-                  <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Address
-                    </label>
-                    <input
-                      type="text"
-            className="block w-full px-3 py-2.5 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white backdrop-blur-sm transition-all duration-200"
-                      value={newContact.address1}
-                      onChange={(e) =>
-                        setNewContact({
-                          ...newContact,
-                          address1: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-        
-                  <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Company
-                    </label>
-                    <input
-                      type="text"
-            className="block w-full px-3 py-2.5 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white backdrop-blur-sm transition-all duration-200"
-                      value={newContact.companyName}
-                      onChange={(e) =>
-                        setNewContact({
-                          ...newContact,
-                          companyName: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-        
-                <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Branch
-                  </label>
-                  <input
-                    type="text"
-            className="block w-full px-3 py-2.5 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white backdrop-blur-sm transition-all duration-200"
-                    value={newContact.branch}
-                    onChange={(e) =>
-                      setNewContact({ ...newContact, branch: e.target.value })
-                    }
-                  />
-                </div>
-        
-        {companyId === "079" || companyId === "001" ? (
-                    <>
-                      <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Expiry Date
-                        </label>
-                        <input
-                          type="date"
-                className="block w-full px-3 py-2.5 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white backdrop-blur-sm transition-all duration-200"
-                          value={newContact.expiryDate}
-                          onChange={(e) =>
-                            setNewContact({
-                              ...newContact,
-                              expiryDate: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                      <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Vehicle Number
-                        </label>
-                        <input
-                          type="text"
-                className="block w-full px-3 py-2.5 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white backdrop-blur-sm transition-all duration-200"
-                          value={newContact.vehicleNumber}
-                          onChange={(e) =>
-                            setNewContact({
-                              ...newContact,
-                              vehicleNumber: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                    </>
-        ) : null}
-      </div>
-      
-      <div className="flex justify-end mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                              <button
-          className="px-4 py-2.5 mr-3 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-200"
-                    onClick={() => setAddContactModal(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button
-          className="px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md"
-                    onClick={handleSaveNewContact}
-                  >
-          Save Contact
-                  </button>
-                </div>
-              </Dialog.Panel>
-            </div>
-          </Dialog>
-          <Dialog
-            open={editContactModal}
-            onClose={() => setEditContactModal(false)}
-          >
-            <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-    <Dialog.Panel className="w-full max-w-md p-6 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl shadow-2xl border border-white/20 dark:border-gray-700/20 overflow-y-auto max-h-[90vh]">
-                <div className="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
-        <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gradient-to-r from-emerald-500 to-emerald-600 flex items-center justify-center text-white mr-4">
-                    {currentContact?.profileUrl ? (
-                      <img
-                        src={currentContact.profileUrl}
-                        alt={currentContact.contactName || "Profile"}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-            <span className="text-xl font-semibold">
-                        {currentContact?.contactName
-                          ? currentContact.contactName.charAt(0).toUpperCase()
-                          : ""}
-                      </span>
                     )}
                   </div>
-                  <div>
-                    <div className="font-semibold text-gray-900 dark:text-white text-lg capitalize">
-                      {currentContact?.name} {currentContact?.lastName}
-                    </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      {currentContact?.phone}
-                    </div>
-                  </div>
-                </div>
-      
-                <div className="mt-6 space-y-4">
-                  <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      First Name
-                    </label>
-                    <input
-                      type="text"
-            className="block w-full px-3 py-2.5 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-gray-900 dark:text-white backdrop-blur-sm transition-all duration-200"
-                      value={currentContact?.name || ""}
-                      onChange={(e) =>
-                        setCurrentContact({
-                          ...currentContact,
-                          name: e.target.value,
-                        } as Contact)
-                      }
-                    />
-                  </div>
-        
-                  <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Last Name
-                    </label>
-                    <input
-                      type="text"
-            className="block w-full px-3 py-2.5 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-gray-900 dark:text-white backdrop-blur-sm transition-all duration-200"
-                      value={currentContact?.lastName || ""}
-                      onChange={(e) =>
-                        setCurrentContact({
-                          ...currentContact,
-                          lastName: e.target.value,
-                        } as Contact)
-                      }
-                    />
-                  </div>
-        
-                  <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Email
-                    </label>
-                    <input
-                      type="text"
-            className="block w-full px-3 py-2.5 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-gray-900 dark:text-white backdrop-blur-sm transition-all duration-200"
-                      value={currentContact?.email || ""}
-                      onChange={(e) =>
-                        setCurrentContact({
-                          ...currentContact,
-                          email: e.target.value,
-                        } as Contact)
-                      }
-                    />
-                  </div>
-        
-                  <div>
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Phone
-                    </label>
-                    <input
-                      type="text"
-            className="block w-full px-3 py-2.5 bg-white/80 dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-gray-900 dark:text-white backdrop-blur-sm transition-all duration-200"
-                      value={currentContact?.phone || ""}
-                      onChange={(e) =>
-                        setCurrentContact({
-                          ...currentContact,
-                          phone: e.target.value,
-                        } as Contact)
-                      }
-                    />
-                  </div>
-        
-        {/* Continue with other fields using the same styling pattern */}
-        {/* ... existing fields with updated styling ... */}
-                          </div>
 
-      <div className="flex justify-end mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <button
-          className="px-4 py-2.5 mr-3 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-200"
-                    onClick={() => setEditContactModal(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button
-          className="px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-lg hover:from-emerald-600 hover:to-emerald-700 transition-all duration-200 shadow-md"
-                    onClick={handleSaveContact}
-                  >
-          Save Changes
-                  </button>
-                </div>
-              </Dialog.Panel>
-            </div>
-          </Dialog>
-{/* Blast Message Modal */}
-          <Dialog
-            open={blastMessageModal}
-            onClose={() => setBlastMessageModal(false)}
-          >
-            <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-    <Dialog.Panel className="w-full max-w-4xl p-6 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl shadow-2xl border border-white/20 dark:border-gray-700/20 max-h-[90vh] overflow-y-auto">
-      <div className="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
-        <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gradient-to-r from-pink-500 to-pink-600 flex items-center justify-center text-white mr-4">
-          <Lucide icon="Send" className="w-6 h-6" />
-        </div>
-        <div>
-          <span className="text-xl font-semibold text-gray-900 dark:text-white">
-                  Send Blast Message
-          </span>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Schedule and send messages to multiple contacts
-          </p>
-                </div>
-      </div>
-      
-                {userRole === "3" ? (
-        <div className="mt-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-          <div className="flex items-center">
-            <Lucide icon="XCircle" className="w-5 h-5 text-red-500 mr-2" />
-            <span className="text-red-700 dark:text-red-400 font-medium">
-                    You don't have permission to send blast messages.
-            </span>
-          </div>
+                  {/* Scheduled Time */}
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3">
+                      <Lucide
+                        icon="Clock"
+                        className="w-5 h-5 text-purple-400"
+                      />
+                      <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                        Scheduled Time
+                      </label>
+                    </div>
+                    <DatePickerComponent
+                      selected={
+                        currentScheduledMessage?.scheduledTime
+                          ? new Date(currentScheduledMessage.scheduledTime)
+                          : new Date()
+                      }
+                      onChange={(date: Date | null) => {
+                        setCurrentScheduledMessage((prev) => ({
+                          ...prev!,
+                          scheduledTime: date ? date.toISOString() : "",
+                        }));
+                      }}
+                      showTimeSelect
+                      timeFormat="HH:mm"
+                      timeIntervals={15}
+                      dateFormat="MMMM d, yyyy h:mm aa"
+                      className="w-full px-4 py-3 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-sm text-white dark:text-slate-200 shadow-inner focus:border-purple-400/50 focus:ring-2 focus:ring-purple-400/20 transition-all duration-200"
+                    />
                   </div>
-                ) : (
-        <div className="mt-6 space-y-6">
-          {/* Messages Section */}
-          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-4">
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Messages
-                        </label>
-                        <button
-                          type="button"
-                className="px-3 py-1.5 text-sm font-medium text-white bg-gradient-to-r from-pink-500 to-pink-600 rounded-lg hover:from-pink-600 hover:to-pink-700 transition-all duration-200 shadow-md"
-                          onClick={() =>
-                            setMessages([
-                              ...messages,
-                              { text: "", delayAfter: 0 },
-                            ])
+
+                  {/* Media Upload */}
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3">
+                      <Lucide
+                        icon="Image"
+                        className="w-5 h-5 text-emerald-400"
+                      />
+                      <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                        Attach Media (Image/Video)
+                      </label>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*,video/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const maxSize = file.type.startsWith("video/")
+                            ? 20971520
+                            : 5242880;
+                          if (file.size > maxSize) {
+                            toast.error(
+                              "The video file is too big. Please select a file smaller than 20MB."
+                            );
+                            return;
                           }
-                        >
-                <Lucide icon="Plus" className="w-4 h-4 mr-1 inline" />
-                          Add Message
-                        </button>
-                      </div>
-
-                      {messages.map((message, index) => (
-                        <div key={index} className="mt-4 space-y-2">
-                          <div className="flex items-start space-x-2">
-                            <textarea
-                    className="flex-1 p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-200"
-                              placeholder={`Message ${index + 1}`}
-                              value={message.text}
-                              onFocus={() => setFocusedMessageIndex(index)}
-                    onSelect={(e: React.SyntheticEvent<HTMLTextAreaElement>) => {
-                      setCursorPosition((e.target as HTMLTextAreaElement).selectionStart);
-                              }}
-                              onClick={(e) => {
-                      setCursorPosition((e.target as HTMLTextAreaElement).selectionStart);
-                              }}
-                              onChange={(e) => {
-                                const newMessages = [...messages];
-                                newMessages[index] = {
-                                  ...message,
-                                  text: e.target.value,
-                                };
-                                setMessages(newMessages);
-                              }}
-                              rows={3}
-                              style={{
-                                whiteSpace: "pre-wrap",
-                                wordBreak: "break-word",
-                              }}
-                            />
-                            {messages.length > 1 && (
-                              <button
-                                onClick={() => {
-                        const newMessages = messages.filter((_, i) => i !== index);
-                                  setMessages(newMessages);
-                                }}
-                      className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all duration-200"
-                              >
-                      <Lucide icon="X" className="w-5 h-5" />
-                              </button>
-                            )}
-                          </div>
-
-                          {/* Only show delay input if there are multiple messages */}
-                          {messages.length > 1 && (
-                            <div className="flex items-center space-x-2">
-                              <span className="text-sm text-gray-600 dark:text-gray-400">
-                                Wait
-                              </span>
-                              <input
-                                type="number"
-                                value={message.delayAfter}
-                      onFocus={(e: React.FocusEvent<HTMLInputElement>) => {
-                                  setFocusedMessageIndex(index);
-                        setCursorPosition(e.target.selectionStart ?? 0);
-                      }}
-                      onSelect={(e: React.SyntheticEvent<HTMLInputElement>) => {
-                        setCursorPosition((e.target as HTMLInputElement).selectionStart ?? 0);
-                      }}
-                      onClick={(e: React.MouseEvent<HTMLInputElement>) => {
-                        setCursorPosition((e.target as HTMLInputElement).selectionStart ?? 0);
-                                }}
-                                onChange={(e) => {
-                                  const newMessages = [...messages];
-                                  newMessages[index] = {
-                                    ...message,
-                                    delayAfter: parseInt(e.target.value) || 0,
-                                  };
-                                  setMessages(newMessages);
-                                }}
-                                min={0}
-                      className="w-20 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-pink-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
-                              />
-                              <span className="text-sm text-gray-600 dark:text-gray-400">
-                                seconds after this message
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-
-                      <div className="mt-4">
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={infiniteLoop}
-                            onChange={(e) => setInfiniteLoop(e.target.checked)}
-                className="rounded border-gray-300 text-pink-600 shadow-sm focus:ring-2 focus:ring-pink-500 focus:ring-opacity-50 transition-all duration-200"
-                          />
-                          <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
-                            Loop messages indefinitely
-                          </span>
-                        </label>
-                      </div>
-                    </div>
-
-                    {/* Placeholders Section */}
-          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
-                      <button
-                        type="button"
-              className="text-sm text-blue-500 hover:text-blue-400 font-medium transition-colors duration-200"
-                        onClick={() => setShowPlaceholders(!showPlaceholders)}
-                      >
-              {showPlaceholders ? "Hide Placeholders" : "Show Placeholders"}
-                      </button>
-                      {showPlaceholders && (
-              <div className="mt-3 space-y-2">
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            Click to insert:
-                          </p>
-                <div className="flex flex-wrap gap-2">
-                          {[
-                            "contactName",
-                            "firstName",
-                            "lastName",
-                            "email",
-                            "phone",
-                            "vehicleNumber",
-                            "branch",
-                            "expiryDate",
-                            "ic",
-                          ].map((field) => (
-                            <button
-                              key={field}
-                              type="button"
-                      className="px-3 py-1.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800/40 transition-all duration-200 border border-blue-200 dark:border-blue-800"
-                              onClick={() => {
-                                const placeholder = `@{${field}}`;
-                                const newMessages = [...messages];
-                                if (newMessages.length > 0) {
-                          const currentText = newMessages[focusedMessageIndex].text;
-                                  const newText =
-                                    currentText.slice(0, cursorPosition) +
-                                    placeholder +
-                                    currentText.slice(cursorPosition);
-
-                                  newMessages[focusedMessageIndex] = {
-                                    ...newMessages[focusedMessageIndex],
-                                    text: newText,
-                                  };
-                                  setMessages(newMessages);
-                          setCursorPosition(cursorPosition + placeholder.length);
+                          try {
+                            handleEditMediaUpload(e);
+                          } catch (error) {
+                            toast.error(
+                              "Upload unsuccessful. Please try again."
+                            );
+                          }
                         }
                       }}
-                    >
-                      @{field}
-                            </button>
-                          ))}
-                          {/* Custom Fields Placeholders */}
-                          {(() => {
-                            const allCustomFields = new Set<string>();
-                    if (selectedContacts && selectedContacts.length > 0) {
-                                  selectedContacts.forEach((contact) => {
-                                if (contact.customFields) {
-                          Object.keys(contact.customFields).forEach((key) =>
-                            allCustomFields.add(key)
-                                  );
-                                }
-                              });
-                            }
-                    if (allCustomFields.size === 0 && contacts && contacts.length > 0) {
-                              contacts.forEach((contact) => {
-                                if (contact.customFields) {
-                          Object.keys(contact.customFields).forEach((key) =>
-                            allCustomFields.add(key)
-                                  );
-                                }
-                              });
-                            }
-                            if (allCustomFields.size > 0) {
-                              return (
-                                <>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-3">
-                                    Custom Fields:
-                                  </p>
-                          <div className="flex flex-wrap gap-2">
-                                  {Array.from(allCustomFields).map((field) => (
-                                    <button
-                                      key={field}
-                                      type="button"
-                                className="px-3 py-1.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-800/40 transition-all duration-200 border border-green-200 dark:border-green-800"
-                                      onClick={() => {
-                                        const placeholder = `@{${field}}`;
-                                        const newMessages = [...messages];
-                                        if (newMessages.length > 0) {
-                                    const currentText = newMessages[focusedMessageIndex].text;
-                                          const newText =
-                                      currentText.slice(0, cursorPosition) +
-                                            placeholder +
-                                            currentText.slice(cursorPosition);
-
-                                          newMessages[focusedMessageIndex] = {
-                                            ...newMessages[focusedMessageIndex],
-                                            text: newText,
-                                          };
-                                          setMessages(newMessages);
-                                    setCursorPosition(cursorPosition + placeholder.length);
-                                  }
-                                }}
-                              >
-                                @{field}
-                              </button>
-                          ))}
-                          </div>
-                                </>
-                              );
-                            }
-                            return null;
-                          })()}
-                </div>
-                        </div>
-                      )}
+                      className="w-full text-sm text-white/80 dark:text-slate-400 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl p-4 transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-gradient-to-r file:from-emerald-500 file:to-teal-600 file:text-white hover:file:from-emerald-600 hover:file:to-teal-700 file:transition-all file:duration-200 shadow-inner"
+                    />
                   </div>
 
-                    {/* Media Upload Section */}
-          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Attach Media (Image or Video)
-                      </label>
-                      <input
-                        type="file"
-                        accept="image/*,video/*"
-                        onChange={(e) => handleMediaUpload(e)}
-              className="block w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-200"
+                  {/* Document Upload */}
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3">
+                      <Lucide
+                        icon="FileText"
+                        className="w-5 h-5 text-orange-400"
                       />
-                    </div>
-
-                    {/* Document Upload Section */}
-          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
                         Attach Document
                       </label>
-                      <input
-                        type="file"
-                        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
-                        onChange={(e) => handleDocumentUpload(e)}
-              className="block w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-200"
-                      />
                     </div>
-
-                    {/* Schedule Settings */}
-          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Start Date & Time
-                      </label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm text-gray-600 dark:text-gray-400 mb-1 block">Date</label>
-                        <DatePickerComponent
-                          selected={blastStartDate}
-                          onChange={(date: Date | null) => {
-                            if (date) {
-                              setBlastStartDate(date);
-                              if (!blastStartTime) {
-                                const defaultTime = new Date();
-                                setBlastStartTime(defaultTime);
-                              }
-                            }
-                          }}
-                          dateFormat="MMMM d, yyyy"
-                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-200"
-                        />
-              </div>
-              <div>
-                <label className="text-sm text-gray-600 dark:text-gray-400 mb-1 block">Time</label>
-                        <DatePickerComponent
-                          selected={blastStartTime}
-                          onChange={(date: Date | null) => {
-                            if (date) {
-                              setBlastStartTime(date);
-                              if (!blastStartDate) {
-                                const defaultDate = new Date();
-                                setBlastStartDate(defaultDate);
-                              }
-                            }
-                          }}
-                          showTimeSelect
-                          showTimeSelectOnly
-                          timeIntervals={15}
-                          timeCaption="Time"
-                          dateFormat="h:mm aa"
-                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-200"
-                        />
-              </div>
-                      </div>
-                    </div>
-
-                    {/* Batch Settings */}
-          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Contacts per Batch
-                      </label>
-                      <input
-                        type="number"
-                        value={batchQuantity}
-              onChange={(e) => setBatchQuantity(parseInt(e.target.value))}
-                        min={1}
-              className="block w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-200"
-                      />
-                    </div>
-
-                    {/* Delay Between Batches */}
-          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Delay Between Batches
-                      </label>
-            <div className="flex items-center space-x-3">
-                        <input
-                          type="number"
-                          value={repeatInterval}
-                onChange={(e) => setRepeatInterval(parseInt(e.target.value))}
-                          min={0}
-                className="w-24 p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-200"
-                        />
-                        <select
-                          value={repeatUnit}
-                          onChange={(e) =>
-                  setRepeatUnit(e.target.value as "minutes" | "hours" | "days")
-                          }
-                className="p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-200"
-                        >
-                          <option value="minutes">Minutes</option>
-                          <option value="hours">Hours</option>
-                          <option value="days">Days</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Sleep Settings */}
-          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
-                      <label className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={activateSleep}
-                          onChange={(e) => setActivateSleep(e.target.checked)}
-                className="rounded border-gray-300 text-pink-600 shadow-sm focus:ring-2 focus:ring-pink-500 focus:ring-opacity-50 transition-all duration-200"
-                        />
-              <span className="ml-2 text-sm text-gray-700 dark:text-gray-300 font-medium">
-                          Activate Sleep between sending
-                        </span>
-                      </label>
-                      {activateSleep && (
-              <div className="mt-3 ml-6 space-y-3">
-                <div className="flex items-center space-x-3">
-                          <span className="text-sm text-gray-600 dark:text-gray-400">
-                            After:
-                          </span>
-                          <input
-                            type="number"
-                            value={sleepAfterMessages}
-                    onChange={(e) => setSleepAfterMessages(parseInt(e.target.value))}
-                            min={1}
-                    className="w-24 p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-200"
-                          />
-                          <span className="text-sm text-gray-600 dark:text-gray-400">
-                            Messages
-                          </span>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                      onChange={(e) => handleEditDocumentUpload(e)}
+                      className="w-full text-sm text-white/80 dark:text-slate-400 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl p-4 transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:bg-gradient-to-r file:from-orange-500 file:to-amber-600 file:text-white hover:file:from-orange-600 hover:file:to-amber-700 file:transition-all file:duration-200 shadow-inner"
+                    />
+                  </div>
                 </div>
-                <div className="flex items-center space-x-3">
-                          <span className="text-sm text-gray-600 dark:text-gray-400">
-                    Sleep for:
-                          </span>
-                          <input
-                            type="number"
-                            value={sleepDuration}
-                    onChange={(e) => setSleepDuration(parseInt(e.target.value))}
-                            min={1}
-                    className="w-24 p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-200"
-                          />
-                          <span className="text-sm text-gray-600 dark:text-gray-400">
-                            Seconds
-                          </span>
+
+                <div className="flex justify-end space-x-3 mt-10 pt-6 border-t border-white/10 dark:border-slate-700/20">
+                  <button
+                    onClick={() => setEditScheduledMessageModal(false)}
+                    className="px-6 py-3 bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 backdrop-blur-sm border border-white/20 dark:border-slate-600/20 text-white/90 hover:text-white rounded-2xl transition-all duration-200 font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveScheduledMessage}
+                    className="px-8 py-3 bg-gradient-to-r from-indigo-500 via-purple-500 to-blue-500 hover:from-indigo-600 hover:via-purple-600 hover:to-blue-600 border-0 text-white rounded-2xl transition-all duration-200 font-semibold shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transform hover:scale-105"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <Lucide icon="Save" className="w-4 h-4" />
+                      <span>Save</span>
+                    </div>
+                  </button>
                 </div>
-                        </div>
-                      )}
-                    </div>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
 
-                    {/* Active Hours */}
-          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Active Hours
-                      </label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                <label className="text-sm text-gray-600 dark:text-gray-400 mb-1 block">From</label>
-                          <DatePickerComponent
-                            selected={(() => {
-                              const date = new Date();
-                    const [hours, minutes] = activeTimeStart.split(":");
-                              date.setHours(parseInt(hours), parseInt(minutes));
-                              return date;
-                            })()}
-                            onChange={(date: Date | null) => {
-                              if (date) {
-                                setActiveTimeStart(
-                        `${date.getHours().toString().padStart(2, "0")}:${date
-                                    .getMinutes()
-                                    .toString()
-                                    .padStart(2, "0")}`
-                                );
-                              }
-                            }}
-                            showTimeSelect
-                            showTimeSelectOnly
-                            timeIntervals={15}
-                            timeCaption="Time"
-                            dateFormat="h:mm aa"
-                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-200"
-                          />
-                        </div>
-                        <div>
-                <label className="text-sm text-gray-600 dark:text-gray-400 mb-1 block">To</label>
-                          <DatePickerComponent
-                            selected={(() => {
-                              const date = new Date();
-                              const [hours, minutes] = activeTimeEnd.split(":");
-                              date.setHours(parseInt(hours), parseInt(minutes));
-                              return date;
-                            })()}
-                            onChange={(date: Date | null) => {
-                              if (date) {
-                                setActiveTimeEnd(
-                        `${date.getHours().toString().padStart(2, "0")}:${date
-                                    .getMinutes()
-                                    .toString()
-                                    .padStart(2, "0")}`
-                                );
-                              }
-                            }}
-                            showTimeSelect
-                            showTimeSelectOnly
-                            timeIntervals={15}
-                            timeCaption="Time"
-                            dateFormat="h:mm aa"
-                  className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-200"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Phone Selection */}
-          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Phone
-                      </label>
-            <div className="relative">
-                        <select
-                          value={phoneIndex || 0}
-                onChange={(e) => setPhoneIndex(Number(e.target.value))}
-                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-200 appearance-none"
-                        >
-                          {(() => {
-                            console.log("Rendering phone dropdown - phoneNames:", phoneNames, "qrCodes:", qrCodes);
-                            return Object.keys(phoneNames).length > 0 ? (
-                              Object.keys(phoneNames).map((index) => {
-                                const phoneIndex = parseInt(index);
-                                const qrCode = qrCodes[phoneIndex];
-                                const statusInfo = qrCode ? getStatusInfo(qrCode.status) : 
-                                isLoadingStatus ? 
-                                  { text: "Checking...", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200", icon: "RefreshCw" } :
-                                  { text: "Not Connected", color: "bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200", icon: "XCircle" };
-                                return (
-                                  <option key={phoneIndex} value={phoneIndex}>
-                                    {`${getPhoneName(phoneIndex)} - ${qrCode ? '✅' : isLoadingStatus ? '⏳' : '❌'} ${statusInfo.text}`}
-                                  </option>
-                                );
-                              })
-                            ) : (
-                              <option value="">No phones available - Please check your configuration</option>
-                            );
-                          })()}
-                        </select>
-                        {isLoadingStatus && (
-                <div className="absolute right-12 top-1/2 transform -translate-y-1/2">
-                  <LoadingIcon icon="three-dots" className="w-4 h-4" />
-                          </div>
-                        )}
-              <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none">
-                <Lucide icon="ChevronDown" className="w-5 h-5 text-gray-400" />
-                        </div>
-                      </div>
-                      {phoneIndex !== null && qrCodes[phoneIndex] && (
-              <div className={`mt-3 inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium ${
-                            getStatusInfo(qrCodes[phoneIndex].status).color
-              }`}>
-                          <Lucide
-                  icon={getStatusInfo(qrCodes[phoneIndex].status).icon}
-                  className="w-4 h-4 mr-2"
-                          />
-                          {qrCodes[phoneIndex] ? getStatusInfo(qrCodes[phoneIndex].status).text : 
-                            isLoadingStatus ? "Checking..." : "Not Connected"}
-                        </div>
-                      )}
-                      
-                      {/* Help message when phones are not connected */}
-                      {Object.keys(phoneNames).length > 0 && !Object.values(qrCodes).some(qr => qr && ["ready", "authenticated"].includes(qr.status?.toLowerCase())) && (
-                        <div className="mt-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-2 rounded-md">
-                          ⚠️ No phones are currently connected. Please ensure your WhatsApp bot is running and connected before sending messages.
-                        </div>
-                      )}
-                    </div>
-        </div>
-      )}
-
-      <div className="flex justify-end mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <button
-          className="px-6 py-2.5 mr-3 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-200"
-          onClick={() => setBlastMessageModal(false)}
+        {/* Edit Contact Modal */}
+        <Dialog
+          open={editContactModal}
+          onClose={() => setEditContactModal(false)}
         >
-          Cancel
-        </button>
-        <button
-          className="px-6 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-pink-500 to-pink-600 rounded-lg hover:from-pink-600 hover:to-pink-700 transition-all duration-200 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                        onClick={sendBlastMessage}
-                        disabled={isScheduling}
+          <div className="fixed inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl">
+            <Dialog.Panel className="w-full max-w-4xl relative bg-white/10 dark:bg-slate-800/10 backdrop-blur-3xl rounded-3xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden overflow-y-auto transform hover:scale-[1.005] transition-all duration-300">
+              {/* Enhanced Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/10 via-blue-500/5 to-purple-500/10 dark:from-emerald-600/10 dark:via-blue-700/5 dark:to-purple-600/10 pointer-events-none" />
+
+              <div className="relative p-8">
+                <div className="flex items-center justify-between pb-6 border-b border-white/10 dark:border-slate-700/20">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-blue-500/20 backdrop-blur-sm flex items-center justify-center border border-white/10">
+                      <Lucide
+                        icon="UserCog"
+                        className="w-6 h-6 text-emerald-400"
+                      />
+                    </div>
+                    <h3 className="text-2xl font-bold bg-gradient-to-r from-white via-emerald-100 to-blue-100 dark:from-white dark:via-emerald-100 dark:to-blue-100 bg-clip-text text-transparent">
+                      Edit Contact
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setEditContactModal(false)}
+                    className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 text-slate-400 hover:text-white dark:hover:text-slate-200 transition-all duration-200 flex items-center justify-center backdrop-blur-sm border border-white/10"
+                  >
+                    <Lucide icon="X" className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {currentContact && (
+                  <div className="mt-8 space-y-8">
+                    {/* Basic Contact Information */}
+                    <div className="bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 dark:border-slate-600/20 shadow-inner space-y-6">
+                      <div className="flex items-center space-x-3 mb-6">
+                        <Lucide
+                          icon="User"
+                          className="w-6 h-6 text-emerald-400"
+                        />
+                        <h4 className="text-xl font-semibold text-white/90 dark:text-slate-200">
+                          Basic Information
+                        </h4>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-3">
+                          <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                            <span>Contact Name</span>
+                          </label>
+                          <FormInput
+                            type="text"
+                            value={
+                              currentContact.contactName ||
+                              currentContact.name ||
+                              ""
+                            }
+                            onChange={(e) =>
+                              setCurrentContact({
+                                ...currentContact,
+                                contactName: e.target.value,
+                                name: e.target.value,
+                              })
+                            }
+                            placeholder="Enter contact name"
+                            className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-200"
+                          />
+                        </div>
+
+                        <div className="space-y-3">
+                          <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                            <span>Last Name</span>
+                          </label>
+                          <FormInput
+                            type="text"
+                            value={currentContact.lastName || ""}
+                            onChange={(e) =>
+                              setCurrentContact({
+                                ...currentContact,
+                                lastName: e.target.value,
+                              })
+                            }
+                            placeholder="Enter last name"
+                            className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-blue-400/50 focus:ring-2 focus:ring-blue-400/20 transition-all duration-200"
+                          />
+                        </div>
+
+                        <div className="space-y-3">
+                          <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                            <span>Phone Number</span>
+                          </label>
+                          <FormInput
+                            type="tel"
+                            value={currentContact.phone || ""}
+                            onChange={(e) =>
+                              setCurrentContact({
+                                ...currentContact,
+                                phone: e.target.value,
+                              })
+                            }
+                            placeholder="e.g., +60123456789"
+                            className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-violet-400/50 focus:ring-2 focus:ring-violet-400/20 transition-all duration-200"
+                          />
+                        </div>
+
+                        <div className="space-y-3">
+                          <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                            <span>Email</span>
+                          </label>
+                          <FormInput
+                            type="email"
+                            value={currentContact.email || ""}
+                            onChange={(e) =>
+                              setCurrentContact({
+                                ...currentContact,
+                                email: e.target.value,
+                              })
+                            }
+                            placeholder="Enter email address"
+                            className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-orange-400/50 focus:ring-2 focus:ring-orange-400/20 transition-all duration-200"
+                          />
+                        </div>
+
+                        <div className="space-y-3">
+                          <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                            <span>Company Name</span>
+                          </label>
+                          <FormInput
+                            type="text"
+                            value={currentContact.companyName || ""}
+                            onChange={(e) =>
+                              setCurrentContact({
+                                ...currentContact,
+                                companyName: e.target.value,
+                              })
+                            }
+                            placeholder="Enter company name"
+                            className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/20 transition-all duration-200"
+                          />
+                        </div>
+
+                        <div className="space-y-3">
+                          <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                            <span>Address</span>
+                          </label>
+                          <FormInput
+                            type="text"
+                            value={currentContact.address1 || ""}
+                            onChange={(e) =>
+                              setCurrentContact({
+                                ...currentContact,
+                                address1: e.target.value,
+                              })
+                            }
+                            placeholder="Enter address"
+                            className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-pink-400/50 focus:ring-2 focus:ring-pink-400/20 transition-all duration-200"
+                          />
+                        </div>
+
+                        <div className="space-y-3">
+                          <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                            <span>Branch</span>
+                          </label>
+                          <FormInput
+                            type="text"
+                            value={currentContact.branch || ""}
+                            onChange={(e) =>
+                              setCurrentContact({
+                                ...currentContact,
+                                branch: e.target.value,
+                              })
+                            }
+                            placeholder="Enter branch"
+                            className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-teal-400/50 focus:ring-2 focus:ring-teal-400/20 transition-all duration-200"
+                          />
+                        </div>
+
+                        <div className="space-y-3">
+                          <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                            <span>Vehicle Number</span>
+                          </label>
+                          <FormInput
+                            type="text"
+                            value={currentContact.vehicleNumber || ""}
+                            onChange={(e) =>
+                              setCurrentContact({
+                                ...currentContact,
+                                vehicleNumber: e.target.value,
+                              })
+                            }
+                            placeholder="Enter vehicle number"
+                            className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/20 transition-all duration-200"
+                          />
+                        </div>
+
+                        <div className="space-y-3">
+                          <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                            <span>IC Number</span>
+                          </label>
+                          <FormInput
+                            type="text"
+                            value={currentContact.ic || ""}
+                            onChange={(e) =>
+                              setCurrentContact({
+                                ...currentContact,
+                                ic: e.target.value,
+                              })
+                            }
+                            placeholder="Enter IC number"
+                            className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-amber-400/50 focus:ring-2 focus:ring-amber-400/20 transition-all duration-200"
+                          />
+                        </div>
+
+                        <div className="space-y-3">
+                          <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                            <span>Expiry Date</span>
+                          </label>
+                          <FormInput
+                            type="date"
+                            value={currentContact.expiryDate || ""}
+                            onChange={(e) =>
+                              setCurrentContact({
+                                ...currentContact,
+                                expiryDate: e.target.value,
+                              })
+                            }
+                            className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-rose-400/50 focus:ring-2 focus:ring-rose-400/20 transition-all duration-200"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Company-specific fields */}
+                    {companyId === "095" && (
+                      <div className="bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 dark:border-slate-600/20 shadow-inner space-y-6">
+                        <div className="flex items-center space-x-3 mb-6">
+                          <Lucide
+                            icon="GraduationCap"
+                            className="w-6 h-6 text-violet-400"
+                          />
+                          <h4 className="text-xl font-semibold text-white/90 dark:text-slate-200">
+                            Education Information
+                          </h4>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-3">
+                            <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                              <span>Country</span>
+                            </label>
+                            <FormInput
+                              type="text"
+                              value={currentContact.country || ""}
+                              onChange={(e) =>
+                                setCurrentContact({
+                                  ...currentContact,
+                                  country: e.target.value,
+                                })
+                              }
+                              placeholder="Enter country"
+                              className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-green-400/50 focus:ring-2 focus:ring-green-400/20 transition-all duration-200"
+                            />
+                          </div>
+
+                          <div className="space-y-3">
+                            <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                              <span>Nationality</span>
+                            </label>
+                            <FormInput
+                              type="text"
+                              value={currentContact.nationality || ""}
+                              onChange={(e) =>
+                                setCurrentContact({
+                                  ...currentContact,
+                                  nationality: e.target.value,
+                                })
+                              }
+                              placeholder="Enter nationality"
+                              className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-red-400/50 focus:ring-2 focus:ring-red-400/20 transition-all duration-200"
+                            />
+                          </div>
+
+                          <div className="space-y-3">
+                            <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                              <span>Highest Educational Qualification</span>
+                            </label>
+                            <FormInput
+                              type="text"
+                              value={currentContact.highestEducation || ""}
+                              onChange={(e) =>
+                                setCurrentContact({
+                                  ...currentContact,
+                                  highestEducation: e.target.value,
+                                })
+                              }
+                              placeholder="Enter highest education"
+                              className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-blue-400/50 focus:ring-2 focus:ring-blue-400/20 transition-all duration-200"
+                            />
+                          </div>
+
+                          <div className="space-y-3">
+                            <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                              <span>Program Of Study</span>
+                            </label>
+                            <FormInput
+                              type="text"
+                              value={currentContact.programOfStudy || ""}
+                              onChange={(e) =>
+                                setCurrentContact({
+                                  ...currentContact,
+                                  programOfStudy: e.target.value,
+                                })
+                              }
+                              placeholder="Enter program of study"
+                              className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-purple-400/50 focus:ring-2 focus:ring-purple-400/20 transition-all duration-200"
+                            />
+                          </div>
+
+                          <div className="space-y-3">
+                            <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                              <span>Intake Preference</span>
+                            </label>
+                            <FormInput
+                              type="text"
+                              value={currentContact.intakePreference || ""}
+                              onChange={(e) =>
+                                setCurrentContact({
+                                  ...currentContact,
+                                  intakePreference: e.target.value,
+                                })
+                              }
+                              placeholder="Enter intake preference"
+                              className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-orange-400/50 focus:ring-2 focus:ring-orange-400/20 transition-all duration-200"
+                            />
+                          </div>
+
+                          <div className="space-y-3">
+                            <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                              <span>English Proficiency</span>
+                            </label>
+                            <FormInput
+                              type="text"
+                              value={currentContact.englishProficiency || ""}
+                              onChange={(e) =>
+                                setCurrentContact({
+                                  ...currentContact,
+                                  englishProficiency: e.target.value,
+                                })
+                              }
+                              placeholder="Enter English proficiency"
+                              className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/20 transition-all duration-200"
+                            />
+                          </div>
+
+                          <div className="space-y-3">
+                            <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                              <span>Validity of Passport</span>
+                            </label>
+                            <FormInput
+                              type="text"
+                              value={currentContact.passport || ""}
+                              onChange={(e) =>
+                                setCurrentContact({
+                                  ...currentContact,
+                                  passport: e.target.value,
+                                })
+                              }
+                              placeholder="Enter passport validity"
+                              className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/20 transition-all duration-200"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Points System */}
+                    {(companyId === "079" || companyId === "001") && (
+                      <div className="bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 dark:border-slate-600/20 shadow-inner space-y-6">
+                        <div className="flex items-center space-x-3 mb-6">
+                          <Lucide
+                            icon="Star"
+                            className="w-6 h-6 text-yellow-400"
+                          />
+                          <h4 className="text-xl font-semibold text-white/90 dark:text-slate-200">
+                            Points System
+                          </h4>
+                        </div>
+
+                        <div className="space-y-3">
+                          <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                            <Lucide
+                              icon="Award"
+                              className="w-4 h-4 text-yellow-400"
+                            />
+                            <span>Points</span>
+                          </label>
+                          <FormInput
+                            type="number"
+                            value={currentContact.points || 0}
+                            onChange={(e) =>
+                              setCurrentContact({
+                                ...currentContact,
+                                points: parseInt(e.target.value) || 0,
+                              })
+                            }
+                            placeholder="Enter points"
+                            className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-yellow-400/50 focus:ring-2 focus:ring-yellow-400/20 transition-all duration-200"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* AI Assistant Integration */}
+                    {companyId === "001" && (
+                      <div className="bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 dark:border-slate-600/20 shadow-inner space-y-6">
+                        <div className="flex items-center space-x-3 mb-6">
+                          <Lucide
+                            icon="Bot"
+                            className="w-6 h-6 text-emerald-400"
+                          />
+                          <h4 className="text-xl font-semibold text-white/90 dark:text-slate-200">
+                            AI Assistant Integration
+                          </h4>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-3">
+                            <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                              <Lucide
+                                icon="UserCheck"
+                                className="w-4 h-4 text-emerald-400"
+                              />
+                              <span>Assistant ID</span>
+                            </label>
+                            <FormInput
+                              type="text"
+                              value={currentContact.assistantId || ""}
+                              onChange={(e) =>
+                                setCurrentContact({
+                                  ...currentContact,
+                                  assistantId: e.target.value,
+                                })
+                              }
+                              placeholder="Enter assistant ID"
+                              className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-200"
+                            />
+                          </div>
+
+                          <div className="space-y-3">
+                            <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                              <Lucide
+                                icon="MessageSquare"
+                                className="w-4 h-4 text-blue-400"
+                              />
+                              <span>Thread ID</span>
+                            </label>
+                            <FormInput
+                              type="text"
+                              value={currentContact.threadid || ""}
+                              onChange={(e) =>
+                                setCurrentContact({
+                                  ...currentContact,
+                                  threadid: e.target.value,
+                                })
+                              }
+                              placeholder="Enter thread ID"
+                              className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-blue-400/50 focus:ring-2 focus:ring-blue-400/20 transition-all duration-200"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Custom Fields */}
+                    {currentContact.customFields &&
+                      Object.entries(currentContact.customFields).length >
+                        0 && (
+                        <div className="bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 dark:border-slate-600/20 shadow-inner space-y-6">
+                          <div className="flex items-center space-x-3 mb-6">
+                            <Lucide
+                              icon="Settings"
+                              className="w-6 h-6 text-purple-400"
+                            />
+                            <h4 className="text-xl font-semibold text-white/90 dark:text-slate-200">
+                              Custom Fields
+                            </h4>
+                          </div>
+
+                          <div className="space-y-6">
+                            {Object.entries(currentContact.customFields).map(
+                              ([key, value]) => (
+                                <div key={key} className="space-y-3">
+                                  <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                                    <Lucide
+                                      icon="Tag"
+                                      className="w-4 h-4 text-purple-400"
+                                    />
+                                    <span>{key}</span>
+                                  </label>
+                                  <div className="flex gap-3">
+                                    <FormInput
+                                      type="text"
+                                      value={value}
+                                      onChange={(e) =>
+                                        setCurrentContact({
+                                          ...currentContact,
+                                          customFields: {
+                                            ...currentContact.customFields,
+                                            [key]: e.target.value,
+                                          },
+                                        })
+                                      }
+                                      placeholder={`Enter ${key}`}
+                                      className="flex-1 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-purple-400/50 focus:ring-2 focus:ring-purple-400/20 transition-all duration-200"
+                                    />
+                                    <button
+                                      onClick={() => {
+                                        if (
+                                          window.confirm(
+                                            `Are you sure you want to delete the custom field "${key}" from all contacts?`
+                                          )
+                                        ) {
+                                          deleteCustomFieldFromAllContacts(key);
+                                          const newCustomFields = {
+                                            ...currentContact.customFields,
+                                          };
+                                          delete newCustomFields[key];
+                                          setCurrentContact({
+                                            ...currentContact,
+                                            customFields: newCustomFields,
+                                          });
+                                        }
+                                      }}
+                                      className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 text-red-300 hover:text-red-200 rounded-xl transition-all duration-200 backdrop-blur-sm"
+                                    >
+                                      <Lucide
+                                        icon="Trash2"
+                                        className="w-4 h-4"
+                                      />
+                                    </button>
+                                  </div>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                    {/* Add New Field */}
+                    <div className="bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 dark:border-slate-600/20 shadow-inner">
+                      <button
+                        onClick={() => {
+                          const fieldName = prompt(
+                            "Enter the name of the new field:"
+                          );
+                          if (fieldName) {
+                            addCustomFieldToAllContacts(fieldName);
+                            setCurrentContact({
+                              ...currentContact,
+                              customFields: {
+                                ...currentContact.customFields,
+                                [fieldName]: "",
+                              },
+                            });
+                          }
+                        }}
+                        className="w-full flex items-center justify-center space-x-3 px-6 py-4 bg-gradient-to-r from-emerald-500/20 to-blue-500/20 hover:from-emerald-500/30 hover:to-blue-500/30 border border-emerald-400/30 hover:border-emerald-400/50 text-emerald-300 hover:text-emerald-200 rounded-2xl transition-all duration-200 backdrop-blur-sm"
                       >
-                        {isScheduling ? (
-            <div className="flex items-center">
-              <Lucide icon="Loader" className="w-4 h-4 mr-2 animate-spin" />
-              Scheduling...
-            </div>
-                        ) : (
-                          "Send Blast Message"
-                        )}
+                        <Lucide icon="Plus" className="w-5 h-5" />
+                        <span className="font-medium">Add New Field</span>
                       </button>
                     </div>
 
-                    {isScheduling && (
-        <div className="mt-4 p-4 text-center text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                        Please wait while we schedule your messages...
+                    {/* Notes */}
+                    <div className="bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 dark:border-slate-600/20 shadow-inner space-y-6">
+                      <div className="flex items-center space-x-3 mb-6">
+                        <Lucide
+                          icon="FileText"
+                          className="w-6 h-6 text-amber-400"
+                        />
+                        <h4 className="text-xl font-semibold text-white/90 dark:text-slate-200">
+                          Notes
+                        </h4>
                       </div>
-                )}
-              </Dialog.Panel>
-            </div>
-          </Dialog>
-          {showAddTagModal && (
-            <Dialog
-              open={showAddTagModal}
-              onClose={() => setShowAddTagModal(false)}
-            >
-              <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-                <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md mt-40 text-gray-900 dark:text-white">
-                  <div className="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
-                    <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-gray-700 dark:text-white mr-4">
-                      <Lucide icon="Plus" className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <span className="text-xl text-gray-900 dark:text-white">
-                        Add New Tag
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-6 space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Tag Name
-                      </label>
-                      <input
-                        type="text"
-                        className="block w-full mt-1 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        value={newTag}
-                        onChange={(e) => setNewTag(e.target.value)}
+
+                      <textarea
+                        value={currentContact.notes || ""}
+                        onChange={(e) =>
+                          setCurrentContact({
+                            ...currentContact,
+                            notes: e.target.value,
+                          })
+                        }
+                        placeholder="Enter any additional notes"
+                        rows={4}
+                        className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-amber-400/50 focus:ring-2 focus:ring-amber-400/20 transition-all duration-200 resize-none shadow-inner"
                       />
                     </div>
-                  </div>
-                  <div className="flex justify-end mt-6">
-                    <button
-                      className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
-                      onClick={() => setShowAddTagModal(false)}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
-                      onClick={handleSaveNewTag}
-                    >
-                      Save
-                    </button>
-                  </div>
-                </Dialog.Panel>
-              </div>
-            </Dialog>
-          )}
-          {showDeleteTagModal && (
-            <Dialog
-              open={showDeleteTagModal}
-              onClose={() => setShowDeleteTagModal(false)}
-            >
-              <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-                <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md text-gray-900 dark:text-white">
-                  <div className="p-5 text-center">
-                    <Lucide
-                      icon="XCircle"
-                      className="w-16 h-16 mx-auto mt-3 text-danger"
-                    />
-                    <div className="mt-5 text-3xl text-gray-900 dark:text-white">
-                      Are you sure?
-                    </div>
-                    <div className="mt-2 text-gray-600 dark:text-gray-400">
-                      Do you really want to delete this tag? <br />
-                      This process cannot be undone.
+
+                    {/* Tags */}
+                    <div className="bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 dark:border-slate-600/20 shadow-inner space-y-6">
+                      <div className="flex items-center space-x-3 mb-6">
+                        <Lucide icon="Tags" className="w-6 h-6 text-pink-400" />
+                        <h4 className="text-xl font-semibold text-white/90 dark:text-slate-200">
+                          Tags
+                        </h4>
+                      </div>
+
+                      <div className="flex flex-wrap gap-3">
+                        {currentContact.tags?.map((tag, index) => (
+                          <span
+                            key={index}
+                            className="inline-flex items-center px-4 py-2 rounded-2xl text-sm bg-gradient-to-r from-pink-500/20 to-purple-500/20 border border-pink-400/30 text-pink-200 backdrop-blur-sm"
+                          >
+                            {tag}
+                            <button
+                              onClick={() =>
+                                handleRemoveTag(currentContact.contact_id!, tag)
+                              }
+                              className="ml-2 text-pink-300 hover:text-pink-100 transition-colors duration-200"
+                            >
+                              <Lucide icon="X" className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                  <div className="px-5 pb-8 text-center">
-                    <Button
-                      variant="outline-secondary"
-                      type="button"
-                      onClick={() => setShowDeleteTagModal(false)}
-                      className="w-24 mr-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      variant="danger"
-                      type="button"
-                      onClick={handleConfirmDeleteTag}
-                      className="w-24 bg-red-600 text-white hover:bg-red-700"
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </Dialog.Panel>
-              </div>
-            </Dialog>
-          )}
-          <Dialog
-            open={deleteConfirmationModal}
-            onClose={() => setDeleteConfirmationModal(false)}
-            initialFocus={deleteButtonRef}
-          >
-            <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-              <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md text-gray-900 dark:text-white">
-                <div className="p-5 text-center">
-                  <Lucide
-                    icon="XCircle"
-                    className="w-16 h-16 mx-auto mt-3 text-danger"
-                  />
-                  <div className="mt-5 text-3xl text-gray-900 dark:text-white">
-                    Are you sure?
-                  </div>
-                  <div className="mt-2 text-gray-600 dark:text-gray-400">
-                    Do you really want to delete this contact? <br />
-                    This process cannot be undone.
-                  </div>
-                </div>
-                <div className="px-5 pb-8 text-center">
+                )}
+
+                <div className="flex justify-end space-x-3 mt-10 pt-6 border-t border-white/10 dark:border-slate-700/20">
                   <button
-                    ref={deleteButtonRef}
-                    className="px-4 py-2 mr-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
-                    onClick={handleDeleteContact}
-                  >
-                    Delete
-                  </button>
-                  <button
-                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
-                    onClick={() => setDeleteConfirmationModal(false)}
+                    onClick={() => setEditContactModal(false)}
+                    className="px-6 py-3 bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 backdrop-blur-sm border border-white/20 dark:border-slate-600/20 text-white/90 hover:text-white rounded-2xl transition-all duration-200 font-medium"
                   >
                     Cancel
                   </button>
+                  <button
+                    onClick={handleSaveContact}
+                    disabled={isLoading}
+                    className="px-8 py-3 bg-gradient-to-r from-emerald-500 via-blue-500 to-purple-500 hover:from-emerald-600 hover:via-blue-600 hover:to-purple-600 border-0 text-white rounded-2xl transition-all duration-200 font-semibold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <Lucide
+                        icon={isLoading ? "Loader2" : "Save"}
+                        className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`}
+                      />
+                      <span>{isLoading ? "Saving..." : "Save Changes"}</span>
+                    </div>
+                  </button>
                 </div>
-              </Dialog.Panel>
-            </div>
-          </Dialog>
-          <Dialog
-            open={showCsvImportModal}
-            onClose={() => setShowCsvImportModal(false)}
-          >
-            <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-              <Dialog.Panel className="w-full max-w-lg">
-                {/* Glassmorphic Modal Container */}
-                <div className="relative overflow-hidden">
-                  {/* Background Glow Effects */}
-                  <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/10 to-white/20 dark:from-gray-800/20 dark:via-gray-800/10 dark:to-gray-800/20 rounded-3xl blur-2xl opacity-75"></div>
-                  <div className="absolute -inset-1 bg-gradient-to-r from-white/10 via-white/5 to-white/10 dark:from-gray-800/10 dark:via-gray-800/5 dark:to-gray-800/10 rounded-3xl blur-3xl opacity-50"></div>
-                  
-                  {/* Main Content */}
-                  <div className="relative bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-3xl border border-white/30 dark:border-slate-600/40 overflow-hidden shadow-2xl">
-                    {/* Header Section */}
-                    <div className="relative p-6 border-b border-white/20 dark:border-slate-600/30 bg-gradient-to-r from-blue-500/20 to-purple-500/20 dark:from-blue-600/20 dark:to-purple-600/20 backdrop-blur-md">
-                      {/* Decorative Elements */}
-                      <div className="absolute top-0 left-0 w-24 h-24 bg-gradient-to-br from-blue-400/20 to-purple-400/20 dark:from-blue-500/20 dark:to-purple-500/20 rounded-full blur-xl"></div>
-                      <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-purple-400/20 to-blue-400/20 dark:from-purple-500/20 dark:to-blue-500/20 rounded-full blur-xl"></div>
-                      
-                      <div className="relative flex items-center gap-3">
-                        <div className="w-12 h-12 bg-white/20 dark:bg-slate-700/40 backdrop-blur-sm rounded-2xl border border-white/30 dark:border-slate-600/40 flex items-center justify-center shadow-lg">
-                          <Lucide icon="Upload" className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                        </div>
-                        <div>
-                          <h2 className="text-2xl font-bold text-gray-800 dark:text-slate-100">Import CSV</h2>
-                          <p className="text-sm text-gray-600 dark:text-slate-400 mt-1">Upload and import your contact data</p>
-                        </div>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
+
+        {/* Scheduled Messages Modal */}
+        <Dialog
+          open={scheduledMessagesModal}
+          onClose={() => setScheduledMessagesModal(false)}
+          className="relative z-50"
+        >
+          <div className="fixed inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl">
+            <Dialog.Panel className="w-[90vw] md:w-[85vw] lg:w-[80vw] max-w-[1600px] relative bg-white/10 dark:bg-slate-800/10 backdrop-blur-3xl rounded-3xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] border border-white/20 dark:border-slate-700/20 transform hover:scale-[1.001] transition-all duration-300 flex flex-col max-h-[90vh]">
+              {/* Enhanced Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 via-purple-500/5 to-indigo-500/10 dark:from-blue-600/10 dark:via-purple-700/5 dark:to-indigo-600/10 pointer-events-none" />
+
+              {/* Top Shine Effect */}
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+
+              <div className="relative flex-1 flex flex-col overflow-hidden">
+                {/* Sticky Header Section */}
+                <div className="sticky top-0 z-10 bg-white/10 dark:bg-slate-800/10 backdrop-blur-3xl rounded-t-3xl border-b border-white/10 dark:border-slate-700/20">
+                  {/* Main Header */}
+                  <div className="flex items-center justify-between p-8 pb-6">
+                    <div className="flex items-center space-x-4">
+                      <div className="relative p-4 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10">
+                        <Lucide
+                          icon="Calendar"
+                          className="w-7 h-7 text-blue-400"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-2xl blur-sm" />
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-bold bg-gradient-to-r from-white via-blue-100 to-purple-100 bg-clip-text text-transparent">
+                          Scheduled Messages
+                        </h3>
+                        <p className="text-white/60 mt-1">
+                          Manage your scheduled message campaigns
+                        </p>
                       </div>
                     </div>
+                    <div className="flex items-center space-x-3">
+                      {/* Active Filters Indicator */}
+                      {(messageStatusFilter ||
+                        messageDateFilter ||
+                        messageTypeFilter ||
+                        messageRecipientFilter) && (
+                        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-400/20 backdrop-blur-sm">
+                          Filtered
+                        </span>
+                      )}
+                      <button
+                        onClick={() => setScheduledMessagesModal(false)}
+                        className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 text-slate-400 hover:text-white dark:hover:text-slate-200 transition-all duration-200 flex items-center justify-center backdrop-blur-sm border border-white/10"
+                      >
+                        <Lucide icon="X" className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
 
-                    {/* Content Section */}
-                    <div className="p-6 space-y-6">
-                      {/* File Upload Section */}
-                      <div className="space-y-3">
-                        <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300">
-                          Select CSV File
-                        </label>
-                        <div className="relative group">
-                          <div className="absolute inset-0 bg-white/20 dark:bg-slate-700/40 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                          <input
-                            type="file"
-                            accept=".csv"
-                            onChange={handleCsvFileSelect}
-                            className="relative w-full px-4 py-3 border border-white/30 dark:border-slate-600/40 rounded-xl bg-white/20 dark:bg-slate-800/30 backdrop-blur-sm text-gray-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-slate-700 dark:file:text-slate-300"
-                          />
-                        </div>
-                        <button
-                          onClick={handleDownloadSampleCsv}
-                          className="inline-flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors duration-200 font-medium"
+                  {/* Filter Controls */}
+                  <div className="flex flex-wrap items-center gap-4 px-8 py-6">
+                    {/* Status Filter */}
+                    <div className="space-y-2">
+                      <label className="block text-xs font-medium text-white/60 uppercase tracking-wide">
+                        Status
+                      </label>
+                      <select
+                        value={messageStatusFilter}
+                        onChange={(e) => setMessageStatusFilter(e.target.value)}
+                        className="px-4 py-2.5 bg-white/5 border border-white/10 rounded-2xl text-white text-sm focus:border-blue-400/50 focus:ring-2 focus:ring-blue-400/20 transition-all duration-200 backdrop-blur-sm min-w-[140px] appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523ffffff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%2C9%2012%2C15%2018%2C9%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[length:16px_16px] bg-[right_12px_center] pr-10"
+                        style={{
+                          color: "white",
+                          backgroundColor: "rgba(255, 255, 255, 0.05)",
+                        }}
+                      >
+                        <option
+                          value=""
+                          style={{ backgroundColor: "#1e293b", color: "white" }}
                         >
-                          <Lucide icon="Download" className="w-4 h-4" />
-                          Download Sample CSV
+                          All Status
+                        </option>
+                        <option
+                          value="scheduled"
+                          style={{ backgroundColor: "#1e293b", color: "white" }}
+                        >
+                          Scheduled
+                        </option>
+                        <option
+                          value="sent"
+                          style={{ backgroundColor: "#1e293b", color: "white" }}
+                        >
+                          Sent
+                        </option>
+                        <option
+                          value="failed"
+                          style={{ backgroundColor: "#1e293b", color: "white" }}
+                        >
+                          Failed
+                        </option>
+                      </select>
+                    </div>
+
+                    {/* Date Filter */}
+                    <div className="space-y-2">
+                      <label className="block text-xs font-medium text-white/60 uppercase tracking-wide">
+                        Date
+                      </label>
+                      <select
+                        value={messageDateFilter}
+                        onChange={(e) => setMessageDateFilter(e.target.value)}
+                        className="px-4 py-2.5 bg-white/5 border border-white/10 rounded-2xl text-white text-sm focus:border-blue-400/50 focus:ring-2 focus:ring-blue-400/20 transition-all duration-200 backdrop-blur-sm min-w-[140px] appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523ffffff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%2C9%2012%2C15%2018%2C9%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[length:16px_16px] bg-[right_12px_center] pr-10"
+                        style={{
+                          color: "white",
+                          backgroundColor: "rgba(255, 255, 255, 0.05)",
+                        }}
+                      >
+                        <option
+                          value=""
+                          style={{ backgroundColor: "#1e293b", color: "white" }}
+                        >
+                          All Dates
+                        </option>
+                        <option
+                          value="today"
+                          style={{ backgroundColor: "#1e293b", color: "white" }}
+                        >
+                          Today
+                        </option>
+                        <option
+                          value="tomorrow"
+                          style={{ backgroundColor: "#1e293b", color: "white" }}
+                        >
+                          Tomorrow
+                        </option>
+                        <option
+                          value="this-week"
+                          style={{ backgroundColor: "#1e293b", color: "white" }}
+                        >
+                          This Week
+                        </option>
+                        <option
+                          value="next-week"
+                          style={{ backgroundColor: "#1e293b", color: "white" }}
+                        >
+                          Next Week
+                        </option>
+                        <option
+                          value="this-month"
+                          style={{ backgroundColor: "#1e293b", color: "white" }}
+                        >
+                          This Month
+                        </option>
+                        <option
+                          value="next-month"
+                          style={{ backgroundColor: "#1e293b", color: "white" }}
+                        >
+                          Next Month
+                        </option>
+                      </select>
+                    </div>
+
+                    {/* Type Filter */}
+                    <div className="space-y-2">
+                      <label className="block text-xs font-medium text-white/60 uppercase tracking-wide">
+                        Type
+                      </label>
+                      <select
+                        value={messageTypeFilter}
+                        onChange={(e) => setMessageTypeFilter(e.target.value)}
+                        className="px-4 py-2.5 bg-white/5 border border-white/10 rounded-2xl text-white text-sm focus:border-blue-400/50 focus:ring-2 focus:ring-blue-400/20 transition-all duration-200 backdrop-blur-sm min-w-[140px] appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523ffffff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%2C9%2012%2C15%2018%2C9%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[length:16px_16px] bg-[right_12px_center] pr-10"
+                        style={{
+                          color: "white",
+                          backgroundColor: "rgba(255, 255, 255, 0.05)",
+                        }}
+                      >
+                        <option
+                          value=""
+                          style={{ backgroundColor: "#1e293b", color: "white" }}
+                        >
+                          All Types
+                        </option>
+                        <option
+                          value="text"
+                          style={{ backgroundColor: "#1e293b", color: "white" }}
+                        >
+                          Text Only
+                        </option>
+                        <option
+                          value="media"
+                          style={{ backgroundColor: "#1e293b", color: "white" }}
+                        >
+                          With Media
+                        </option>
+                        <option
+                          value="document"
+                          style={{ backgroundColor: "#1e293b", color: "white" }}
+                        >
+                          With Document
+                        </option>
+                        <option
+                          value="multiple"
+                          style={{ backgroundColor: "#1e293b", color: "white" }}
+                        >
+                          Multiple Messages
+                        </option>
+                      </select>
+                    </div>
+
+                    {/* Recipient Filter */}
+                    <div className="space-y-2">
+                      <label className="block text-xs font-medium text-white/60 uppercase tracking-wide">
+                        Recipients
+                      </label>
+                      <select
+                        value={messageRecipientFilter}
+                        onChange={(e) =>
+                          setMessageRecipientFilter(e.target.value)
+                        }
+                        className="px-4 py-2.5 bg-white/5 border border-white/10 rounded-2xl text-white text-sm focus:border-blue-400/50 focus:ring-2 focus:ring-blue-400/20 transition-all duration-200 backdrop-blur-sm min-w-[140px] appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2523ffffff%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%2C9%2012%2C15%2018%2C9%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[length:16px_16px] bg-[right_12px_center] pr-10"
+                        style={{
+                          color: "white",
+                          backgroundColor: "rgba(255, 255, 255, 0.05)",
+                        }}
+                      >
+                        <option
+                          value=""
+                          style={{ backgroundColor: "#1e293b", color: "white" }}
+                        >
+                          All Recipients
+                        </option>
+                        <option
+                          value="single"
+                          style={{ backgroundColor: "#1e293b", color: "white" }}
+                        >
+                          Single Contact
+                        </option>
+                        <option
+                          value="multiple"
+                          style={{ backgroundColor: "#1e293b", color: "white" }}
+                        >
+                          Multiple Contacts
+                        </option>
+                      </select>
+                    </div>
+
+                    {/* Clear Filters Button */}
+                    {(messageStatusFilter ||
+                      messageDateFilter ||
+                      messageTypeFilter ||
+                      messageRecipientFilter) && (
+                      <div className="space-y-2">
+                        <label className="block text-xs font-medium text-transparent">
+                          Clear
+                        </label>
+                        <button
+                          onClick={() => {
+                            setMessageStatusFilter("");
+                            setMessageDateFilter("");
+                            setMessageTypeFilter("");
+                            setMessageRecipientFilter("");
+                          }}
+                          className="px-4 py-2.5 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 hover:border-red-400/50 text-red-300 hover:text-red-200 rounded-2xl text-sm transition-all duration-200 backdrop-blur-sm flex items-center space-x-2"
+                        >
+                          <Lucide icon="X" className="w-4 h-4" />
+                          <span>Clear Filters</span>
                         </button>
                       </div>
-
-                      {/* Tags Selection Section */}
-                      <div className="space-y-3">
-                        <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300">
-                          Select Tags
-                        </label>
-                        <div className="max-h-40 overflow-y-auto custom-scrollbar bg-white/10 dark:bg-slate-700/20 rounded-xl p-3 border border-white/20 dark:border-slate-600/30">
-                          <div className="grid grid-cols-2 gap-2">
-                            {tagList.map((tag) => (
-                              <label
-                                key={tag.id}
-                                className="flex items-center space-x-2 p-2 rounded-lg hover:bg-white/20 dark:hover:bg-slate-600/30 transition-all duration-200 cursor-pointer"
+                    )}
+                  </div>
+                  {/* Action Buttons for Selected Messages */}
+                  {selectedScheduledMessages.length > 0 &&
+                    scheduledMessagesModal && (
+                      <div className="px-8 pb-4 border-b border-white/10 dark:border-slate-700/20">
+                        <div className="bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl rounded-3xl p-6 border border-white/20 dark:border-slate-600/20 shadow-inner">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-3 h-3 rounded-full bg-gradient-to-r from-blue-400 to-purple-500"></div>
+                              <span className="text-sm text-white/80 font-medium">
+                                {selectedScheduledMessages.length} message
+                                {selectedScheduledMessages.length > 1
+                                  ? "s"
+                                  : ""}{" "}
+                                selected
+                              </span>
+                            </div>
+                            <div className="flex space-x-3">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  handleSendSelectedNow();
+                                }}
+                                className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-teal-500/30 border border-emerald-400/30 hover:border-emerald-400/50 text-emerald-300 hover:text-emerald-200 rounded-2xl transition-all duration-200 backdrop-blur-sm text-sm font-medium shadow-lg shadow-emerald-500/10"
                               >
+                                <Lucide icon="Send" className="w-4 h-4" />
+                                <span>Send Selected</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      `Are you sure you want to delete ${
+                                        selectedScheduledMessages.length
+                                      } selected message${
+                                        selectedScheduledMessages.length > 1
+                                          ? "s"
+                                          : ""
+                                      }?`
+                                    )
+                                  ) {
+                                    handleDeleteSelected();
+                                  }
+                                }}
+                                className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-red-500/20 to-pink-500/20 hover:from-red-500/30 hover:to-pink-500/30 border border-red-400/30 hover:border-red-400/50 text-red-300 hover:text-red-200 rounded-2xl transition-all duration-200 backdrop-blur-sm text-sm font-medium shadow-lg shadow-red-500/10"
+                              >
+                                <Lucide icon="Trash2" className="w-4 h-4" />
+                                <span>Delete Selected</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedScheduledMessages([])}
+                                className="flex items-center space-x-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white/80 hover:text-white rounded-2xl transition-all duration-200 backdrop-blur-sm text-sm font-medium"
+                              >
+                                <Lucide icon="X" className="w-4 h-4" />
+                                <span>Cancel</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                </div>
+
+                {/* Messages List */}
+                <div className="flex-1 overflow-y-auto px-8 pb-8">
+                  <div className="mt-6 pb-24">
+                    {getFilteredScheduledMessages().length > 0 ? (
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                        {applyAdvancedFilters(
+                          combineScheduledMessages(
+                            getFilteredScheduledMessages()
+                          )
+                        ).map((message) => (
+                          <div
+                            key={message.id}
+                            className="relative bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-3xl shadow-inner overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.01] flex flex-col transform-gpu"
+                          >
+                            {/* Enhanced Card Gradient Overlay */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-purple-500/5 dark:from-slate-600/5 dark:via-transparent dark:to-purple-600/5 pointer-events-none" />
+
+                            <div className="relative p-6 flex-grow">
+                              <div className="flex justify-between items-start mb-6">
+                                <span
+                                  className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium backdrop-blur-sm border transition-all duration-200 ${
+                                    message.status === "sent"
+                                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-400/30"
+                                      : message.status === "failed"
+                                      ? "bg-red-500/20 text-red-300 border-red-400/30"
+                                      : "bg-orange-500/20 text-orange-300 border-orange-400/30"
+                                  }`}
+                                >
+                                  {message.status === "sent"
+                                    ? "✓ Sent"
+                                    : message.status === "failed"
+                                    ? "✗ Failed"
+                                    : "⏰ Scheduled"}
+                                </span>
+
                                 <input
                                   type="checkbox"
-                                  value={tag.name}
-                                  checked={selectedImportTags.includes(tag.name)}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setSelectedImportTags([
-                                        ...selectedImportTags,
-                                        tag.name,
-                                      ]);
-                                    } else {
-                                      setSelectedImportTags(
-                                        selectedImportTags.filter((t) => t !== tag.name)
-                                      );
-                                    }
-                                  }}
-                                  className="h-4 w-4 text-blue-600 bg-white/20 dark:bg-slate-700/40 border-white/30 dark:border-slate-600/40 rounded focus:ring-2 focus:ring-blue-500/50 transition-all duration-200"
+                                  checked={selectedScheduledMessages.includes(
+                                    message.id!
+                                  )}
+                                  onChange={() =>
+                                    toggleScheduledMessageSelection(message.id!)
+                                  }
+                                  className="w-5 h-5 text-blue-500 bg-white/10 border-white/20 rounded focus:ring-blue-500/50 focus:ring-2 backdrop-blur-sm"
                                 />
-                                <span className="text-sm text-gray-700 dark:text-slate-300 font-medium">
-                                  {tag.name}
-                                </span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
+                              </div>
 
-                      {/* New Tags Section */}
-                      <div className="space-y-3">
-                        <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300">
-                          Add New Tags (comma-separated)
-                        </label>
-                        <div className="relative group">
-                          <div className="absolute inset-0 bg-white/20 dark:bg-slate-700/40 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                          <input
-                            type="text"
-                            value={importTags.join(", ")}
-                            onChange={(e) =>
-                              setImportTags(
-                                e.target.value.split(",").map((tag) => tag.trim())
-                              )
-                            }
-                            className="relative w-full px-4 py-3 border border-white/30 dark:border-slate-600/40 rounded-xl bg-white/20 dark:bg-slate-800/30 backdrop-blur-sm text-gray-700 dark:text-slate-300 placeholder-gray-500 dark:placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-300"
-                            placeholder="Enter new tags separated by commas"
-                          />
-                        </div>
-                      </div>
-                    </div>
+                              <div className="space-y-6">
+                                {/* Message Content */}
+                                <div className="space-y-3">
+                                  <div className="flex items-center space-x-2">
+                                    <Lucide
+                                      icon="MessageSquare"
+                                      className="w-4 h-4 text-blue-400"
+                                    />
+                                    <h4 className="text-sm font-semibold text-white/90">
+                                      Message Content
+                                    </h4>
+                                  </div>
+                                  <div className="bg-white/5 dark:bg-slate-700/10 border border-white/10 dark:border-slate-600/20 rounded-2xl p-4 backdrop-blur-sm shadow-inner">
+                                    <p className="text-sm text-white/80 dark:text-slate-200 leading-relaxed line-clamp-3">
+                                      {message.messageContent ||
+                                        message.message ||
+                                        "No message content"}
+                                    </p>
+                                  </div>
+                                </div>
 
-                    {/* Footer Section */}
-                    <div className="p-6 border-t border-white/20 dark:border-slate-600/30 bg-white/10 dark:bg-slate-700/20 backdrop-blur-md">
-                      <div className="flex justify-end gap-3">
-                        <button
-                          className="px-6 py-3 text-sm font-semibold text-gray-700 dark:text-slate-300 bg-white/20 dark:bg-slate-700/40 hover:bg-white/30 dark:hover:bg-slate-600/50 rounded-xl transition-all duration-200 border border-white/30 dark:border-slate-600/40 hover:scale-105"
-                          onClick={() => setShowCsvImportModal(false)}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          className="px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 rounded-xl transition-all duration-200 hover:scale-105 shadow-lg shadow-blue-500/30 border border-blue-400/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                          onClick={handleCsvImport}
-                          disabled={!selectedCsvFile || isLoading}
-                        >
-                          {isLoading ? (
-                            <span className="flex items-center gap-2">
-                              <Lucide icon="Loader" className="w-4 h-4 animate-spin" />
-                              Importing...
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-2">
-                              <Lucide icon="Upload" className="w-4 h-4" />
-                              Import
-                            </span>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </Dialog.Panel>
-            </div>
-          </Dialog>
-                    {/* Columns Modal */}
-                    {showColumnsModal && (
-            <Dialog
-              open={showColumnsModal}
-              onClose={() => setShowColumnsModal(false)}
-            >
-              <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                <Dialog.Panel className="w-full max-w-lg">
-                  {/* Glassmorphic Modal Container */}
-                  <div className="relative overflow-hidden">
-                    {/* Background Glow Effects */}
-                    <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/10 to-white/20 dark:from-gray-800/20 dark:via-gray-800/10 dark:to-gray-800/20 rounded-3xl blur-2xl opacity-75"></div>
-                    <div className="absolute -inset-1 bg-gradient-to-r from-white/10 via-white/5 to-white/10 dark:from-gray-800/10 dark:via-gray-800/5 dark:to-gray-800/10 rounded-3xl blur-3xl opacity-50"></div>
-                    
-                    {/* Main Content */}
-                    <div className="relative bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-3xl border border-white/30 dark:border-slate-600/40 overflow-hidden shadow-2xl">
-                      {/* Header Section */}
-                      <div className="relative p-6 border-b border-white/20 dark:border-slate-600/30 bg-gradient-to-r from-indigo-500/20 to-blue-500/20 dark:from-indigo-600/20 dark:to-blue-600/20 backdrop-blur-md">
-                        {/* Decorative Elements */}
-                        <div className="absolute top-0 left-0 w-24 h-24 bg-gradient-to-br from-indigo-400/20 to-blue-400/20 dark:from-indigo-500/20 dark:to-blue-500/20 rounded-full blur-xl"></div>
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-400/20 to-indigo-400/20 dark:from-blue-500/20 dark:to-indigo-500/20 rounded-full blur-xl"></div>
-                        
-                        <div className="relative flex items-center gap-3">
-                          <div className="w-12 h-12 bg-white/20 dark:bg-slate-700/40 backdrop-blur-sm rounded-2xl border border-white/30 dark:border-slate-600/40 flex items-center justify-center shadow-lg">
-                            <Lucide icon="Grid2x2" className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-                          </div>
-                          <div>
-                            <h2 className="text-2xl font-bold text-gray-800 dark:text-slate-100">Show/Hide Columns</h2>
-                            <p className="text-sm text-gray-600 dark:text-slate-400 mt-1">Customize which columns are visible</p>
-                          </div>
-                        </div>
-                      </div>
+                                {/* Schedule Information */}
+                                <div className="grid grid-cols-1 gap-4">
+                                  <div className="space-y-2">
+                                    <div className="flex items-center space-x-2">
+                                      <Lucide
+                                        icon="Clock"
+                                        className="w-4 h-4 text-purple-400"
+                                      />
+                                      <span className="text-xs font-medium text-white/60 uppercase tracking-wide">
+                                        Scheduled Time
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-white/90 pl-6">
+                                      {message.scheduledTime
+                                        ? new Date(
+                                            message.scheduledTime
+                                          ).toLocaleString()
+                                        : "Not set"}
+                                    </p>
+                                  </div>
 
-                      {/* Content Section */}
-                      <div className="p-6 space-y-4">
-                        <div className="grid grid-cols-2 gap-3">
-                          {Object.keys(visibleColumns).map((column) => (
-                            <label
-                              key={column}
-                              className="flex items-center space-x-2 p-3 rounded-xl hover:bg-white/20 dark:hover:bg-slate-600/30 transition-all duration-200 cursor-pointer bg-white/10 dark:bg-slate-700/20"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={visibleColumns[column]}
-                                onChange={(e) =>
-                                  setVisibleColumns({
-                                    ...visibleColumns,
-                                    [column]: e.target.checked,
-                                  })
-                                }
-                                className="h-4 w-4 text-indigo-600 bg-white/20 dark:bg-slate-700/40 border-white/30 dark:border-slate-600/40 rounded focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all duration-200"
-                              />
-                              <span className="text-sm text-gray-700 dark:text-slate-300 font-medium capitalize">
-                                {column.replace(/([A-Z])/g, ' $1').trim()}
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
+                                  <div className="space-y-2">
+                                    <div className="flex items-center space-x-2">
+                                      <Lucide
+                                        icon={
+                                          Array.isArray(message.contactIds) &&
+                                          message.contactIds.length > 1
+                                            ? "Users"
+                                            : "User"
+                                        }
+                                        className="w-4 h-4 text-emerald-400"
+                                      />
+                                      <span className="text-xs font-medium text-white/60 uppercase tracking-wide">
+                                        Recipients
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-white/90 pl-6">
+                                      {Array.isArray(message.contactIds) &&
+                                      message.contactIds.length > 0
+                                        ? message.contactIds.length > 1
+                                          ? `${message.contactIds.length} contacts`
+                                          : (() => {
+                                              const phoneNumber =
+                                                message.contactIds[0]
+                                                  ?.split("-")[1]
+                                                  ?.replace(/\D/g, "") || "";
+                                              const contact = contacts.find(
+                                                (c) =>
+                                                  c.phone?.replace(
+                                                    /\D/g,
+                                                    ""
+                                                  ) === phoneNumber
+                                              );
+                                              return (
+                                                contact?.contactName ||
+                                                phoneNumber ||
+                                                "Unknown"
+                                              );
+                                            })()
+                                        : message.contactId
+                                        ? (() => {
+                                            const phoneNumber =
+                                              message.contactId
+                                                ?.split("-")[1]
+                                                ?.replace(/\D/g, "") || "";
+                                            const contact = contacts.find(
+                                              (c) =>
+                                                c.phone?.replace(/\D/g, "") ===
+                                                phoneNumber
+                                            );
+                                            return (
+                                              contact?.contactName ||
+                                              phoneNumber ||
+                                              "Unknown"
+                                            );
+                                          })()
+                                        : "No recipients"}
+                                    </p>
+                                  </div>
 
-                      {/* Footer Section */}
-                      <div className="p-6 border-t border-white/20 dark:border-slate-600/30 bg-white/10 dark:bg-slate-700/20 backdrop-blur-md">
-                        <div className="flex justify-end gap-3">
-                          <button
-                            className="px-6 py-3 text-sm font-semibold text-gray-700 dark:text-slate-300 bg-white/20 dark:bg-slate-700/40 hover:bg-white/30 dark:hover:bg-slate-600/50 rounded-xl transition-all duration-200 border border-white/30 dark:border-slate-600/40 hover:scale-105"
-                            onClick={() => setShowColumnsModal(false)}
-                          >
-                            Close
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Dialog.Panel>
-              </div>
-            </Dialog>
-          )}
+                                  {/* Message Settings Summary */}
+                                  {(message.batchQuantity ||
+                                    message.minDelay !== undefined ||
+                                    message.repeatInterval > 0) && (
+                                    <div className="space-y-2">
+                                      <div className="flex items-center space-x-2">
+                                        <Lucide
+                                          icon="Settings"
+                                          className="w-4 h-4 text-blue-400"
+                                        />
+                                        <span className="text-xs font-medium text-white/60 uppercase tracking-wide">
+                                          Settings
+                                        </span>
+                                      </div>
+                                      <div className="flex flex-wrap gap-2 pl-6">
+                                        {message.batchQuantity && (
+                                          <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs bg-blue-500/20 text-blue-300 border border-blue-400/20 backdrop-blur-sm">
+                                            Batch: {message.batchQuantity}
+                                          </span>
+                                        )}
+                                        {message.minDelay !== undefined && (
+                                          <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs bg-purple-500/20 text-purple-300 border border-purple-400/20 backdrop-blur-sm">
+                                            Delay: {message.minDelay}-
+                                            {message.maxDelay}s
+                                          </span>
+                                        )}
+                                        {message.repeatInterval > 0 && (
+                                          <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-400/20 backdrop-blur-sm">
+                                            Repeat: {message.repeatInterval}{" "}
+                                            {message.repeatUnit}
+                                          </span>
+                                        )}
+                                        {message.infiniteLoop && (
+                                          <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs bg-orange-500/20 text-orange-300 border border-orange-400/20 backdrop-blur-sm">
+                                            <Lucide
+                                              icon="RefreshCw"
+                                              className="w-3 h-3 mr-1"
+                                            />
+                                            Loop
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
 
-          {/* Date Filter Modal */}
-          {showDateFilterModal && (
-            <Dialog
-              open={showDateFilterModal}
-              onClose={() => setShowDateFilterModal(false)}
-            >
-              <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                <Dialog.Panel className="w-full max-w-lg">
-                  {/* Glassmorphic Modal Container */}
-                  <div className="relative overflow-hidden">
-                    {/* Background Glow Effects */}
-                    <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/10 to-white/20 dark:from-gray-800/20 dark:via-gray-800/10 dark:to-gray-800/20 rounded-3xl blur-2xl opacity-75"></div>
-                    <div className="absolute -inset-1 bg-gradient-to-r from-white/10 via-white/5 to-white/10 dark:from-gray-800/10 dark:via-gray-800/5 dark:to-gray-800/10 rounded-3xl blur-3xl opacity-50"></div>
-                    
-                    {/* Main Content */}
-                    <div className="relative bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-3xl border border-white/30 dark:border-slate-600/40 overflow-hidden shadow-2xl">
-                      {/* Header Section */}
-                      <div className="relative p-6 border-b border-white/20 dark:border-slate-600/30 bg-gradient-to-r from-purple-500/20 to-pink-500/20 dark:from-purple-600/20 dark:to-pink-600/20 backdrop-blur-md">
-                        {/* Decorative Elements */}
-                        <div className="absolute top-0 left-0 w-24 h-24 bg-gradient-to-br from-purple-400/20 to-pink-400/20 dark:from-purple-500/20 dark:to-pink-500/20 rounded-full blur-xl"></div>
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-pink-400/20 to-purple-400/20 dark:from-pink-500/20 dark:to-purple-500/20 rounded-full blur-xl"></div>
-                        
-                        <div className="relative flex items-center gap-3">
-                          <div className="w-12 h-12 bg-white/20 dark:bg-slate-700/40 backdrop-blur-sm rounded-2xl border border-white/30 dark:border-slate-600/40 flex items-center justify-center shadow-lg">
-                            <Lucide icon="Calendar" className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                          </div>
-                          <div>
-                            <h2 className="text-2xl font-bold text-gray-800 dark:text-slate-100">Filter by Date</h2>
-                            <p className="text-sm text-gray-600 dark:text-slate-400 mt-1">Set date range for filtering contacts</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Content Section */}
-                      <div className="p-6 space-y-6">
-                        {/* Date Field Selection */}
-                        <div className="space-y-3">
-                          <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300">
-                            Date Field
-                          </label>
-                          <select
-                            value={dateFilterField}
-                            onChange={(e) => setDateFilterField(e.target.value)}
-                            className="w-full px-3 py-2 border border-white/30 dark:border-slate-600/40 rounded-xl bg-white/20 dark:bg-slate-800/30 backdrop-blur-sm text-gray-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent transition-all duration-300"
-                          >
-                            <option value="createdAt">Created Date</option>
-                            <option value="updatedAt">Updated Date</option>
-                            <option value="lastMessageAt">Last Message Date</option>
-                          </select>
-                        </div>
-
-                        {/* Date Range Selection */}
-                        <div className="space-y-3">
-                          <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300">
-                            Date Range
-                          </label>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-2">
-                              <label className="block text-xs text-gray-600 dark:text-slate-400">From Date</label>
-                              <input
-                                type="date"
-                                value={dateFilterStart || ''}
-                                onChange={(e) => setDateFilterStart(e.target.value)}
-                                className="w-full px-3 py-2 border border-white/30 dark:border-slate-600/40 rounded-xl bg-white/20 dark:bg-slate-800/30 backdrop-blur-sm text-gray-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent transition-all duration-300"
-                              />
+                                {/* Attachments */}
+                                {(message.mediaUrl || message.documentUrl) && (
+                                  <div className="space-y-2">
+                                    <div className="flex items-center space-x-2">
+                                      <Lucide
+                                        icon="Paperclip"
+                                        className="w-4 h-4 text-amber-400"
+                                      />
+                                      <span className="text-xs font-medium text-white/60 uppercase tracking-wide">
+                                        Attachments
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 pl-6">
+                                      {message.mediaUrl && (
+                                        <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-400/20 backdrop-blur-sm">
+                                          <Lucide
+                                            icon="Image"
+                                            className="w-3 h-3 mr-1"
+                                          />
+                                          Media
+                                        </span>
+                                      )}
+                                      {message.documentUrl && (
+                                        <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs bg-blue-500/20 text-blue-300 border border-blue-400/20 backdrop-blur-sm">
+                                          <Lucide
+                                            icon="File"
+                                            className="w-3 h-3 mr-1"
+                                          />
+                                          {message.fileName || "Document"}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            <div className="space-y-2">
-                              <label className="block text-xs text-gray-600 dark:text-slate-400">To Date</label>
-                              <input
-                                type="date"
-                                value={dateFilterEnd || ''}
-                                onChange={(e) => setDateFilterEnd(e.target.value)}
-                                className="w-full px-3 py-2 border border-white/30 dark:border-slate-600/40 rounded-xl bg-white/20 dark:bg-slate-800/30 backdrop-blur-sm text-gray-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent transition-all duration-300"
-                              />
+
+                            <div className="relative bg-white/5 dark:bg-slate-700/10 border-t border-white/10 dark:border-slate-600/20 px-6 py-4 backdrop-blur-sm">
+                              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                <button
+                                  onClick={() => {
+                                    setSelectedMessageForView(message);
+                                    setViewMessageDetailsModal(true);
+                                  }}
+                                  className="flex items-center space-x-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white/80 hover:text-white rounded-2xl transition-all duration-200 backdrop-blur-sm text-sm"
+                                >
+                                  <Lucide icon="Eye" className="w-4 h-4" />
+                                  <span>View Details</span>
+                                </button>
+
+                                <div className="flex flex-wrap gap-2">
+                                  <button
+                                    onClick={() => handleSendNow(message)}
+                                    className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-teal-500/30 border border-emerald-400/30 hover:border-emerald-400/50 text-emerald-300 hover:text-emerald-200 rounded-2xl transition-all duration-200 backdrop-blur-sm text-sm shadow-lg shadow-emerald-500/10"
+                                  >
+                                    <Lucide icon="Send" className="w-4 h-4" />
+                                    <span>Send Now</span>
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      handleEditScheduledMessage(message);
+                                      setScheduledMessagesModal(false);
+                                    }}
+                                    className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500/20 to-indigo-500/20 hover:from-blue-500/30 hover:to-indigo-500/30 border border-blue-400/30 hover:border-blue-400/50 text-blue-300 hover:text-blue-200 rounded-2xl transition-all duration-200 backdrop-blur-sm text-sm shadow-lg shadow-blue-500/10"
+                                  >
+                                    <Lucide
+                                      icon="PenTool"
+                                      className="w-4 h-4"
+                                    />
+                                    <span>Edit</span>
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (
+                                        window.confirm(
+                                          "Are you sure you want to delete this scheduled message?"
+                                        )
+                                      ) {
+                                        handleDeleteScheduledMessage(
+                                          message.id!
+                                        );
+                                      }
+                                    }}
+                                    className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-red-500/20 to-pink-500/20 hover:from-red-500/30 hover:to-pink-500/30 border border-red-400/30 hover:border-red-400/50 text-red-300 hover:text-red-200 rounded-2xl transition-all duration-200 backdrop-blur-sm text-sm shadow-lg shadow-red-500/10"
+                                  >
+                                    <Lucide icon="Trash2" className="w-4 h-4" />
+                                    <span>Delete</span>
+                                  </button>
+                                </div>
+                              </div>
                             </div>
                           </div>
-                        </div>
-
-                        {/* Quick Date Presets */}
-                        <div className="space-y-3">
-                          <label className="block text-sm font-semibold text-gray-700 dark:text-slate-300">
-                            Quick Presets
-                          </label>
-                          <div className="grid grid-cols-2 gap-2">
-                            {[
-                              { label: 'Last 7 days', days: 7 },
-                              { label: 'Last 30 days', days: 30 },
-                              { label: 'Last 90 days', days: 90 },
-                              { label: 'This year', days: 365 }
-                            ].map((preset) => (
-                              <button
-                                key={preset.days}
-                                onClick={() => {
-                                  const to = new Date().toISOString().split('T')[0];
-                                  const from = new Date(Date.now() - preset.days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                                  setDateFilterStart(from);
-                                  setDateFilterEnd(to);
-                                }}
-                                className="px-3 py-2 text-xs font-medium text-gray-700 dark:text-slate-300 bg-white/20 dark:bg-slate-700/40 hover:bg-white/30 dark:hover:bg-slate-600/50 rounded-lg transition-all duration-200 border border-white/30 dark:border-slate-600/40"
-                              >
-                                {preset.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
+                        ))}
                       </div>
-
-                      {/* Footer Section */}
-                      <div className="p-6 border-t border-white/20 dark:border-slate-600/30 bg-white/10 dark:bg-slate-700/20 backdrop-blur-md">
-                        <div className="flex justify-end gap-3">
-                          <button
-                            className="px-6 py-3 text-sm font-semibold text-gray-700 dark:text-slate-300 bg-white/20 dark:bg-slate-700/40 hover:bg-white/30 dark:hover:bg-slate-600/50 rounded-xl transition-all duration-200 border border-white/30 dark:border-slate-600/40 hover:scale-105"
-                            onClick={() => {
-                              setDateFilterStart('');
-                              setDateFilterEnd('');
-                              setDateFilterField('createdAt');
-                            }}
-                          >
-                            Clear
-                          </button>
-                          <button
-                            className="px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 rounded-xl transition-all duration-200 hover:scale-105 shadow-lg shadow-purple-500/30 border border-purple-400/50"
-                            onClick={() => setShowDateFilterModal(false)}
-                          >
-                            Apply Filter
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Dialog.Panel>
-              </div>
-            </Dialog>
-          )}
-          <Dialog
-            open={showSyncConfirmationModal}
-            onClose={() => setShowSyncConfirmationModal(false)}
-          >
-            <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-              <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md text-gray-900 dark:text-white mt-20">
-                <div className="p-5 text-center">
-                  <Lucide
-                    icon="AlertTriangle"
-                    className="w-16 h-16 mx-auto mt-3 text-warning"
-                  />
-                  <div className="mt-5 text-3xl text-gray-900 dark:text-white">
-                    Are you sure?
-                  </div>
-                  <div className="mt-2 text-gray-600 dark:text-gray-400">
-                    Do you really want to sync the database? This action may
-                    take some time and affect your current data.<br/>
-                    <span className="block mt-2 text-xs text-gray-500 dark:text-gray-400">You can choose to sync from Neon (default) or from Firebase to Neon.</span>
-                  </div>
-                </div>
-                <div className="px-5 pb-8 text-center flex flex-col sm:flex-row justify-center items-center gap-2">
-                  <button
-                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
-                    onClick={() => setShowSyncConfirmationModal(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
-                    onClick={handleConfirmSync}
-                    disabled={isSyncing || isSyncingFirebase}
-                  >
-                    {isSyncing ? "Syncing..." : "Confirm Sync (Neon)"}
-                  </button>
-                  <button
-                    className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
-                    onClick={handleConfirmSyncFirebase}
-                    disabled={isSyncing || isSyncingFirebase}
-                  >
-                    {isSyncingFirebase ? "Syncing..." : "Sync from Firebase"}
-                  </button>
-                </div>
-              </Dialog.Panel>
-            </div>
-          </Dialog>
-          <Dialog
-            open={showSyncNamesConfirmationModal}
-            onClose={() => setShowSyncNamesConfirmationModal(false)}
-          >
-            <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-              <Dialog.Panel className="w-full max-w-md p-6 bg-white dark:bg-gray-800 rounded-md text-gray-900 dark:text-white mt-20">
-                <div className="p-5 text-center">
-                  <Lucide
-                    icon="AlertTriangle"
-                    className="w-16 h-16 mx-auto mt-3 text-warning"
-                  />
-                  <div className="mt-5 text-3xl text-gray-900 dark:text-white">
-                    Are you sure?
-                  </div>
-                  <div className="mt-2 text-gray-600 dark:text-gray-400">
-                    Do you really want to sync the contact names? This action
-                    may take some time and affect your current data.
-                  </div>
-                </div>
-                <div className="px-5 pb-8 text-center">
-                  <button
-                    className="px-4 py-2 mr-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
-                    onClick={() => setShowSyncNamesConfirmationModal(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
-                    onClick={handleConfirmSyncNames}
-                  >
-                    Confirm Sync
-                  </button>
-                </div>
-              </Dialog.Panel>
-            </div>
-          </Dialog>
-
-{/* Assign User Modal */}
-{showAssignUserModal && (
-  <Dialog
-    open={showAssignUserModal}
-    onClose={() => setShowAssignUserModal(false)}
-  >
-    <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-      <Dialog.Panel className="w-full max-w-md p-6 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl shadow-2xl border border-white/20 dark:border-gray-700/20">
-        <div className="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gradient-to-r from-emerald-500 to-emerald-600 flex items-center justify-center text-white mr-4">
-            <Lucide icon="User" className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="text-xl font-semibold text-gray-900 dark:text-white">
-              Assign User to Contacts
-            </span>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Select an employee to assign to {selectedContacts.length} contact{selectedContacts.length !== 1 ? 's' : ''}
-            </p>
-          </div>
-        </div>
-        
-        <div className="mt-6 space-y-4">
-    
-          
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Search Employees
-            </label>
-            <input
-              type="text"
-              placeholder="Search employees..."
-              value={employeeSearch}
-              onChange={(e) => setEmployeeSearch(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white/80 dark:bg-gray-700/80 text-gray-800 dark:text-gray-200 backdrop-blur-sm"
-            />
-          </div>
-          
-          <div className="max-h-64 overflow-y-auto space-y-2">
-            {(() => {
-              
-              // Use the ref instead of the state
-              const stableEmployeeList = employeeListRef.current;
-              console.log('Using stable employee list:', stableEmployeeList.length, 'employees');
-              
-              if (stableEmployeeList.length === 0) {
-                return (
-                  <div className="text-center py-4 text-gray-500 dark:text-gray-400">
-                    <Lucide icon="Users" className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p>No employees found</p>
-                    <p className="text-xs">Stable list length: {stableEmployeeList.length}</p>
-                    <p className="text-xs">Current state length: {employeeList.length}</p>
-                    <p className="text-xs">Search query: "{employeeSearch}"</p>
-                  </div>
-                );
-              }
-              
-              const filteredEmployees = stableEmployeeList.filter((employee) => {
-                return employee.name
-                  .toLowerCase()
-                  .includes(employeeSearch.toLowerCase());
-              });
-              
-              return filteredEmployees.map((employee) => (
-                <button
-                  key={employee.id}
-                  className="w-full px-3 py-2.5 text-sm rounded-lg text-left hover:bg-emerald-50 dark:hover:bg-emerald-900/20 flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all duration-200 font-medium border border-transparent hover:border-emerald-200 dark:hover:border-emerald-700"
-                  onClick={() => {
-                    if (userRole !== "3") {
-                      selectedContacts.forEach((contact) => {
-                        handleAddTagToSelectedContacts(employee.name, contact);
-                      });
-                      setShowAssignUserModal(false);
-                      toast.success(`Assigned ${employee.name} to ${selectedContacts.length} contact${selectedContacts.length !== 1 ? 's' : ''}`);
-                    } else {
-                      toast.error("You don't have permission to assign users to contacts.");
-                    }
-                  }}
-                >
-                  <Lucide icon="User" className="w-4 h-4" />
-                  {employee.name} 
-                </button>
-              ));
-            })()}
-          </div>
-        </div>
-        
-        <div className="flex justify-end mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <button
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-200"
-            onClick={() => setShowAssignUserModal(false)}
-          >
-            Cancel
-          </button>
-        </div>
-      </Dialog.Panel>
-    </div>
-  </Dialog>
-)}
-{/* Manage Tags Modal */}
-{showManageTagsModal && (
-  <Dialog
-    open={showManageTagsModal}
-    onClose={() => setShowManageTagsModal(false)}
-  >
-    <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-      <Dialog.Panel className="w-full max-w-md p-6 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl shadow-2xl border border-white/20 dark:border-gray-700/20">
-        <div className="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gradient-to-r from-purple-500 to-purple-600 flex items-center justify-center text-white mr-4">
-            <Lucide icon="Tag" className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="text-xl font-semibold text-gray-900 dark:text-white">
-              Manage Tags
-            </span>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Add, remove, and assign tags to contacts
-            </p>
-          </div>
-        </div>
-        
-        <div className="mt-6 space-y-4">
-          <button
-            className="flex items-center w-full px-3 py-2.5 rounded-lg text-sm font-medium bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 transition-all duration-200 shadow-md"
-            onClick={() => {
-              setShowManageTagsModal(false);
-              setShowAddTagModal(true);
-            }}
-          >
-            <Lucide icon="Plus" className="w-4 h-4 mr-2" /> Add New Tag
-          </button>
-           {/* Add Bulk Remove All Tags button */}
-  <button
-    className="flex items-center w-full px-3 py-2.5 rounded-lg text-sm font-medium bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-md"
-    onClick={async () => {
-      if (selectedContacts.length === 0) {
-        toast.info("Please select contacts first to remove tags");
-        return;
-      }
-      
-      // Get all unique tags from selected contacts
-      const selectedContactTags = new Set<string>();
-      selectedContacts.forEach(contact => {
-        if (contact.tags) {
-          contact.tags.forEach(tag => selectedContactTags.add(tag));
-        }
-      });
-      
-      if (selectedContactTags.size === 0) {
-        toast.info("Selected contacts have no tags to remove");
-        return;
-      }
-      
-      // Confirm before bulk removal
-      const confirmed = window.confirm(
-        `Are you sure you want to remove ALL tags (${selectedContactTags.size} tags) from ${selectedContacts.length} contact(s)? This action cannot be undone.`
-      );
-      
-      if (confirmed) {
-        try {
-          // Remove all tags from all selected contacts
-          for (const tagName of selectedContactTags) {
-            await handleRemoveTagsFromSelectedContacts(tagName);
-          }
-          
-          // Close modal after successful removal
-          setShowManageTagsModal(false);
-          toast.success(`Removed all tags from ${selectedContacts.length} contact(s)`);
-        } catch (error) {
-          console.error('Error removing all tags:', error);
-          toast.error('Failed to remove all tags');
-        }
-      }
-    }}
-    disabled={selectedContacts.length === 0}
-  >
-    <Lucide icon="Trash2" className="w-4 h-4 mr-2" /> Bulk Remove All Tags
-  </button>
-          <div className="max-h-64 overflow-y-auto space-y-2">
-  {(() => {
-    // Get all unique tags from selected contacts
-    const selectedContactTags = new Set<string>();
-    selectedContacts.forEach(contact => {
-      if (contact.tags) {
-        contact.tags.forEach(tag => selectedContactTags.add(tag));
-      }
-    });
-    
-    // Get tags that are NOT assigned to any selected contact
-    const unassignedTags = tagList.filter(tag => !selectedContactTags.has(tag.name));
-    
-    return (
-      <>
-        {/* Show tags already assigned to selected contacts */}
-        {selectedContacts.length > 0 && selectedContactTags.size > 0 && (
-          <div className="mb-4">
-            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Tags assigned to selected contacts ({selectedContactTags.size})
-            </h4>
-            {Array.from(selectedContactTags).map((tagName) => (
-              <div
-                key={tagName}
-                className="flex items-center justify-between px-3 py-2 text-sm rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 mb-2"
-              >
-                <span className="text-green-700 dark:text-green-300 font-medium">
-                  {tagName}
-                </span>
-                <button
-  className="text-red-500 hover:text-red-700 transition-colors duration-150 p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20"
-  onClick={async () => {
-    try {
-      await handleRemoveTagsFromSelectedContacts(tagName);
-      // Close modal after successful removal
-      setShowManageTagsModal(false);
-    } catch (error) {
-      console.error('Error removing tag:', error);
-      toast.error(`Failed to remove tag "${tagName}"`);
-    }
-  }}
-  title="Remove this tag from selected contacts"
->
-  <Lucide icon="Minus" className="w-4 h-4" />
-</button>
-              </div>
-            ))}
-          </div>
-        )}
-        
-       
-     {/* Show available tags to assign */}
-<div>
-  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-    Available tags to assign ({unassignedTags.length})
-  </h4>
-  {unassignedTags.map((tag) => (
-    <div
-      key={tag.id}
-      className="flex items-center justify-between px-3 py-2 text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150 border border-transparent hover:border-gray-200 dark:hover:border-gray-600 mb-2"
-    >
-      <button
-        className="flex-grow text-left text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors duration-150 font-medium"
-        onClick={async () => {
-          if (selectedContacts.length > 0) {
-            try {
-              // Add tag to all selected contacts
-              for (const contact of selectedContacts) {
-                await handleAddTagToSelectedContacts(tag.name, contact);
-              }
-              // Close modal after successful addition
-              setShowManageTagsModal(false);
-              toast.success(`Added tag "${tag.name}" to ${selectedContacts.length} contact${selectedContacts.length !== 1 ? 's' : ''}`);
-            } catch (error) {
-              console.error('Error adding tag:', error);
-              toast.error(`Failed to add tag "${tag.name}"`);
-            }
-          } else {
-            toast.info("Please select contacts first to assign tags");
-          }
-        }}
-      >
-        {tag.name}
-      </button>
-      <div className="flex items-center gap-2">
-        {/* Delete Tag Button */}
-        <button
-          className="text-red-400 hover:text-red-600 transition-colors duration-150 p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20"
-          onClick={() => {
-            setTagToDelete(tag);
-            setShowManageTagsModal(false);
-            setShowDeleteTagModal(true);
-          }}
-          title="Delete this tag completely"
-        >
-          <Lucide icon="Trash" className="w-4 h-4" />
-        </button>
-      </div>
-    </div>
-  ))}
-</div>
-        
-        {/* Show message if no tags available */}
-        {unassignedTags.length === 0 && selectedContacts.length > 0 && (
-          <div className="text-center py-4 text-gray-500 dark:text-gray-400">
-            <Lucide icon="CheckCircle" className="w-8 h-8 mx-auto mb-2 text-green-500" />
-            <p>All available tags are already assigned to selected contacts</p>
-          </div>
-        )}
-        
-        {/* Show message if no contacts selected */}
-        {selectedContacts.length === 0 && (
-          <div className="text-center py-4 text-gray-500 dark:text-gray-400">
-            <Lucide icon="Users" className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p>Please select contacts first to manage tags</p>
-          </div>
-        )}
-      </>
-    );
-  })()}
-</div>
-        </div>
-        
-        <div className="flex justify-end mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <button
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-200"
-            onClick={() => setShowManageTagsModal(false)}
-          >
-            Close
-          </button>
-        </div>
-      </Dialog.Panel>
-    </div>
-  </Dialog>
-)}
-{/* Smart Filters Modal */}
-{showFiltersModal && (
-  <Dialog
-    open={showFiltersModal}
-    onClose={() => setShowFiltersModal(false)}
-  >
-    <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-      <Dialog.Panel className="w-full max-w-lg p-6 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl shadow-2xl border border-white/20 dark:border-gray-700/20">
-        <div className="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gradient-to-r from-orange-500 to-orange-600 flex items-center justify-center text-white mr-4">
-            <Lucide icon="Filter" className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="text-xl font-semibold text-gray-900 dark:text-white">
-              Smart Filters
-            </span>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Filter contacts by tags and users
-            </p>
-          </div>
-        </div>
-        
-        <div className="mt-6 space-y-4">
-          <button
-            className="flex items-center w-full px-3 py-2.5 rounded-lg text-sm font-medium bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-md font-medium"
-            onClick={clearAllFilters}
-          >
-            <Lucide icon="X" className="w-4 h-4 mr-2" /> Clear All Filters
-          </button>
-
-          <Tab.Group>
-            <Tab.List className="flex space-x-1 bg-gray-100/80 dark:bg-gray-700/80 p-1 rounded-lg border border-gray-200/50 dark:border-gray-600/50">
-              <Tab
-                className={({ selected }) =>
-                  `flex-1 py-2 text-sm rounded-md font-medium transition-all duration-200 ${
-                    selected ? "bg-white dark:bg-gray-800 shadow-md text-orange-600 dark:text-orange-400" : "text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
-                  }`
-                }
-                onClick={() => setActiveFilterTab("tags")}
-              >
-                Tags
-              </Tab>
-              <Tab
-                className={({ selected }) =>
-                  `flex-1 py-2 text-sm rounded-md font-medium transition-all duration-200 ${
-                    selected ? "bg-white dark:bg-gray-800 shadow-md text-orange-600 dark:text-orange-400" : "text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
-                  }`
-                }
-                onClick={() => setActiveFilterTab("users")}
-              >
-                Users
-              </Tab>
-            </Tab.List>
-
-            <Tab.Panels className="mt-3 max-h-64 overflow-y-auto">
-              {/* Tag Filters */}
-              <Tab.Panel>
-                {tagList.map((tag) => (
-                  <div
-                    key={tag.id}
-                    className={`flex items-center justify-between px-3 py-2.5 text-sm rounded-lg mb-2 cursor-pointer transition-all duration-200 ${
-                      selectedTagFilters.includes(tag.name)
-                        ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-md"
-                        : "hover:bg-gray-50 dark:hover:bg-gray-700/50 border border-transparent hover:border-gray-200 dark:hover:border-gray-600"
-                    }`}
-                    onClick={() => handleTagFilterChange(tag.name)}
-                  >
-                    <span className="font-medium">{tag.name}</span>
-                    <button
-                      className={`px-3 py-1 text-xs rounded-full font-medium transition-all duration-200 ${
-                        excludedTags.includes(tag.name)
-                          ? "bg-red-500 text-white shadow-sm"
-                          : "bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500"
-                      }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        excludedTags.includes(tag.name)
-                          ? handleRemoveExcludedTag(tag.name)
-                          : handleExcludeTag(tag.name);
-                      }}
-                    >
-                      {excludedTags.includes(tag.name)
-                        ? "Excluded"
-                        : "Exclude"}
-                    </button>
-                  </div>
-                ))}
-              </Tab.Panel>
-
-              {/* User Filters */}
-              <Tab.Panel>
-                {employeeList.map((employee) => (
-                  <div
-                    key={employee.id}
-                    className={`px-3 py-2.5 text-sm rounded-lg mb-2 cursor-pointer transition-all duration-200 ${
-                      selectedUserFilters.includes(employee.name)
-                        ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-md"
-                        : "hover:bg-gray-50 dark:hover:bg-gray-700/50 border border-transparent hover:border-gray-200 dark:hover:border-gray-600"
-                    }`}
-                    onClick={() => handleUserFilterChange(employee.name)}
-                  >
-                    <span className="font-medium">{employee.name}</span>
-                  </div>
-                ))}
-              </Tab.Panel>
-            </Tab.Panels>
-          </Tab.Group>
-        </div>
-        
-        <div className="flex justify-end mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <button
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-200"
-            onClick={() => setShowFiltersModal(false)}
-          >
-            Close
-          </button>
-        </div>
-      </Dialog.Panel>
-    </div>
-  </Dialog>
-)}{/* Sync Options Modal */}
-{showSyncOptionsModal && (
-  <Dialog
-    open={showSyncOptionsModal}
-    onClose={() => setShowSyncOptionsModal(false)}
-  >
-    <div className="fixed inset-0 flex items-center justify-center p-4 bg-black bg-opacity-50">
-      <Dialog.Panel className="w-full max-w-md p-6 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl shadow-2xl border border-white/20 dark:border-gray-700/20">
-        <div className="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gradient-to-r from-cyan-500 to-cyan-600 flex items-center justify-center text-white mr-4">
-            <Lucide icon="FolderSync" className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="text-xl font-semibold text-gray-900 dark:text-white">
-              Sync Options
-            </span>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Choose what to sync
-            </p>
-          </div>
-        </div>
-        
-        <div className="mt-6 space-y-3">
-          <button
-            className="w-full px-3 py-2.5 rounded-lg text-sm hover:bg-cyan-50 dark:hover:bg-cyan-900/20 flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all duration-200 font-medium border border-transparent hover:border-cyan-200 dark:hover:border-cyan-700"
-            onClick={() => {
-              setShowSyncOptionsModal(false);
-              handleSyncConfirmation();
-            }}
-            disabled={isSyncing || userRole === "3"}
-          >
-            <Lucide icon="Database" className="w-4 h-4" />
-            Sync Database
-          </button>
-          <button
-            className="w-full px-3 py-2.5 rounded-lg text-sm hover:bg-cyan-50 dark:hover:bg-cyan-900/20 flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all duration-200 font-medium border border-transparent hover:border-cyan-200 dark:hover:border-cyan-700"
-            onClick={() => {
-              setShowSyncOptionsModal(false);
-              handleSyncNamesConfirmation();
-            }}
-            disabled={isSyncing || userRole === "3"}
-          >
-            <Lucide icon="UserCheck" className="w-4 h-4" />
-            Sync Names
-          </button>
-        </div>
-        
-        <div className="flex justify-end mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <button
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-200"
-            onClick={() => setShowSyncOptionsModal(false)}
-          >
-            Cancel
-          </button>
-        </div>
-      </Dialog.Panel>
-    </div>
-  </Dialog>
-)}
-
-          {/* Mass Delete Modal */}
-          {showMassDeleteModal && (
-            <Dialog
-              open={showMassDeleteModal}
-              onClose={() => setShowMassDeleteModal(false)}
-            >
-              <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                <Dialog.Panel className="w-full max-w-lg">
-                  {/* Glassmorphic Modal Container */}
-                  <div className="relative overflow-hidden">
-                    {/* Background Glow Effects */}
-                    <div className="absolute -inset-1 bg-gradient-to-r from-white/20 via-white/10 to-white/20 dark:from-gray-800/20 dark:via-gray-800/10 dark:to-gray-800/20 rounded-3xl blur-2xl opacity-75"></div>
-                    <div className="absolute -inset-1 bg-gradient-to-r from-white/10 via-white/5 to-white/10 dark:from-gray-800/10 dark:via-gray-800/5 dark:to-gray-800/10 rounded-3xl blur-3xl opacity-50"></div>
-                    
-                    {/* Main Content */}
-                    <div className="relative bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-3xl border border-white/30 dark:border-slate-600/40 overflow-hidden shadow-2xl">
-                      {/* Header Section */}
-                      <div className="relative p-6 border-b border-white/20 dark:border-slate-600/30 bg-gradient-to-r from-red-500/20 to-pink-500/20 dark:from-red-600/20 dark:to-pink-600/20 backdrop-blur-md">
-                        {/* Decorative Elements */}
-                        <div className="absolute top-0 left-0 w-24 h-24 bg-gradient-to-br from-red-400/20 to-pink-400/20 dark:from-red-500/20 dark:to-pink-500/20 rounded-full blur-xl"></div>
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-pink-400/20 to-red-400/20 dark:from-pink-500/20 dark:to-red-500/20 rounded-full blur-xl"></div>
-                        
-                        <div className="relative flex items-center gap-3">
-                          <div className="w-12 h-12 bg-white/20 dark:bg-slate-700/40 backdrop-blur-sm rounded-2xl border border-white/30 dark:border-slate-600/40 flex items-center justify-center shadow-lg">
-                            <Lucide icon="Trash2" className="w-6 h-6 text-red-600 dark:text-red-400" />
-                          </div>
-                          <div>
-                            <h2 className="text-2xl font-bold text-gray-800 dark:text-slate-100">Delete Selected Contacts</h2>
-                            <p className="text-sm text-gray-600 dark:text-slate-400 mt-1">This action cannot be undone</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Content Section */}
-                      <div className="p-6 space-y-4">
-                        <div className="text-center">
+                    ) : (
+                      <div className="text-center py-16">
+                        <div className="relative mx-auto mb-6 w-24 h-24">
                           <Lucide
-                            icon="AlertTriangle"
-                            className="w-16 h-16 mx-auto text-red-500 dark:text-red-400 mb-4"
+                            icon="Calendar"
+                            className="w-24 h-24 text-white/20"
                           />
-                          <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-100 mb-2">
-                            Are you sure?
-                          </h3>
-                          <p className="text-gray-600 dark:text-slate-400">
-                            You are about to delete <span className="font-bold text-red-600 dark:text-red-400">{selectedContacts.length}</span> selected contact{selectedContacts.length !== 1 ? 's' : ''}.
-                          </p>
-                          <p className="text-sm text-gray-500 dark:text-slate-500 mt-2">
-                            This action cannot be undone and will permanently remove all data associated with these contacts.
-                          </p>
+                          <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-3xl blur-xl" />
                         </div>
+                        <h3 className="text-xl font-semibold text-white/90 mb-2">
+                          No scheduled messages found
+                        </h3>
+                        <p className="text-white/60">
+                          Try adjusting your filters or create a new scheduled
+                          message
+                        </p>
                       </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
 
-                      {/* Footer Section */}
-                      <div className="p-6 border-t border-white/20 dark:border-slate-600/30 bg-white/10 dark:bg-slate-700/20 backdrop-blur-md">
-                        <div className="flex justify-end gap-3">
-                          <button
-                            className="px-6 py-3 text-sm font-semibold text-gray-700 dark:text-slate-300 bg-white/20 dark:bg-slate-700/40 hover:bg-white/30 dark:hover:bg-slate-600/50 rounded-xl transition-all duration-200 border border-white/30 dark:border-slate-600/40 hover:scale-105"
-                            onClick={() => setShowMassDeleteModal(false)}
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            className="px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 rounded-xl transition-all duration-200 hover:scale-105 shadow-lg shadow-red-500/30 border border-red-400/50"
-                            onClick={async () => {
-                              await handleMassDelete();
-                              setShowMassDeleteModal(false);
-                            }}
-                          >
-                            <span className="flex items-center gap-2">
-                              <Lucide icon="Trash2" className="w-4 h-4" />
-                              Delete {selectedContacts.length} Contact{selectedContacts.length !== 1 ? 's' : ''}
-                            </span>
-                          </button>
-                        </div>
+        {/* Message Details Modal */}
+        <Dialog
+          open={viewMessageDetailsModal}
+          onClose={() => setViewMessageDetailsModal(false)}
+          className="relative z-50"
+        >
+          <div className="fixed inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl">
+            <Dialog.Panel className="w-full max-w-2xl relative bg-white/10 dark:bg-slate-800/10 backdrop-blur-3xl rounded-3xl border border-white/20 dark:border-slate-700/20 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden transform hover:scale-[1.005] transition-all duration-300 overflow-y-auto">
+              {/* Enhanced Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 via-purple-500/5 to-indigo-500/10 dark:from-blue-600/10 dark:via-purple-700/5 dark:to-indigo-600/10 pointer-events-none" />
+
+              {/* Top Shine Effect */}
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
+
+              <div className="relative p-8 text-white/90 dark:text-slate-200">
+                <div className="flex items-center justify-between mb-6 pb-6 border-b border-white/10 dark:border-slate-700/20">
+                  <Dialog.Title className="text-2xl font-bold bg-gradient-to-r from-blue-300 via-purple-300 to-indigo-300 bg-clip-text text-transparent">
+                    Message Details
+                  </Dialog.Title>
+                  <button
+                    onClick={() => setViewMessageDetailsModal(false)}
+                    className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 text-white/80 hover:text-white transition-all duration-200 flex items-center justify-center backdrop-blur-sm border border-white/10 shadow-lg hover:shadow-xl"
+                  >
+                    <Lucide icon="X" className="w-5 h-5" />
+                  </button>
+                </div>{" "}
+                {selectedMessageForView && (
+                  <div className="space-y-6">
+                    {/* Message Status */}
+                    <div className="flex items-center justify-between p-6 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl rounded-2xl border border-white/10 dark:border-slate-600/20 shadow-inner">
+                      <span className="text-lg font-medium text-white/90">
+                        Status:
+                      </span>
+                      <span
+                        className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold backdrop-blur-sm border shadow-lg ${
+                          selectedMessageForView.status === "sent"
+                            ? "bg-green-500/20 dark:bg-green-600/20 text-green-300 dark:text-green-200 border-green-400/30"
+                            : selectedMessageForView.status === "failed"
+                            ? "bg-red-500/20 dark:bg-red-600/20 text-red-300 dark:text-red-200 border-red-400/30"
+                            : "bg-orange-500/20 dark:bg-orange-600/20 text-orange-300 dark:text-orange-200 border-orange-400/30"
+                        }`}
+                      >
+                        {selectedMessageForView.status === "sent"
+                          ? "Sent"
+                          : selectedMessageForView.status === "failed"
+                          ? "Failed"
+                          : "Scheduled"}
+                      </span>
+                    </div>
+
+                    {/* Main Message Content */}
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4 text-white/90">
+                        Message Content:
+                      </h3>
+                      <div className="p-6 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl rounded-2xl border border-white/10 dark:border-slate-600/20 shadow-inner">
+                        <p className="whitespace-pre-wrap text-white/80 dark:text-slate-300">
+                          {selectedMessageForView.messageContent ||
+                            selectedMessageForView.message ||
+                            "No content"}
+                        </p>
                       </div>
                     </div>
-                  </div>
-                </Dialog.Panel>
-              </div>
-            </Dialog>
-          )}
 
-          <ToastContainer
-            position="top-right"
-            autoClose={5000}
-            hideProgressBar={false}
-            newestOnTop={false}
-            closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-          />
-        </div>
+                    {/* Additional Messages */}
+                    {selectedMessageForView.messages &&
+                      selectedMessageForView.messages.length > 0 && (
+                        <div>
+                          <h3 className="text-lg font-semibold mb-4 text-white/90">
+                            Additional Messages:
+                          </h3>
+                          <div className="space-y-4">
+                            {selectedMessageForView.messages.map(
+                              (msg: any, index: number) => (
+                                <div
+                                  key={index}
+                                  className="p-6 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl rounded-2xl border border-white/10 dark:border-slate-600/20 shadow-inner"
+                                >
+                                  <div className="flex justify-between items-start mb-3">
+                                    <span className="text-sm font-medium text-white/80">
+                                      Message {index + 1}:
+                                    </span>
+                                    {selectedMessageForView.messageDelays &&
+                                      selectedMessageForView.messageDelays[
+                                        index
+                                      ] > 0 && (
+                                        <span className="text-xs text-white/60 bg-white/10 px-2 py-1 rounded-lg">
+                                          Delay:{" "}
+                                          {
+                                            selectedMessageForView
+                                              .messageDelays[index]
+                                          }{" "}
+                                          seconds
+                                        </span>
+                                      )}
+                                  </div>
+                                  <p className="whitespace-pre-wrap text-white/80 dark:text-slate-300">
+                                    {msg.text || msg.message || "No content"}
+                                  </p>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                    {/* Schedule Information */}
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4 text-white/90">
+                        Schedule Information:
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl rounded-2xl border border-white/10 dark:border-slate-600/20 shadow-inner">
+                          <span className="font-medium text-white/90">
+                            Scheduled Time:
+                          </span>
+                          <p className="text-white/70 mt-1">
+                            {selectedMessageForView.scheduledTime
+                              ? new Date(
+                                  selectedMessageForView.scheduledTime
+                                ).toLocaleString()
+                              : "Not set"}
+                          </p>
+                        </div>
+                        {selectedMessageForView.batchQuantity && (
+                          <div className="p-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl rounded-2xl border border-white/10 dark:border-slate-600/20 shadow-inner">
+                            <span className="font-medium text-white/90">
+                              Batch Size:
+                            </span>
+                            <p className="text-white/70 mt-1">
+                              {selectedMessageForView.batchQuantity}
+                            </p>
+                          </div>
+                        )}
+                        {selectedMessageForView.minDelay !== undefined && (
+                          <div className="p-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl rounded-2xl border border-white/10 dark:border-slate-600/20 shadow-inner">
+                            <span className="font-medium text-white/90">
+                              Delay Range:
+                            </span>
+                            <p className="text-white/70 mt-1">
+                              {selectedMessageForView.minDelay} -{" "}
+                              {selectedMessageForView.maxDelay} seconds
+                            </p>
+                          </div>
+                        )}
+                        {selectedMessageForView.repeatInterval > 0 && (
+                          <div className="p-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl rounded-2xl border border-white/10 dark:border-slate-600/20 shadow-inner">
+                            <span className="font-medium text-white/90">
+                              Repeat:
+                            </span>
+                            <p className="text-white/70 mt-1">
+                              Every {selectedMessageForView.repeatInterval}{" "}
+                              {selectedMessageForView.repeatUnit}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Recipients */}
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4 text-white/90">
+                        Recipients:
+                      </h3>
+                      <div className="p-6 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl rounded-2xl border border-white/10 dark:border-slate-600/20 shadow-inner">
+                        {Array.isArray(selectedMessageForView.contactIds) &&
+                        selectedMessageForView.contactIds.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {selectedMessageForView.contactIds.map(
+                              (id: string, index: number) => {
+                                const phoneNumber =
+                                  id?.split("-")[1]?.replace(/\D/g, "") || "";
+                                const contact = contacts.find(
+                                  (c) =>
+                                    c.phone?.replace(/\D/g, "") === phoneNumber
+                                );
+                                return (
+                                  <span
+                                    key={id}
+                                    className="inline-flex items-center px-3 py-2 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-400/30 backdrop-blur-sm"
+                                  >
+                                    {contact?.contactName ||
+                                      phoneNumber ||
+                                      "Unknown"}
+                                  </span>
+                                );
+                              }
+                            )}
+                          </div>
+                        ) : selectedMessageForView.contactId ? (
+                          (() => {
+                            const phoneNumber =
+                              selectedMessageForView.contactId
+                                ?.split("-")[1]
+                                ?.replace(/\D/g, "") || "";
+                            const contact = contacts.find(
+                              (c) => c.phone?.replace(/\D/g, "") === phoneNumber
+                            );
+                            return (
+                              <span className="inline-flex items-center px-3 py-2 rounded-full text-xs font-medium bg-blue-500/20 text-blue-300 border border-blue-400/30 backdrop-blur-sm">
+                                {contact?.contactName ||
+                                  phoneNumber ||
+                                  "Unknown"}
+                              </span>
+                            );
+                          })()
+                        ) : (
+                          <p className="text-white/60">
+                            No recipients specified
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Media and Documents */}
+                    {(selectedMessageForView.mediaUrl ||
+                      selectedMessageForView.documentUrl) && (
+                      <div>
+                        <h3 className="text-lg font-semibold mb-4 text-white/90">
+                          Attachments:
+                        </h3>
+                        <div className="space-y-3">
+                          {selectedMessageForView.mediaUrl && (
+                            <div className="flex items-center p-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl rounded-2xl border border-white/10 dark:border-slate-600/20 shadow-inner">
+                              <Lucide
+                                icon="Image"
+                                className="w-5 h-5 mr-3 text-green-400"
+                              />
+                              <span className="text-white/80">
+                                Media file attached
+                              </span>
+                            </div>
+                          )}
+                          {selectedMessageForView.documentUrl && (
+                            <div className="flex items-center p-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl rounded-2xl border border-white/10 dark:border-slate-600/20 shadow-inner">
+                              <Lucide
+                                icon="File"
+                                className="w-5 h-5 mr-3 text-blue-400"
+                              />
+                              <span className="text-white/80">
+                                {selectedMessageForView.fileName ||
+                                  "Document attached"}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Advanced Settings */}
+                    {(selectedMessageForView.activateSleep ||
+                      selectedMessageForView.activeHours ||
+                      selectedMessageForView.infiniteLoop) && (
+                      <div>
+                        <h3 className="text-lg font-semibold mb-4 text-white/90">
+                          Advanced Settings:
+                        </h3>
+                        <div className="space-y-4">
+                          {selectedMessageForView.activateSleep && (
+                            <div className="p-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl rounded-2xl border border-white/10 dark:border-slate-600/20 shadow-inner">
+                              <div className="flex items-center mb-2">
+                                <Lucide
+                                  icon="Moon"
+                                  className="w-5 h-5 mr-3 text-purple-400"
+                                />
+                                <span className="font-medium text-white/90">
+                                  Sleep Mode:
+                                </span>
+                              </div>
+                              <p className="text-sm text-white/70 ml-8">
+                                Sleep after{" "}
+                                {selectedMessageForView.sleepAfterMessages}{" "}
+                                messages for{" "}
+                                {selectedMessageForView.sleepDuration} minutes
+                              </p>
+                            </div>
+                          )}
+                          {selectedMessageForView.activeHours && (
+                            <div className="p-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl rounded-2xl border border-white/10 dark:border-slate-600/20 shadow-inner">
+                              <div className="flex items-center mb-2">
+                                <Lucide
+                                  icon="Clock"
+                                  className="w-5 h-5 mr-3 text-blue-400"
+                                />
+                                <span className="font-medium text-white/90">
+                                  Active Hours:
+                                </span>
+                              </div>
+                              <p className="text-sm text-white/70 ml-8">
+                                {selectedMessageForView.activeHours.start} -{" "}
+                                {selectedMessageForView.activeHours.end}
+                              </p>
+                            </div>
+                          )}
+                          {selectedMessageForView.infiniteLoop && (
+                            <div className="p-4 bg-orange-500/10 dark:bg-orange-600/10 backdrop-blur-xl rounded-2xl border border-orange-400/30 shadow-inner">
+                              <div className="flex items-center text-orange-300 mb-2">
+                                <Lucide
+                                  icon="RefreshCw"
+                                  className="w-5 h-5 mr-3"
+                                />
+                                <span className="font-medium">
+                                  Infinite Loop Enabled
+                                </span>
+                              </div>
+                              <p className="text-sm text-orange-200 ml-8">
+                                Messages will loop indefinitely
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="flex justify-end space-x-3 pt-6 border-t border-white/10 dark:border-slate-700/20">
+                      <button
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              "Are you sure you want to delete this scheduled message?"
+                            )
+                          ) {
+                            handleDeleteScheduledMessage(
+                              selectedMessageForView.id!
+                            );
+                            setViewMessageDetailsModal(false);
+                          }
+                        }}
+                        className="px-6 py-3 bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white rounded-2xl transition-all duration-200 font-semibold shadow-lg shadow-red-500/25 hover:shadow-red-500/40 transform hover:scale-105 flex items-center"
+                      >
+                        <Lucide icon="Trash2" className="w-4 h-4 mr-2" />
+                        Delete
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleEditScheduledMessage(selectedMessageForView);
+                          setViewMessageDetailsModal(false);
+                        }}
+                        className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-2xl transition-all duration-200 font-semibold shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transform hover:scale-105 flex items-center"
+                      >
+                        <Lucide icon="PenTool" className="w-4 h-4 mr-2" />
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleSendNow(selectedMessageForView);
+                          setViewMessageDetailsModal(false);
+                        }}
+                        className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-2xl transition-all duration-200 font-semibold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transform hover:scale-105 flex items-center"
+                      >
+                        <Lucide icon="Send" className="w-4 h-4 mr-2" />
+                        Send Now
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
+
+        <ToastContainer
+          position="top-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+        />
       </div>
-    </div>
+    </>
   );
 }
 
 export default Main;
-
