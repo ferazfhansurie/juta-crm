@@ -62,6 +62,21 @@ interface Label {
   count: number;
 }
 
+interface AssistantInfo {
+  name: string;
+  description: string;
+  instructions: string;
+  metadata: {
+    files: Array<{
+      id: string;
+      name: string;
+      url: string;
+      vectorStoreId?: string;
+      openAIFileId?: string;
+    }>;
+  };
+}
+
 export interface Contact {
   [x: string]: any;
   conversation_id?: string | null;
@@ -712,6 +727,8 @@ function Main() {
   const [currentUserRole, setCurrentUserRole] = useState<string>("");
   const [phoneOptions, setPhoneOptions] = useState<number[]>([]);
   const [baseUrl] = useState<string>("https://juta-dev.ngrok.dev");
+  const [fetching, setFetching] = useState<boolean>(false);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
 
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [whapiToken, setToken] = useState<string | null>(null);
@@ -946,6 +963,15 @@ function Main() {
   const [isGeneratingResponse, setIsGeneratingResponse] = useState(false);
   const [showPlaceholders, setShowPlaceholders] = useState(false);
   const [caption, setCaption] = useState(""); // Add this line to define setCaption
+  const [assistantInfo, setAssistantInfo] = useState<AssistantInfo>({
+    name: "",
+    description: "",
+    instructions: "",
+    metadata: {
+      files: [],
+    },
+  });
+  const [isAssistantInfoLoaded, setIsAssistantInfoLoaded] = useState(false);
 
   // Add new state variables for lazy loading pagination
   const [loadedContacts, setLoadedContacts] = useState<Contact[]>([]);
@@ -1074,6 +1100,102 @@ function Main() {
       toast.error("Network error. Please check your connection and try again.");
     } finally {
       setIsTopUpLoading(false);
+    }
+  };
+
+  // Sync database function
+  const handleSyncContact = async () => {
+    try {
+      console.log("Starting contact sync...");
+      setFetching(true);
+
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        setFetching(false);
+        toast.error("No user email found");
+        return;
+      }
+
+      // Get user config to get companyId
+      const userResponse = await fetch(
+        `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
+        }
+      );
+
+      if (!userResponse.ok) {
+        setFetching(false);
+        toast.error("Failed to fetch user config");
+        return;
+      }
+
+      const userData = await userResponse.json();
+      const companyId = userData.company_id;
+      setCompanyId(companyId);
+
+      // Get company data
+      const companyResponse = await fetch(
+        `${baseUrl}/api/companies/${companyId}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
+        }
+      );
+
+      if (!companyResponse.ok) {
+        setFetching(false);
+        toast.error("Failed to fetch company data");
+        return;
+      }
+
+      const companyData = await companyResponse.json();
+
+      // Call the sync contacts endpoint
+      const syncResponse = await fetch(
+        `${baseUrl}/api/sync-contacts/${companyId}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
+        }
+      );
+
+      if (!syncResponse.ok) {
+        const errorData = await syncResponse.json();
+        throw new Error(
+          errorData.error || "Failed to start contact synchronization"
+        );
+      }
+
+      const responseData = await syncResponse.json();
+      if (responseData.success) {
+        toast.success("Contact synchronization started successfully");
+      } else {
+        throw new Error(
+          responseData.error || "Failed to start contact synchronization"
+        );
+      }
+    } catch (error) {
+      console.error("Error syncing contacts:", error);
+      toast.error(
+        "An error occurred while syncing contacts: " +
+          (error instanceof Error ? error.message : String(error))
+      );
+    } finally {
+      setFetching(false);
     }
   };
 
@@ -3559,7 +3681,35 @@ function Main() {
           setCurrentCompanyId(data.userData.companyId);
           setCompanyName(data.companyData.name);
           const ai = data.companyData.assistants_ids;
-          setIsAssistantAvailable(Array.isArray(ai) && ai.length > 0);
+          const isAssistantAvailable = Array.isArray(ai) && ai.length > 0;
+          setIsAssistantAvailable(isAssistantAvailable);
+
+          // Fetch assistant info if assistant is available
+          if (isAssistantAvailable && ai.length > 0) {
+            const assistantId = ai[0];
+            console.log("assistantId:", assistantId);
+            
+            // Fetch API key from the correct endpoint
+            try {
+              const response2 = await axios.get(
+                `https://juta-dev.ngrok.dev/api/company-config/${data.userData.companyId}`
+              );
+              const { openaiApiKey } = response2.data;
+              console.log("API Key fetched:", openaiApiKey ? "Present" : "Missing");
+              
+              if (assistantId && openaiApiKey) {
+                fetchAssistantInfo(assistantId, openaiApiKey);
+              } else {
+                setIsAssistantInfoLoaded(true); // Mark as loaded if no valid assistant/API key
+              }
+            } catch (apiKeyError) {
+              console.error("Error fetching API key:", apiKeyError);
+              setIsAssistantInfoLoaded(true); // Mark as loaded even on error
+            }
+          } else {
+            // No assistant available, mark as loaded
+            setIsAssistantInfoLoaded(true);
+          }
 
           setPhoneCount(data.companyData.phoneCount);
           console.log("phoneCount:", phoneCount);
@@ -11547,6 +11697,51 @@ function Main() {
     return [];
   }, [userData, phoneNames, phoneCount]);
 
+  const fetchAssistantInfo = async (assistantId: string, apiKey: string) => {
+    // Validate inputs before making API call
+    if (!assistantId || !assistantId.trim() || !apiKey || !apiKey.trim()) {
+      console.log("Skipping assistant info fetch - invalid assistantId or apiKey");
+      setIsAssistantInfoLoaded(true); // Mark as loaded even if we skip
+      return;
+    }
+
+    // Check if assistantId looks like a valid OpenAI assistant ID format
+    if (!assistantId.startsWith('asst_')) {
+      console.log("Skipping assistant info fetch - invalid assistant ID format:", assistantId);
+      setIsAssistantInfoLoaded(true); // Mark as loaded even if we skip
+      return;
+    }
+
+    console.log("Fetching assistant info for ID:", assistantId);
+    try {
+      const response = await axios.get(
+        `https://api.openai.com/v1/assistants/${assistantId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "OpenAI-Beta": "assistants=v2",
+          },
+        }
+      );
+      const { name, description = "", instructions = "" } = response.data;
+      setAssistantInfo({
+        name,
+        description,
+        instructions,
+        metadata: { files: [] },
+      });
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        console.log("Assistant not found in OpenAI (404) - ID may be invalid:", assistantId);
+        // Don't set error for 404s, just log it
+      } else {
+        console.error("Error fetching assistant information:", error);
+      }
+    } finally {
+      setIsAssistantInfoLoaded(true); // Mark as loaded regardless of success/failure
+    }
+  };
+
   const sendMessageToAssistant = async (messageText: string) => {
     try {
       const userEmail = localStorage.getItem("userEmail");
@@ -12208,6 +12403,66 @@ function Main() {
                 }}
                 contacts={contacts}
               />
+
+              {/* Sync Database Confirmation Modal */}
+              <Dialog
+                open={isSyncModalOpen}
+                onClose={() => setIsSyncModalOpen(false)}
+                className="relative z-50"
+              >
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+                <div className="fixed inset-0 flex items-center justify-center p-4">
+                  <Dialog.Panel className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full mx-auto border border-gray-200/50 dark:border-gray-600/50">
+                    <div className="p-6">
+                      <div className="flex items-center space-x-4 mb-6">
+                        <div className="w-12 h-12 bg-gradient-to-r from-green-400 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg">
+                          <Lucide icon="RefreshCw" className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                            Sync Database
+                          </h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            Synchronize your contacts with the database
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="mb-6">
+                        <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
+                          This will synchronize all your contacts with the database. This process may take a few minutes to complete. Are you sure you want to continue?
+                        </p>
+                      </div>
+
+                      <div className="flex space-x-3">
+                        <button
+                          onClick={() => setIsSyncModalOpen(false)}
+                          className="flex-1 px-4 py-3 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl font-medium transition-all duration-200"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => {
+                            setIsSyncModalOpen(false);
+                            handleSyncContact();
+                          }}
+                          disabled={fetching}
+                          className="flex-1 px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl"
+                        >
+                          {fetching ? (
+                            <div className="flex items-center justify-center space-x-2">
+                              <LoadingIcon icon="oval" color="white" className="w-4 h-4" />
+                              <span>Syncing...</span>
+                            </div>
+                          ) : (
+                            "Confirm Sync"
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </Dialog.Panel>
+                </div>
+              </Dialog>
             </div>
 
             {/* Action buttons with WhatsApp Web styling */}
@@ -14907,54 +15162,135 @@ function Main() {
                 />
               </div>
               <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 text-center mb-6 bg-gradient-to-r from-gray-800 to-gray-600 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
-                Welcome to Chat
+                {isAssistantInfoLoaded && (!assistantInfo.instructions || assistantInfo.instructions.trim() === "") 
+                  ? "Welcome to Chat" 
+                  : "Welcome to Chat"
+                }
               </h2>
               <p className="text-gray-700 dark:text-gray-300 text-lg text-center mb-10 max-w-lg leading-relaxed font-medium px-4">
-                Select a contact from the list to start messaging, or create a
-                new conversation to get started.
+                {isAssistantInfoLoaded && (!assistantInfo.instructions || assistantInfo.instructions.trim() === "") 
+                  ? "Before you can start chatting, you need to configure your AI assistant."
+                  : "Select a contact from the list to start messaging, or create a new conversation to get started."
+                }
               </p>
-              <div className="flex flex-col sm:flex-row gap-6 mb-8">
-                <button
-                  onClick={openNewChatModal}
-                  className="bg-gradient-to-r from-blue-500/80 to-purple-600/80 hover:from-blue-600/90 hover:to-purple-700/90 text-white font-bold py-5 px-10 rounded-2xl transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:scale-105 backdrop-blur-md border border-blue-400/50 dark:border-blue-300/50"
-                >
-                  <div className="flex items-center space-x-3">
-                    <Lucide icon="Plus" className="w-5 h-5" />
-                    <span>Start New Chat</span>
+              {/* Only show buttons when instructions are set */}
+              {!(isAssistantInfoLoaded && (!assistantInfo.instructions || assistantInfo.instructions.trim() === "")) && (
+                <div className="flex flex-col sm:flex-row gap-6 mb-8">
+                  <button
+                    onClick={openNewChatModal}
+                    className="bg-gradient-to-r from-blue-500/80 to-purple-600/80 hover:from-blue-600/90 hover:to-purple-700/90 text-white font-bold py-5 px-10 rounded-2xl transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:scale-105 backdrop-blur-md border border-blue-400/50 dark:border-blue-300/50"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Lucide icon="Plus" className="w-5 h-5" />
+                      <span>Start New Chat</span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setIsSearchModalOpen(true)}
+                    className="bg-white/30 hover:bg-white/50 dark:bg-gray-700/30 dark:hover:bg-gray-600/50 text-gray-800 dark:text-gray-200 font-semibold py-5 px-10 rounded-2xl transition-all duration-300 border border-white/50 dark:border-gray-600/50 shadow-lg hover:shadow-xl backdrop-blur-md hover:scale-105 transform"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Lucide icon="Search" className="w-5 h-5" />
+                      <span>Search Contacts</span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setIsSyncModalOpen(true)}
+                    disabled={fetching}
+                    className="bg-gradient-to-r from-green-500/80 to-emerald-600/80 hover:from-green-600/90 hover:to-emerald-700/90 disabled:from-gray-400/50 disabled:to-gray-500/50 disabled:cursor-not-allowed text-white font-bold py-5 px-10 rounded-2xl transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:scale-105 backdrop-blur-md border border-green-400/50 dark:border-green-300/50"
+                  >
+                    <div className="flex items-center space-x-3">
+                      {fetching ? (
+                        <LoadingIcon icon="oval" color="white" className="w-5 h-5" />
+                      ) : (
+                        <Lucide icon="RefreshCw" className="w-5 h-5" />
+                      )}
+                      <span>{fetching ? "Syncing..." : "Sync Database"}</span>
+                    </div>
+                  </button>
+                </div>
+              )}
+              
+              {/* Onboarding Call-to-Action for empty instructions */}
+              {isAssistantInfoLoaded && (!assistantInfo.instructions || assistantInfo.instructions.trim() === "") && (
+                <div className="w-full max-w-2xl mb-8 p-6 bg-gradient-to-r from-amber-50/80 to-orange-50/80 dark:from-amber-900/20 dark:to-orange-900/20 rounded-2xl border border-amber-200/50 dark:border-amber-700/50 backdrop-blur-xl shadow-xl">
+                  <div className="flex items-start space-x-4">
+                    <div className="flex-shrink-0">
+                      <div className="w-12 h-12 bg-gradient-to-r from-amber-400 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+                        <Lucide icon="Settings" className="w-6 h-6 text-white animate-spin-slow" />
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-amber-800 dark:text-amber-200 mb-2">
+                        Complete Your AI Assistant Setup
+                      </h3>
+                      <p className="text-amber-700 dark:text-amber-300 mb-4 text-sm leading-relaxed">
+                        Configure your AI assistant to unlock powerful automation features, smart responses, and enhanced customer interactions.
+                      </p>
+                      <button
+                        onClick={() => navigate('/onboarding')}
+                        className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center space-x-2"
+                      >
+                        <Lucide icon="ArrowRight" className="w-4 h-4" />
+                        <span>Go to Setup</span>
+                      </button>
+                    </div>
                   </div>
-                </button>
-                <button
-                  onClick={() => setIsSearchModalOpen(true)}
-                  className="bg-white/30 hover:bg-white/50 dark:bg-gray-700/30 dark:hover:bg-gray-600/50 text-gray-800 dark:text-gray-200 font-semibold py-5 px-10 rounded-2xl transition-all duration-300 border border-white/50 dark:border-gray-600/50 shadow-lg hover:shadow-xl backdrop-blur-md hover:scale-105 transform"
-                >
-                  <div className="flex items-center space-x-3">
-                    <Lucide icon="Search" className="w-5 h-5" />
-                    <span>Search Contacts</span>
-                  </div>
-                </button>
-              </div>
+                </div>
+              )}
               <div className="text-center">
                 <p className="text-sm text-gray-600 dark:text-gray-300 mb-6 font-semibold">
-                  Quick Tips:
+                  {isAssistantInfoLoaded && (!assistantInfo.instructions || assistantInfo.instructions.trim() === "") 
+                    ? "Why Setup is Important:" 
+                    : "Quick Tips:"
+                  }
                 </p>
                 <div className="flex flex-col sm:flex-row gap-6 text-sm text-gray-600 dark:text-gray-300">
-                  <div className="flex items-center space-x-3 p-4 bg-white/40 dark:bg-gray-700/40 rounded-2xl backdrop-blur-xl border border-white/50 dark:border-gray-600/60 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-                    <div className="w-3 h-3 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full shadow-lg"></div>
-                    <span className="font-medium">
-                      Click on any contact to start chatting
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-3 p-4 bg-white/40 dark:bg-gray-700/40 rounded-2xl backdrop-blur-xl border border-white/50 dark:border-gray-600/60 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-                    <div className="w-3 h-3 bg-gradient-to-r from-green-400 to-green-600 rounded-full shadow-lg"></div>
-                    <span className="font-medium">
-                      Use search to find specific contacts
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-3 p-4 bg-white/40 dark:bg-gray-700/40 rounded-2xl backdrop-blur-xl border border-white/50 dark:border-gray-600/60 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-                    <span className="font-medium">
-                      Create new conversations anytime
-                    </span>
-                  </div>
+                  {isAssistantInfoLoaded && (!assistantInfo.instructions || assistantInfo.instructions.trim() === "") ? (
+                    // Show setup-focused tips when instructions are empty
+                    <>
+                      <div className="flex items-center space-x-3 p-4 bg-white/40 dark:bg-gray-700/40 rounded-2xl backdrop-blur-xl border border-white/50 dark:border-gray-600/60 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                        <div className="w-3 h-3 bg-gradient-to-r from-amber-400 to-orange-500 rounded-full shadow-lg"></div>
+                        <span className="font-medium">
+                          AI will respond to customer messages
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-3 p-4 bg-white/40 dark:bg-gray-700/40 rounded-2xl backdrop-blur-xl border border-white/50 dark:border-gray-600/60 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                        <div className="w-3 h-3 bg-gradient-to-r from-green-400 to-green-600 rounded-full shadow-lg"></div>
+                        <span className="font-medium">
+                          Automate repetitive tasks
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-3 p-4 bg-white/40 dark:bg-gray-700/40 rounded-2xl backdrop-blur-xl border border-white/50 dark:border-gray-600/60 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                        <div className="w-3 h-3 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full shadow-lg"></div>
+                        <span className="font-medium">
+                          Improve customer experience
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    // Show normal chat tips when instructions are set
+                    <>
+                      <div className="flex items-center space-x-3 p-4 bg-white/40 dark:bg-gray-700/40 rounded-2xl backdrop-blur-xl border border-white/50 dark:border-gray-600/60 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                        <div className="w-3 h-3 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full shadow-lg"></div>
+                        <span className="font-medium">
+                          Click on any contact to start chatting
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-3 p-4 bg-white/40 dark:bg-gray-700/40 rounded-2xl backdrop-blur-xl border border-white/50 dark:border-gray-600/60 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                        <div className="w-3 h-3 bg-gradient-to-r from-green-400 to-green-600 rounded-full shadow-lg"></div>
+                        <span className="font-medium">
+                          Use search to find specific contacts
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-3 p-4 bg-white/40 dark:bg-gray-700/40 rounded-2xl backdrop-blur-xl border border-white/50 dark:border-gray-600/60 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                        <div className="w-3 h-3 bg-gradient-to-r from-purple-400 to-purple-600 rounded-full shadow-lg"></div>
+                        <span className="font-medium">
+                          Create new conversations anytime
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -18607,6 +18943,8 @@ function Main() {
           </div>
         </div>
       )}
+      
+   
     </div>
   );
 }
@@ -18699,6 +19037,8 @@ const ImageModal2: React.FC<ImageModalProps2> = ({
           </button>
         </div>
       </div>
+     
+  
     </div>
   );
 };

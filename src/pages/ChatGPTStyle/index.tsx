@@ -92,6 +92,20 @@ const Main: React.FC = () => {
   };
 
   useEffect(() => {
+    // Reset thread ID when page loads
+    localStorage.removeItem("threadId");
+    localStorage.removeItem("thread_id");
+    localStorage.removeItem("conversationId");
+    localStorage.removeItem("conversation_id");
+    localStorage.removeItem("chatThreadId");
+    localStorage.removeItem("chat_thread_id");
+    
+    // Clear any existing messages to start fresh
+    setMessages([]);
+    setError(null);
+    setStreamingMessageId(null);
+    setThinkingState(null);
+    
     const userEmail = localStorage.getItem("userEmail");
     if (userEmail) {
       fetchCompanyId(userEmail);
@@ -691,7 +705,7 @@ Let me know if you need help creating your AI assistant!`,
           darkMode 
             ? 'glass-morphic-dark' 
             : 'glass-morphic'
-        } rounded-2xl w-full h-full flex flex-col p-6 animate-glass-glow relative overflow-hidden`}>
+        } rounded-2xl w-full h-full flex flex-col p-4 sm:p-6 animate-glass-glow relative overflow-hidden`}>
           
           {/* Connection Status */}
           <div className="mb-4 flex justify-between items-center flex-shrink-0">
@@ -799,7 +813,7 @@ Let me know if you need help creating your AI assistant!`,
           ) : (
             <div className="flex-1 flex flex-col min-h-0">
               {/* Chat Messages - Scrollable Area */}
-              <div className="flex-1 overflow-y-auto space-y-4 mb-6 pr-2 custom-scrollbar">
+              <div className="flex-1 overflow-y-auto space-y-4 mb-6 pr-2 custom-scrollbar min-h-[200px]">
                 {messages.slice().reverse().map((message) => (
                   <div key={message.id} className={`flex ${message.from_me ? 'justify-end' : 'justify-start'} animate-slide-in`}>
                     <div className={`max-w-3xl ${message.from_me ? 'ml-auto' : 'mr-auto'} relative`}>
@@ -949,34 +963,61 @@ Let me know if you need help creating your AI assistant!`,
                         )}
           </div>
 
-                      {/* Save Button for AI Responses */}
-                      {!message.from_me && !message.isLoading && message.text.trim() && (
-                        <div className="mt-4 ml-12 animate-fade-in">
-                          <div className="text-sm text-slate-600 dark:text-slate-400 mb-3 font-medium">
-                            💡 Keep chatting to refine your AI assistant further!
-                          </div>
-                          <button
-                            onClick={() => saveCurrentPrompt(message.text)}
-                            className="px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-xl transition-all duration-200 hover:shadow-lg hover:scale-105 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 flex items-center gap-2 backdrop-blur-sm"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-4 w-4"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                            >
-                              <path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h-2v5.586l-1.293-1.293z" />
-                            </svg>
-                            Save to Template
-                          </button>
-                        </div>
-                      )}
                     </div>
                   </div>
                 ))}
                 
                 <div ref={messagesEndRef} />
               </div>
+
+              {/* Save Template Button - Compact mobile-friendly design */}
+              {messages.some(msg => !msg.from_me && !msg.isLoading && msg.text.trim()) && (
+                <div className="flex-shrink-0 mb-3 animate-fade-in">
+                  <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 backdrop-blur-md border border-emerald-200/50 dark:border-emerald-700/50 rounded-lg p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-center flex-shrink-0">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-4 w-4 text-white"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                          >
+                            <path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h-2v5.586l-1.293-1.293z" />
+                          </svg>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-sm font-semibold text-emerald-800 dark:text-emerald-200 truncate">
+                            Save Your AI
+                          </h3>
+                          <p className="text-xs text-emerald-600 dark:text-emerald-300 truncate">
+                            Save as template
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const latestAiMessage = messages.find(msg => !msg.from_me && !msg.isLoading && msg.text.trim());
+                          if (latestAiMessage) {
+                            saveCurrentPrompt(latestAiMessage.text);
+                          }
+                        }}
+                        className="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-lg transition-all duration-200 hover:shadow-lg hover:scale-105 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 flex items-center gap-1.5 backdrop-blur-sm flex-shrink-0"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-3.5 w-3.5"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6h-2v5.586l-1.293-1.293z" />
+                        </svg>
+                        <span className="hidden sm:inline">Save</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Input Area for ongoing chat - Fixed at bottom */}
               <div className="flex-shrink-0 pt-4 border-t border-slate-200/60 dark:border-slate-600/60 backdrop-blur-sm">
@@ -1022,14 +1063,15 @@ Let me know if you need help creating your AI assistant!`,
             </div>
           )}
 
-          {/* Navigation Link - Always visible at bottom */}
-          <div className="mt-6 pt-4 border-t border-slate-200/40 dark:border-slate-600/40 backdrop-blur-sm flex-shrink-0">
+          {/* Floating Navigation Button - Less intrusive */}
+          <div className="absolute top-4 right-4 z-20">
             <button
               onClick={() => navigate('/follow-ups-onboarding')}
-              className="w-full px-4 py-3 bg-gradient-to-r from-blue-600/10 to-purple-600/10 hover:from-blue-600/20 hover:to-purple-600/20 backdrop-blur-md border border-blue-200/30 dark:border-blue-700/30 rounded-xl text-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-semibold transition-all duration-200 hover:shadow-md hover:scale-[1.02] flex items-center justify-center gap-2"
+              className="px-3 py-2 bg-gradient-to-r from-blue-600/90 to-purple-600/90 hover:from-blue-600 hover:to-purple-600 backdrop-blur-md border border-blue-200/30 dark:border-blue-700/30 rounded-lg text-center text-white font-medium transition-all duration-200 hover:shadow-lg hover:scale-105 flex items-center gap-1.5 text-sm"
             >
-              Continue to Follow-ups
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <span className="hidden sm:inline">Continue to Follow-ups</span>
+              <span className="sm:hidden">Next</span>
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
             </button>
