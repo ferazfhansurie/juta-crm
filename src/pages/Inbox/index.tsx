@@ -595,42 +595,6 @@ const Main: React.FC = () => {
         }
       ]
     },
-    task: {
-      title: "Task Management Functions",
-      description: "Tools for creating, editing, and managing tasks",
-      examples: [
-        {
-          name: "addTask",
-          description: "Creates new tasks",
-          example: "use 'addTask' function to create a new high-priority task to follow up with the client by January 20th. The task should be to call the client to discuss the proposal"
-        },
-        {
-          name: "editTask",
-          description: "Edits existing tasks",
-          example: "use 'editTask' function to edit task_123 to update the description and change the priority to Medium with a due date of January 25th"
-        },
-        {
-          name: "deleteTask",
-          description: "Deletes tasks",
-          example: "use 'deleteTask' function to delete task_123"
-        },
-        {
-          name: "listTasks",
-          description: "Lists all tasks",
-          example: "use 'listTasks' function to list all active tasks with a limit of 10"
-        },
-        {
-          name: "listAssignedTasks",
-          description: "Lists tasks assigned to specific person",
-          example: "use 'listAssignedTasks' function to list all tasks assigned to john.doe@company.com"
-        },
-        {
-          name: "updateTaskStatus",
-          description: "Updates task status",
-          example: "use 'updateTaskStatus' function to update the status of task_123 to completed"
-        }
-      ]
-    },
     contact: {
       title: "Contact Management Functions",
       description: "Tools for managing contacts, tags, and contact data",
@@ -703,9 +667,60 @@ const Main: React.FC = () => {
         }
       ]
     },
+    followUps: {
+      title: "Follow-Up Management Functions",
+      description: "Tools for creating, managing, and automating follow-up templates and sequences",
+      examples: [
+        {
+          name: "createFollowUpTemplate",
+          description: "Creates new follow-up email templates",
+          example: "use 'createFollowUpTemplate' function to create a follow-up template for lead nurturing with the subject 'Following up on your interest' and personalized content"
+        },
+        {
+          name: "editFollowUpTemplate",
+          description: "Edits existing follow-up templates",
+          example: "use 'editFollowUpTemplate' function to edit template_456 to update the subject line and add more personalization tokens"
+        },
+        {
+          name: "deleteFollowUpTemplate",
+          description: "Deletes follow-up templates",
+          example: "use 'deleteFollowUpTemplate' function to delete template_456"
+        },
+        {
+          name: "listFollowUpTemplates",
+          description: "Lists all follow-up templates",
+          example: "use 'listFollowUpTemplates' function to list all active follow-up templates with pagination"
+        },
+        {
+          name: "scheduleFollowUp",
+          description: "Schedules follow-up messages to contacts",
+          example: "use 'scheduleFollowUp' function to schedule a follow-up email to contact_123 using template_456 for tomorrow at 2 PM"
+        },
+        {
+          name: "createFollowUpSequence",
+          description: "Creates automated follow-up sequences",
+          example: "use 'createFollowUpSequence' function to create a 5-step nurturing sequence with emails sent every 3 days"
+        },
+        {
+          name: "assignContactToSequence",
+          description: "Assigns contacts to follow-up sequences",
+          example: "use 'assignContactToSequence' function to assign contact_123 to the lead nurturing sequence starting immediately"
+        },
+        {
+          name: "pauseFollowUpSequence",
+          description: "Pauses follow-up sequences for contacts",
+          example: "use 'pauseFollowUpSequence' function to pause the follow-up sequence for contact_123"
+        },
+        {
+          name: "updateFollowUpStatus",
+          description: "Updates follow-up status and tracking",
+          example: "use 'updateFollowUpStatus' function to mark followup_789 as completed and add completion notes"
+        }
+      ]
+    },
     utility: {
       title: "Utility Functions",
-      description: "General utility tools for web search and date operations",
+      description: "General utility tools for web search, date operations, and system functions",
       examples: [
         {
           name: "searchWeb",
@@ -716,6 +731,41 @@ const Main: React.FC = () => {
           name: "getTodayDate",
           description: "Gets current date",
           example: "use 'getTodayDate' function to get today's date"
+        },
+        {
+          name: "calculateDateDifference",
+          description: "Calculates difference between dates",
+          example: "use 'calculateDateDifference' function to calculate the number of days between January 15th and January 30th"
+        },
+        {
+          name: "formatDate",
+          description: "Formats dates in different formats",
+          example: "use 'formatDate' function to format '2024-01-15' to 'January 15, 2024'"
+        },
+        {
+          name: "generateUUID",
+          description: "Generates unique identifiers",
+          example: "use 'generateUUID' function to generate a unique ID for a new record"
+        },
+        {
+          name: "validateEmail",
+          description: "Validates email addresses",
+          example: "use 'validateEmail' function to check if 'user@example.com' is a valid email format"
+        },
+        {
+          name: "exportData",
+          description: "Exports data to various formats",
+          example: "use 'exportData' function to export contact list to CSV format with selected fields"
+        },
+        {
+          name: "importData",
+          description: "Imports data from files",
+          example: "use 'importData' function to import contacts from a CSV file with field mapping"
+        },
+        {
+          name: "sendNotification",
+          description: "Sends system notifications",
+          example: "use 'sendNotification' function to send a notification to admin@company.com about system maintenance"
         }
       ]
     }
@@ -2615,13 +2665,6 @@ const Main: React.FC = () => {
                           <div className="text-xs opacity-90">Event management & scheduling</div>
                         </button>
                         <button
-                          onClick={() => openAiToolsModal('task')}
-                          className="p-3 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors duration-200 text-left"
-                        >
-                          <div className="font-medium">Task Management</div>
-                          <div className="text-xs opacity-90">Create & manage tasks</div>
-                        </button>
-                        <button
                           onClick={() => openAiToolsModal('contact')}
                           className="p-3 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors duration-200 text-left"
                         >
@@ -2636,11 +2679,18 @@ const Main: React.FC = () => {
                           <div className="text-xs opacity-90">Data management tools</div>
                         </button>
                         <button
+                          onClick={() => openAiToolsModal('followUps')}
+                          className="p-3 bg-pink-500 hover:bg-pink-600 text-white rounded-lg transition-colors duration-200 text-left"
+                        >
+                          <div className="font-medium">Follow-Up Management</div>
+                          <div className="text-xs opacity-90">Templates & sequences</div>
+                        </button>
+                        <button
                           onClick={() => openAiToolsModal('utility')}
                           className="p-3 bg-teal-500 hover:bg-teal-600 text-white rounded-lg transition-colors duration-200 text-left md:col-span-2"
                         >
                           <div className="font-medium">Utility Functions</div>
-                          <div className="text-xs opacity-90">Web search & date operations</div>
+                          <div className="text-xs opacity-90">Web search, dates & system tools</div>
                         </button>
                       </div>
                     </div>
