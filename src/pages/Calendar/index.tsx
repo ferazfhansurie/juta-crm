@@ -1881,7 +1881,8 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
           appointment.details,
           ...(appointment.tags || []).map((t: any) => t?.name),
           ...(appointment.contacts || []).map(
-            (c: any) => c?.name || `${c?.firstName || ""} ${c?.lastName || ""}`.trim()
+            (c: any) =>
+              c?.name || `${c?.firstName || ""} ${c?.lastName || ""}`.trim()
           ),
         ]
           .filter(Boolean)
@@ -2044,244 +2045,339 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
     const contacts = extendedProps.contacts || [];
     const isMobile = window.innerWidth < 768;
 
-    // Modern status-based colors with enhanced gradients and modern palette
-    const statusColors: Record<string, { bg: string; text: string; gradient: string; accent: string }> = {
-      new: { 
-        bg: "#F8FAFC", 
-        text: "#475569", 
-        gradient: "linear-gradient(135deg, #F8FAFC 0%, #E2E8F0 100%)",
-        accent: "#64748B"
+    // Enhanced glassmorphism status-based colors
+    const statusColors: Record<
+      string,
+      {
+        bg: string;
+        text: string;
+        gradient: string;
+        accent: string;
+        glassEffect: string;
+      }
+    > = {
+      new: {
+        bg: "rgba(248,250,252,0.8)",
+        text: "#475569",
+        gradient:
+          "linear-gradient(135deg, rgba(248,250,252,0.9) 0%, rgba(226,232,240,0.8) 100%)",
+        accent: "#64748B",
+        glassEffect: "rgba(100,116,139,0.1)",
       },
-      confirmed: { 
-        bg: "#ECFDF5", 
-        text: "#065F46", 
-        gradient: "linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)",
-        accent: "#10B981"
+      confirmed: {
+        bg: "rgba(236,253,245,0.8)",
+        text: "#065F46",
+        gradient:
+          "linear-gradient(135deg, rgba(236,253,245,0.9) 0%, rgba(209,250,229,0.8) 100%)",
+        accent: "#10B981",
+        glassEffect: "rgba(16,185,129,0.1)",
       },
-      cancelled: { 
-        bg: "#FEF2F2", 
-        text: "#991B1B", 
-        gradient: "linear-gradient(135deg, #FEF2F2 0%, #FECACA 100%)",
-        accent: "#EF4444"
+      cancelled: {
+        bg: "rgba(254,242,242,0.8)",
+        text: "#991B1B",
+        gradient:
+          "linear-gradient(135deg, rgba(254,242,242,0.9) 0%, rgba(254,202,202,0.8) 100%)",
+        accent: "#EF4444",
+        glassEffect: "rgba(239,68,68,0.1)",
       },
-      showed: { 
-        bg: "#F3E8FF", 
-        text: "#581C87", 
-        gradient: "linear-gradient(135deg, #F3E8FF 0%, #DDD6FE 100%)",
-        accent: "#8B5CF6"
+      showed: {
+        bg: "rgba(243,232,255,0.8)",
+        text: "#581C87",
+        gradient:
+          "linear-gradient(135deg, rgba(243,232,255,0.9) 0%, rgba(221,214,254,0.8) 100%)",
+        accent: "#8B5CF6",
+        glassEffect: "rgba(139,92,246,0.1)",
       },
-      noshow: { 
-        bg: "#FFF7ED", 
-        text: "#C2410C", 
-        gradient: "linear-gradient(135deg, #FFF7ED 0%, #FED7AA 100%)",
-        accent: "#F97316"
+      noshow: {
+        bg: "rgba(255,247,237,0.8)",
+        text: "#C2410C",
+        gradient:
+          "linear-gradient(135deg, rgba(255,247,237,0.9) 0%, rgba(254,215,170,0.8) 100%)",
+        accent: "#F97316",
+        glassEffect: "rgba(249,115,22,0.1)",
       },
-      rescheduled: { 
-        bg: "#F0F9FF", 
-        text: "#075985", 
-        gradient: "linear-gradient(135deg, #F0F9FF 0%, #BAE6FD 100%)",
-        accent: "#0EA5E9"
+      rescheduled: {
+        bg: "rgba(240,249,255,0.8)",
+        text: "#075985",
+        gradient:
+          "linear-gradient(135deg, rgba(240,249,255,0.9) 0%, rgba(186,230,253,0.8) 100%)",
+        accent: "#0EA5E9",
+        glassEffect: "rgba(14,165,233,0.1)",
       },
-      lost: { 
-        bg: "#FAFAFA", 
-        text: "#525252", 
-        gradient: "linear-gradient(135deg, #FAFAFA 0%, #E5E5E5 100%)",
-        accent: "#737373"
+      lost: {
+        bg: "rgba(250,250,250,0.8)",
+        text: "#525252",
+        gradient:
+          "linear-gradient(135deg, rgba(250,250,250,0.9) 0%, rgba(229,229,229,0.8) 100%)",
+        accent: "#737373",
+        glassEffect: "rgba(115,115,115,0.1)",
       },
-      closed: { 
-        bg: "#EFF6FF", 
-        text: "#1E40AF", 
-        gradient: "linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)",
-        accent: "#3B82F6"
+      closed: {
+        bg: "rgba(239,246,255,0.8)",
+        text: "#1E40AF",
+        gradient:
+          "linear-gradient(135deg, rgba(239,246,255,0.9) 0%, rgba(219,234,254,0.8) 100%)",
+        accent: "#3B82F6",
+        glassEffect: "rgba(59,130,246,0.1)",
       },
     };
 
     const statusColor = statusColors[status.toLowerCase()] || {
-      bg: "#F9FAFB",
+      bg: "rgba(249,250,251,0.8)",
       text: "#374151",
-      gradient: "linear-gradient(135deg, #F9FAFB 0%, #E5E7EB 100%)",
-      accent: "#6B7280"
+      gradient:
+        "linear-gradient(135deg, rgba(249,250,251,0.9) 0%, rgba(229,231,235,0.8) 100%)",
+      accent: "#6B7280",
+      glassEffect: "rgba(107,114,128,0.1)",
     };
 
     return (
       <div
-        className={`event-content ${status.toLowerCase()}`}
+        className={`event-content-glassmorphism ${status.toLowerCase()}`}
         style={{
           background: statusColor.gradient,
           padding: isMobile ? "8px 10px" : "10px 12px",
-          borderRadius: "12px",
+          borderRadius: "16px",
           height: "100%",
           overflow: "hidden",
           display: "flex",
           flexDirection: "column",
           gap: "6px",
           fontSize: isMobile ? "11px" : "12px",
-          border: `1px solid ${statusColor.accent}25`,
-          boxShadow: `0 4px 12px ${statusColor.accent}15, 0 2px 4px ${statusColor.accent}10`,
-          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          border: `1px solid ${statusColor.accent}30`,
+          boxShadow: `0 8px 32px ${statusColor.glassEffect}, 0 4px 12px ${statusColor.accent}15`,
+          transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
           cursor: "pointer",
           position: "relative",
-          backdropFilter: "blur(8px)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.transform = "translateY(-2px)";
-          e.currentTarget.style.boxShadow = `0 8px 25px ${statusColor.accent}20, 0 4px 12px ${statusColor.accent}15`;
+          e.currentTarget.style.transform = "translateY(-3px) scale(1.02)";
+          e.currentTarget.style.boxShadow = `0 12px 40px ${statusColor.glassEffect}, 0 8px 25px ${statusColor.accent}25`;
+          e.currentTarget.style.background = `linear-gradient(135deg, ${statusColor.bg} 0%, ${statusColor.glassEffect} 100%)`;
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.transform = "translateY(0)";
-          e.currentTarget.style.boxShadow = `0 4px 12px ${statusColor.accent}15, 0 2px 4px ${statusColor.accent}10`;
+          e.currentTarget.style.transform = "translateY(0) scale(1)";
+          e.currentTarget.style.boxShadow = `0 8px 32px ${statusColor.glassEffect}, 0 4px 12px ${statusColor.accent}15`;
+          e.currentTarget.style.background = statusColor.gradient;
         }}
       >
-        {/* Status indicator bar */}
+        {/* Glassmorphism overlay effect */}
         <div
           style={{
             position: "absolute",
             top: "0",
             left: "0",
             right: "0",
-            height: "3px",
-            background: `linear-gradient(90deg, ${statusColor.accent} 0%, ${statusColor.accent}80 100%)`,
-            borderRadius: "12px 12px 0 0",
+            bottom: "0",
+            background: `linear-gradient(135deg, ${statusColor.glassEffect} 0%, transparent 50%, ${statusColor.glassEffect} 100%)`,
+            borderRadius: "16px",
+            pointerEvents: "none",
+            opacity: 0.3,
           }}
         />
 
-        {/* Header with title and status */}
+        {/* Enhanced status indicator bar with gradient */}
         <div
           style={{
+            position: "absolute",
+            top: "0",
+            left: "0",
+            right: "0",
+            height: "4px",
+            background: `linear-gradient(90deg, ${statusColor.accent} 0%, ${statusColor.accent}90 50%, ${statusColor.accent} 100%)`,
+            borderRadius: "16px 16px 0 0",
+            boxShadow: `0 2px 8px ${statusColor.accent}40`,
+          }}
+        />
+
+        {/* Content container with z-index */}
+        <div
+          style={{
+            position: "relative",
+            zIndex: 2,
+            height: "100%",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "8px",
-            marginTop: "2px",
+            flexDirection: "column",
+            gap: "6px",
           }}
         >
+          {/* Header with title and status */}
           <div
             style={{
-              fontWeight: 700,
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              color: statusColor.text,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "8px",
+              marginTop: "4px",
+            }}
+          >
+            <div
+              style={{
+                fontWeight: 700,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                color: statusColor.text,
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontSize: isMobile ? "12px" : "13px",
+                flex: 1,
+                textShadow: "0 1px 2px rgba(255,255,255,0.8)",
+              }}
+            >
+              <span
+                style={{
+                  width: "8px",
+                  height: "8px",
+                  borderRadius: "50%",
+                  background: `linear-gradient(135deg, ${statusColor.accent} 0%, ${statusColor.accent}80 100%)`,
+                  display: "inline-block",
+                  boxShadow: `0 0 12px ${statusColor.accent}60, inset 0 1px 2px rgba(255,255,255,0.3)`,
+                  border: `1px solid ${statusColor.accent}40`,
+                }}
+              />
+              {event.title}
+            </div>
+            {extendedProps.meetLink && (
+              <div
+                style={{
+                  width: "22px",
+                  height: "22px",
+                  borderRadius: "8px",
+                  background:
+                    "linear-gradient(135deg, rgba(59,130,246,0.9) 0%, rgba(29,78,216,0.8) 100%)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 4px 12px rgba(59, 130, 246, 0.4)",
+                  backdropFilter: "blur(8px)",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                }}
+              >
+                <span
+                  style={{
+                    color: "white",
+                    fontSize: "10px",
+                    fontWeight: "bold",
+                  }}
+                >
+                  📹
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Time section with enhanced styling */}
+          <div
+            style={{
               display: "flex",
               alignItems: "center",
               gap: "6px",
-              fontSize: isMobile ? "12px" : "13px",
-              flex: 1,
+              color: statusColor.text,
+              fontWeight: 600,
+              fontSize: isMobile ? "10px" : "11px",
+              background: `linear-gradient(135deg, ${statusColor.glassEffect} 0%, transparent 100%)`,
+              padding: "4px 8px",
+              borderRadius: "8px",
+              border: `1px solid ${statusColor.accent}20`,
+              backdropFilter: "blur(8px)",
             }}
           >
             <span
               style={{
-                width: "6px",
-                height: "6px",
-                borderRadius: "50%",
-                backgroundColor: statusColor.accent,
-                display: "inline-block",
-                boxShadow: `0 0 8px ${statusColor.accent}40`,
-              }}
-            />
-            {event.title}
-          </div>
-          {extendedProps.meetLink && (
-            <div
-              style={{
-                width: "20px",
-                height: "20px",
-                borderRadius: "6px",
-                background: "linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 2px 8px rgba(59, 130, 246, 0.3)",
+                opacity: 0.8,
+                filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.1))",
               }}
             >
-              <span style={{ color: "white", fontSize: "10px", fontWeight: "bold" }}>📹</span>
+              🕐
+            </span>
+            <span style={{ textShadow: "0 1px 2px rgba(255,255,255,0.6)" }}>
+              {startTime} - {endTime}
+            </span>
+          </div>
+
+          {/* Contacts section with glassmorphism */}
+          {contacts.length > 0 && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                color: statusColor.text,
+                fontWeight: 500,
+                fontSize: "10px",
+                opacity: 0.9,
+                background: `linear-gradient(135deg, ${statusColor.glassEffect} 0%, transparent 100%)`,
+                padding: "3px 6px",
+                borderRadius: "6px",
+                border: `1px solid ${statusColor.accent}15`,
+                backdropFilter: "blur(6px)",
+              }}
+            >
+              <span
+                style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.1))" }}
+              >
+                👤
+              </span>
+              <span
+                style={{
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  textShadow: "0 1px 2px rgba(255,255,255,0.6)",
+                }}
+              >
+                {contacts.map((c: any) => c.name).join(", ")}
+              </span>
+            </div>
+          )}
+
+          {/* Details section (desktop only) with enhanced glassmorphism */}
+          {!isMobile && extendedProps.details && (
+            <div
+              style={{
+                fontSize: "10px",
+                color: statusColor.text,
+                opacity: 0.8,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                fontStyle: "italic",
+                borderTop: `1px solid ${statusColor.accent}25`,
+                paddingTop: "6px",
+                marginTop: "4px",
+                background: `linear-gradient(135deg, ${statusColor.glassEffect} 0%, transparent 100%)`,
+                padding: "6px 8px",
+                borderRadius: "6px",
+                backdropFilter: "blur(6px)",
+                textShadow: "0 1px 2px rgba(255,255,255,0.6)",
+              }}
+            >
+              {extendedProps.details}
             </div>
           )}
         </div>
 
-        {/* Time section */}
+        {/* Subtle shine effect on hover */}
         <div
+          className="shine-effect"
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "4px",
-            color: statusColor.text,
-            fontWeight: 600,
-            fontSize: isMobile ? "10px" : "11px",
+            position: "absolute",
+            top: "-50%",
+            left: "-50%",
+            width: "200%",
+            height: "200%",
+            background:
+              "linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%)",
+            transform: "rotate(45deg)",
+            pointerEvents: "none",
+            opacity: 0,
+            transition: "all 0.6s ease",
           }}
-        >
-          <span style={{ opacity: 0.7 }}>🕐</span>
-          <span>{startTime} - {endTime}</span>
-        </div>
-
-        {/* Contacts section */}
-        {contacts.length > 0 && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              color: statusColor.text,
-              fontWeight: 500,
-              fontSize: "10px",
-              opacity: 0.8,
-            }}
-          >
-            <span>👤</span>
-            <span
-              style={{
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {contacts.map((c: any) => c.name).join(", ")}
-            </span>
-          </div>
-        )}
-
-        {/* Details section (desktop only) */}
-        {!isMobile && extendedProps.details && (
-          <div
-            style={{
-              fontSize: "10px",
-              color: statusColor.text,
-              opacity: 0.7,
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              fontStyle: "italic",
-              borderTop: `1px solid ${statusColor.accent}20`,
-              paddingTop: "4px",
-              marginTop: "2px",
-            }}
-          >
-            {extendedProps.details}
-          </div>
-        )}
-
-        {/* Status badge */}
-        {/* {status && (
-          <div
-            style={{
-              position: "absolute",
-              top: "8px",
-              right: "8px",
-              backgroundColor: statusColor.accent,
-              color: "white",
-              fontSize: "8px",
-              fontWeight: "bold",
-              padding: "2px 6px",
-              borderRadius: "6px",
-              textTransform: "uppercase",
-              letterSpacing: "0.5px",
-              boxShadow: `0 2px 4px ${statusColor.accent}30`,
-              zIndex: 1,
-            }}
-          >
-            {status}
-          </div>
-        )} */}
+        />
       </div>
     );
   };
@@ -2517,177 +2613,271 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
       open={isCalendarConfigOpen}
       onClose={() => setIsCalendarConfigOpen(false)}
     >
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-        <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10 dark:bg-gray-800">
-          <h2 className="text-lg font-medium mb-4 dark:text-white">
-            Calendar Settings
-          </h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Primary Google Calendar ID
-              </label>
-              <input
-                type="text"
-                className="block w-full mt-1 border-gray-300 rounded-md shadow-sm"
-                value={config.calendarId || ""}
-                onChange={(e) =>
-                  setConfig({ ...config, calendarId: e.target.value })
-                }
-                placeholder="example@group.calendar.google.com"
-              />
+      <div className="fixed inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl">
+        <Dialog.Panel className="w-full max-w-2xl relative bg-white/10 dark:bg-slate-800/10 backdrop-blur-3xl rounded-3xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden transform hover:scale-[1.005] transition-all duration-300">
+          {/* Enhanced Gradient Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 via-violet-500/5 to-purple-500/10 dark:from-blue-600/10 dark:via-violet-700/5 dark:to-purple-600/10 pointer-events-none" />
+
+          <div className="relative p-8">
+            <div className="flex items-center justify-between pb-6 border-b border-white/10 dark:border-slate-700/20">
+              <div className="flex items-center space-x-4">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500/20 to-violet-600/20 dark:from-blue-600/20 dark:to-violet-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 flex items-center justify-center shadow-lg">
+                  <Lucide
+                    icon="Calendar"
+                    className="w-7 h-7 text-blue-400 dark:text-blue-300"
+                  />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-white/90 dark:text-slate-200">
+                    Calendar Settings
+                  </h3>
+                  <p className="text-sm text-white/60 dark:text-slate-400 mt-1">
+                    Configure your calendar integration settings
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsCalendarConfigOpen(false)}
+                className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 text-slate-400 hover:text-white dark:hover:text-slate-200 transition-all duration-200 flex items-center justify-center backdrop-blur-sm border border-white/10"
+              >
+                <Lucide icon="X" className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* Additional Calendar IDs */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Additional Calendar IDs
-              </label>
-              {(config.additionalCalendarIds || []).map((calendarId, index) => (
-                <div key={index} className="flex items-center mt-2 gap-2">
+            <div className="mt-8 space-y-8">
+              {/* Primary Calendar ID Section */}
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <Lucide
+                    icon="CheckCircle"
+                    className="w-5 h-5 text-emerald-400"
+                  />
+                  <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                    Primary Google Calendar ID
+                  </label>
+                </div>
+
+                <div className="relative group">
                   <input
                     type="text"
-                    className="flex-1 block w-full mt-1 border-gray-300 rounded-md shadow-sm"
-                    value={calendarId}
-                    onChange={(e) => {
-                      const newCalendarIds = [
-                        ...(config.additionalCalendarIds || []),
-                      ];
-                      newCalendarIds[index] = e.target.value;
-                      setConfig({
-                        ...config,
-                        additionalCalendarIds: newCalendarIds,
-                      });
-                    }}
+                    className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-200 shadow-inner"
+                    value={config.calendarId || ""}
+                    onChange={(e) =>
+                      setConfig({ ...config, calendarId: e.target.value })
+                    }
                     placeholder="example@group.calendar.google.com"
                   />
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-emerald-500/5 to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Additional Calendar IDs Section */}
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <Lucide icon="Calendar" className="w-5 h-5 text-purple-400" />
+                  <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                    Additional Calendar IDs
+                  </label>
+                </div>
+
+                <div className="space-y-3">
+                  {(config.additionalCalendarIds || []).map(
+                    (calendarId, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center gap-3 group"
+                      >
+                        <div className="relative flex-1">
+                          <input
+                            type="text"
+                            className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-purple-400/50 focus:ring-2 focus:ring-purple-400/20 transition-all duration-200 shadow-inner"
+                            value={calendarId}
+                            onChange={(e) => {
+                              const newCalendarIds = [
+                                ...(config.additionalCalendarIds || []),
+                              ];
+                              newCalendarIds[index] = e.target.value;
+                              setConfig({
+                                ...config,
+                                additionalCalendarIds: newCalendarIds,
+                              });
+                            }}
+                            placeholder="example@group.calendar.google.com"
+                          />
+                          <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-500/5 to-violet-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                        </div>
+                        <button
+                          onClick={() => {
+                            const newCalendarIds = (
+                              config.additionalCalendarIds || []
+                            ).filter((_, i) => i !== index);
+                            setConfig({
+                              ...config,
+                              additionalCalendarIds: newCalendarIds,
+                            });
+                          }}
+                          className="w-10 h-10 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 hover:text-red-200 transition-all duration-200 hover:scale-105 backdrop-blur-sm border border-red-400/30 flex items-center justify-center"
+                        >
+                          <Lucide icon="X" className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )
+                  )}
+
                   <button
                     onClick={() => {
-                      const newCalendarIds = (
-                        config.additionalCalendarIds || []
-                      ).filter((_, i) => i !== index);
                       setConfig({
                         ...config,
-                        additionalCalendarIds: newCalendarIds,
+                        additionalCalendarIds: [
+                          ...(config.additionalCalendarIds || []),
+                          "",
+                        ],
                       });
                     }}
-                    className="p-2 text-red-600 hover:text-red-800"
+                    className="w-full px-4 py-4 bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white/70 hover:text-white font-medium transition-all duration-200 hover:scale-[1.02] flex items-center justify-center gap-2"
                   >
-                    <Lucide icon="X" className="w-5 h-5" />
+                    <Lucide icon="Plus" className="w-4 h-4" />
+                    Add Calendar
                   </button>
                 </div>
-              ))}
+              </div>
 
-              <button
-                onClick={() => {
-                  setConfig({
-                    ...config,
-                    additionalCalendarIds: [
-                      ...(config.additionalCalendarIds || []),
-                      "",
-                    ],
-                  });
-                }}
-                className="mt-2 px-3 py-1 text-sm text-primary border border-primary rounded hover:bg-primary hover:text-white"
-              >
-                <Lucide icon="Plus" className="w-4 h-4 inline-block mr-1" />
-                Add Calendar
-              </button>
+              {/* Time Configuration Section */}
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <Lucide icon="Clock" className="w-5 h-5 text-orange-400" />
+                  <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                    Time Configuration
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-3 group">
+                    <label className="block text-sm font-medium text-white/70 dark:text-slate-400">
+                      Start Hour (24h)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        max="23"
+                        className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 focus:border-orange-400/50 focus:ring-2 focus:ring-orange-400/20 transition-all duration-200 shadow-inner"
+                        value={config.startHour}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            startHour: parseInt(e.target.value),
+                          })
+                        }
+                      />
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-500/5 to-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 group">
+                    <label className="block text-sm font-medium text-white/70 dark:text-slate-400">
+                      End Hour (24h)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        max="23"
+                        className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 focus:border-orange-400/50 focus:ring-2 focus:ring-orange-400/20 transition-all duration-200 shadow-inner"
+                        value={config.endHour}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            endHour: parseInt(e.target.value),
+                          })
+                        }
+                      />
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-500/5 to-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 group">
+                    <label className="block text-sm font-medium text-white/70 dark:text-slate-400">
+                      Slot Duration (min)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="15"
+                        step="15"
+                        className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 focus:border-orange-400/50 focus:ring-2 focus:ring-orange-400/20 transition-all duration-200 shadow-inner"
+                        value={config.slotDuration}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            slotDuration: parseInt(e.target.value),
+                          })
+                        }
+                      />
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-500/5 to-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 group">
+                    <label className="block text-sm font-medium text-white/70 dark:text-slate-400">
+                      Days Ahead
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="1"
+                        className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 focus:border-orange-400/50 focus:ring-2 focus:ring-orange-400/20 transition-all duration-200 shadow-inner"
+                        value={config.daysAhead}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            daysAhead: parseInt(e.target.value),
+                          })
+                        }
+                      />
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-500/5 to-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Start Hour (24h)
-              </label>
-              <input
-                type="number"
-                min="0"
-                max="23"
-                className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                value={config.startHour}
-                onChange={(e) =>
-                  setConfig({ ...config, startHour: parseInt(e.target.value) })
-                }
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                End Hour (24h)
-              </label>
-              <input
-                type="number"
-                min="0"
-                max="23"
-                className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                value={config.endHour}
-                onChange={(e) =>
-                  setConfig({ ...config, endHour: parseInt(e.target.value) })
-                }
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Slot Duration (minutes)
-              </label>
-              <input
-                type="number"
-                min="15"
-                step="15"
-                className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                value={config.slotDuration}
-                onChange={(e) =>
-                  setConfig({
-                    ...config,
-                    slotDuration: parseInt(e.target.value),
-                  })
-                }
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Days Ahead
-              </label>
-              <input
-                type="number"
-                min="1"
-                className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                value={config.daysAhead}
-                onChange={(e) =>
-                  setConfig({ ...config, daysAhead: parseInt(e.target.value) })
-                }
-              />
-            </div>
-            <div className="flex justify-end space-x-2">
-              <button
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500"
-                onClick={() => setIsCalendarConfigOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
-                onClick={async () => {
-                  if (!config.calendarId) {
-                    alert("Please enter a Calendar ID");
-                    return;
-                  }
+            <div className="flex justify-between items-center mt-10 pt-6 border-t border-white/10 dark:border-slate-700/20">
+              <div className="flex space-x-3">
+                <button
+                  className="px-6 py-3 bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 backdrop-blur-sm border border-white/20 dark:border-slate-600/20 text-white/90 hover:text-white rounded-2xl transition-all duration-200 font-medium"
+                  onClick={() => setIsCalendarConfigOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="px-6 py-3 bg-gradient-to-r from-blue-500/80 to-violet-600/80 hover:from-blue-600/90 hover:to-violet-700/90 text-white font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 backdrop-blur-xl border border-white/20"
+                  onClick={async () => {
+                    if (!config.calendarId) {
+                      alert("Please enter a Calendar ID");
+                      return;
+                    }
 
-                  const isValid = await testGoogleCalendarConnection(
-                    config.calendarId
-                  );
-                  if (!isValid) {
-                    alert(
-                      "Unable to connect to the calendar. Please check the Calendar ID and try again."
+                    const isValid = await testGoogleCalendarConnection(
+                      config.calendarId
                     );
-                    return;
-                  }
+                    if (!isValid) {
+                      alert(
+                        "Unable to connect to the calendar. Please check the Calendar ID and try again."
+                      );
+                      return;
+                    }
 
-                  updateCalendarConfig(config);
-                  setIsCalendarConfigOpen(false);
-                }}
-              >
-                Save Settings
-              </button>
+                    updateCalendarConfig(config);
+                    setIsCalendarConfigOpen(false);
+                  }}
+                >
+                  <div className="flex items-center space-x-2">
+                    <Lucide icon="Save" className="w-4 h-4" />
+                    <span>Save Settings</span>
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
         </Dialog.Panel>
@@ -2700,398 +2890,496 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
       open={isReminderSettingsOpen}
       onClose={() => setIsReminderSettingsOpen(false)}
     >
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-        <Dialog.Panel className="w-full max-w-2xl p-6 bg-white rounded-lg shadow-xl mt-10 dark:bg-gray-800">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold dark:text-white">
-              Reminder Settings
-            </h2>
-            <button
-              onClick={() => setIsReminderSettingsOpen(false)}
-              className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+      <div className="fixed inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl">
+        <Dialog.Panel className="w-full max-w-4xl relative bg-white/10 dark:bg-slate-800/10 backdrop-blur-3xl rounded-3xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden transform hover:scale-[1.005] transition-all duration-300">
+          {/* Enhanced Gradient Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 via-violet-500/5 to-purple-500/10 dark:from-blue-600/10 dark:via-violet-700/5 dark:to-purple-600/10 pointer-events-none" />
+
+          <div className="relative p-8">
+            <div className="flex items-center justify-between pb-6 border-b border-white/10 dark:border-slate-700/20">
+              <div className="flex items-center space-x-4">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-yellow-500/20 to-orange-600/20 dark:from-yellow-600/20 dark:to-orange-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 flex items-center justify-center shadow-lg">
+                  <Lucide
+                    icon="Bell"
+                    className="w-7 h-7 text-yellow-400 dark:text-yellow-300"
+                  />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-white/90 dark:text-slate-200">
+                    Reminder Settings
+                  </h3>
+                  <p className="text-sm text-white/60 dark:text-slate-400 mt-1">
+                    Configure automated reminders for appointments
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsReminderSettingsOpen(false)}
+                className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 text-slate-400 hover:text-white dark:hover:text-slate-200 transition-all duration-200 flex items-center justify-center backdrop-blur-sm border border-white/10"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
+                <Lucide icon="X" className="w-4 h-4" />
+              </button>
+            </div>
 
-          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-900/20 dark:border-blue-800">
-            <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
-              💡 Pro Tip
-            </h3>
-            <p className="text-sm text-blue-700 dark:text-blue-300">
-              Set up reminders for both employees and clients to ensure everyone
-              is prepared for appointments. You can create separate reminders
-              for each group or use the "Both Parties" option for convenience.
-            </p>
-          </div>
-
-          <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
-            {reminderSettings?.reminders?.map(
-              (reminder: any, index: number) => (
-                <div
-                  key={index}
-                  className="p-5 border rounded-lg dark:border-gray-700 bg-white dark:bg-gray-750 shadow-sm"
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-3">
-                      <span className="flex items-center justify-center w-8 h-8 text-sm font-semibold text-white bg-primary rounded-full">
-                        {index + 1}
-                      </span>
-                      <h3 className="text-lg font-medium text-gray-700 dark:text-gray-300">
-                        Reminder {index + 1}
-                      </h3>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                      <div className="flex items-center">
-                        <label className="mr-2 text-sm text-gray-600 dark:text-gray-400">
-                          Enable
-                        </label>
-                        <input
-                          type="checkbox"
-                          checked={reminder.enabled}
-                          onChange={(e) => {
-                            const newReminders = [
-                              ...(reminderSettings?.reminders || []),
-                            ];
-                            newReminders[index].enabled = e.target.checked;
-                            setReminderSettings({ reminders: newReminders });
-                          }}
-                          className="form-checkbox h-5 w-5 text-primary rounded border-gray-300 focus:ring-primary"
-                        />
-                      </div>
-                      <button
-                        onClick={() => {
-                          const newReminders =
-                            reminderSettings.reminders.filter(
-                              (_, i) => i !== index
-                            );
-                          setReminderSettings({ reminders: newReminders });
-                        }}
-                        className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full transition-colors duration-200"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-5 w-5"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </button>
-                    </div>
+            <div className="mt-8 space-y-8">
+              {/* Pro Tip Section */}
+              <div className="p-6 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 backdrop-blur-sm border border-blue-400/20 rounded-2xl">
+                <div className="flex items-center space-x-3 mb-3">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500/30 to-cyan-600/30 backdrop-blur-sm border border-blue-400/30 flex items-center justify-center">
+                    <Lucide
+                      icon="Lightbulb"
+                      className="w-4 h-4 text-blue-300"
+                    />
                   </div>
+                  <h3 className="text-lg font-semibold text-blue-200">
+                    💡 Pro Tip
+                  </h3>
+                </div>
+                <p className="text-sm text-blue-100/80 leading-relaxed">
+                  Set up reminders for both employees and clients to ensure
+                  everyone is prepared for appointments. You can create separate
+                  reminders for each group or use the "Both Parties" option for
+                  convenience.
+                </p>
+              </div>
 
-                  {reminder.enabled && (
-                    <div className="space-y-4">
-                      {/* Recipient Type Selection */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
-                          Send Reminder To
-                        </label>
-                        <div className="flex space-x-4">
-                          <label className="inline-flex items-center">
+              {/* Reminder Cards */}
+              <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
+                {reminderSettings?.reminders?.map(
+                  (reminder: any, index: number) => (
+                    <div
+                      key={index}
+                      className="relative bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl p-6 shadow-lg"
+                    >
+                      {/* Card Header */}
+                      <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center space-x-4">
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-600/20 backdrop-blur-sm border border-indigo-400/30 flex items-center justify-center">
+                            <span className="text-sm font-bold text-indigo-300">
+                              {index + 1}
+                            </span>
+                          </div>
+                          <h3 className="text-xl font-semibold text-white/90 dark:text-slate-200">
+                            Reminder {index + 1}
+                          </h3>
+                        </div>
+                        <div className="flex items-center space-x-4">
+                          <div className="flex items-center space-x-2">
+                            <label className="text-sm font-medium text-white/70 dark:text-slate-400">
+                              Enable
+                            </label>
                             <input
-                              type="radio"
-                              className="form-radio text-primary"
-                              name={`recipient-type-${index}`}
-                              value="contacts"
-                              checked={
-                                !reminder.recipientType ||
-                                reminder.recipientType === "contacts"
-                              }
-                              onChange={() => {
+                              type="checkbox"
+                              checked={reminder.enabled}
+                              onChange={(e) => {
                                 const newReminders = [
                                   ...(reminderSettings?.reminders || []),
                                 ];
-                                newReminders[index].recipientType = "contacts";
+                                newReminders[index].enabled = e.target.checked;
                                 setReminderSettings({
                                   reminders: newReminders,
                                 });
                               }}
+                              className="w-5 h-5 text-indigo-600 bg-white/10 border-white/30 rounded focus:ring-indigo-500/20 dark:focus:ring-indigo-400/20 dark:ring-offset-gray-800 focus:ring-2"
                             />
-                            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                              Appointment Contacts
-                            </span>
-                          </label>
-                          <label className="inline-flex items-center">
-                            <input
-                              type="radio"
-                              className="form-radio text-primary"
-                              name={`recipient-type-${index}`}
-                              value="employees"
-                              checked={reminder.recipientType === "employees"}
-                              onChange={() => {
-                                const newReminders = [
-                                  ...(reminderSettings?.reminders || []),
-                                ];
-                                newReminders[index].recipientType = "employees";
-                                if (!newReminders[index].selectedEmployees) {
-                                  newReminders[index].selectedEmployees = [];
-                                }
-                                setReminderSettings({
-                                  reminders: newReminders,
-                                });
-                              }}
-                            />
-                            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                              Specific Employees
-                            </span>
-                          </label>
-                          <label className="inline-flex items-center">
-                            <input
-                              type="radio"
-                              className="form-radio text-primary"
-                              name={`recipient-type-${index}`}
-                              value="both"
-                              checked={reminder.recipientType === "both"}
-                              onChange={() => {
-                                const newReminders = [
-                                  ...(reminderSettings?.reminders || []),
-                                ];
-                                newReminders[index].recipientType = "both";
-                                if (!newReminders[index].selectedEmployees) {
-                                  newReminders[index].selectedEmployees = [];
-                                }
-                                setReminderSettings({
-                                  reminders: newReminders,
-                                });
-                              }}
-                            />
-                            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                              Both Parties
-                            </span>
-                          </label>
+                          </div>
+                          <button
+                            onClick={() => {
+                              const newReminders =
+                                reminderSettings.reminders.filter(
+                                  (_, i) => i !== index
+                                );
+                              setReminderSettings({ reminders: newReminders });
+                            }}
+                            className="w-8 h-8 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 hover:text-red-200 transition-all duration-200 hover:scale-105 backdrop-blur-sm border border-red-400/30 flex items-center justify-center"
+                          >
+                            <Lucide icon="X" className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
 
-                      {/* Employee Selection (only shown when recipientType is 'employees' or 'both') */}
-                      {(reminder.recipientType === "employees" ||
-                        reminder.recipientType === "both") && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
-                            Select Employees
-                          </label>
-                          <div className="max-h-40 overflow-y-auto border rounded-md p-2 bg-white dark:bg-gray-700">
-                            {employees.map((employee) => (
-                              <div
-                                key={employee.id}
-                                className="flex items-center space-x-2 mb-2"
-                              >
+                      {reminder.enabled && (
+                        <div className="space-y-6">
+                          {/* Recipient Type Selection */}
+                          <div className="space-y-4">
+                            <div className="flex items-center space-x-3">
+                              <Lucide
+                                icon="Users"
+                                className="w-5 h-5 text-emerald-400"
+                              />
+                              <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                                Send Reminder To
+                              </label>
+                            </div>
+                            <div className="flex flex-wrap gap-4">
+                              <label className="inline-flex items-center space-x-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/20 cursor-pointer transition-all duration-200">
                                 <input
-                                  type="checkbox"
+                                  type="radio"
+                                  className="w-4 h-4 text-emerald-600 bg-white/10 border-white/30 focus:ring-emerald-500/20"
+                                  name={`recipient-type-${index}`}
+                                  value="contacts"
                                   checked={
-                                    reminder.selectedEmployees?.includes(
-                                      employee.id
-                                    ) || false
+                                    !reminder.recipientType ||
+                                    reminder.recipientType === "contacts"
                                   }
-                                  onChange={(e) => {
+                                  onChange={() => {
                                     const newReminders = [
                                       ...(reminderSettings?.reminders || []),
                                     ];
+                                    newReminders[index].recipientType =
+                                      "contacts";
+                                    setReminderSettings({
+                                      reminders: newReminders,
+                                    });
+                                  }}
+                                />
+                                <span className="text-sm font-medium text-white/80 dark:text-slate-300">
+                                  Appointment Contacts
+                                </span>
+                              </label>
+                              <label className="inline-flex items-center space-x-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/20 cursor-pointer transition-all duration-200">
+                                <input
+                                  type="radio"
+                                  className="w-4 h-4 text-emerald-600 bg-white/10 border-white/30 focus:ring-emerald-500/20"
+                                  name={`recipient-type-${index}`}
+                                  value="employees"
+                                  checked={
+                                    reminder.recipientType === "employees"
+                                  }
+                                  onChange={() => {
+                                    const newReminders = [
+                                      ...(reminderSettings?.reminders || []),
+                                    ];
+                                    newReminders[index].recipientType =
+                                      "employees";
                                     if (
                                       !newReminders[index].selectedEmployees
                                     ) {
                                       newReminders[index].selectedEmployees =
                                         [];
                                     }
-
-                                    if (e.target.checked) {
-                                      newReminders[index].selectedEmployees = [
-                                        ...(newReminders[index]
-                                          .selectedEmployees || []),
-                                        employee.id,
-                                      ];
-                                    } else {
-                                      newReminders[index].selectedEmployees =
-                                        newReminders[
-                                          index
-                                        ].selectedEmployees?.filter(
-                                          (id) => id !== employee.id
-                                        );
-                                    }
-
                                     setReminderSettings({
                                       reminders: newReminders,
                                     });
                                   }}
-                                  className="rounded text-indigo-600 focus:ring-indigo-500"
                                 />
-                                <span className="text-gray-900 dark:text-white">
-                                  {employee.name}
+                                <span className="text-sm font-medium text-white/80 dark:text-slate-300">
+                                  Specific Employees
                                 </span>
-                              </div>
-                            ))}
+                              </label>
+                              <label className="inline-flex items-center space-x-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/20 cursor-pointer transition-all duration-200">
+                                <input
+                                  type="radio"
+                                  className="w-4 h-4 text-emerald-600 bg-white/10 border-white/30 focus:ring-emerald-500/20"
+                                  name={`recipient-type-${index}`}
+                                  value="both"
+                                  checked={reminder.recipientType === "both"}
+                                  onChange={() => {
+                                    const newReminders = [
+                                      ...(reminderSettings?.reminders || []),
+                                    ];
+                                    newReminders[index].recipientType = "both";
+                                    if (
+                                      !newReminders[index].selectedEmployees
+                                    ) {
+                                      newReminders[index].selectedEmployees =
+                                        [];
+                                    }
+                                    setReminderSettings({
+                                      reminders: newReminders,
+                                    });
+                                  }}
+                                />
+                                <span className="text-sm font-medium text-white/80 dark:text-slate-300">
+                                  Both Parties
+                                </span>
+                              </label>
+                            </div>
                           </div>
-                          {(!reminder.selectedEmployees ||
-                            reminder.selectedEmployees.length === 0) && (
-                            <p className="mt-1 text-xs text-red-500">
-                              Please select at least one employee
-                            </p>
+
+                          {/* Employee Selection */}
+                          {(reminder.recipientType === "employees" ||
+                            reminder.recipientType === "both") && (
+                            <div className="space-y-4">
+                              <div className="flex items-center space-x-3">
+                                <Lucide
+                                  icon="UserCheck"
+                                  className="w-5 h-5 text-purple-400"
+                                />
+                                <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                                  Select Employees
+                                </label>
+                              </div>
+                              <div className="bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl p-4 max-h-40 overflow-y-auto">
+                                <div className="space-y-3">
+                                  {employees.map((employee) => (
+                                    <div
+                                      key={employee.id}
+                                      className="flex items-center space-x-3 p-2 rounded-xl hover:bg-white/5 transition-all duration-200"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={
+                                          reminder.selectedEmployees?.includes(
+                                            employee.id
+                                          ) || false
+                                        }
+                                        onChange={(e) => {
+                                          const newReminders = [
+                                            ...(reminderSettings?.reminders ||
+                                              []),
+                                          ];
+                                          if (
+                                            !newReminders[index]
+                                              .selectedEmployees
+                                          ) {
+                                            newReminders[
+                                              index
+                                            ].selectedEmployees = [];
+                                          }
+
+                                          if (e.target.checked) {
+                                            newReminders[
+                                              index
+                                            ].selectedEmployees = [
+                                              ...(newReminders[index]
+                                                .selectedEmployees || []),
+                                              employee.id,
+                                            ];
+                                          } else {
+                                            newReminders[
+                                              index
+                                            ].selectedEmployees = newReminders[
+                                              index
+                                            ].selectedEmployees?.filter(
+                                              (id) => id !== employee.id
+                                            );
+                                          }
+
+                                          setReminderSettings({
+                                            reminders: newReminders,
+                                          });
+                                        }}
+                                        className="w-4 h-4 text-purple-600 bg-white/10 border-white/30 rounded focus:ring-purple-500/20"
+                                      />
+                                      <span className="text-white/90 dark:text-white font-medium">
+                                        {employee.name}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              {(!reminder.selectedEmployees ||
+                                reminder.selectedEmployees.length === 0) && (
+                                <p className="text-xs text-red-400 flex items-center space-x-2">
+                                  <Lucide
+                                    icon="AlertCircle"
+                                    className="w-3 h-3"
+                                  />
+                                  <span>
+                                    Please select at least one employee
+                                  </span>
+                                </p>
+                              )}
+                            </div>
                           )}
+
+                          {/* Time Configuration */}
+                          <div className="space-y-4">
+                            <div className="flex items-center space-x-3">
+                              <Lucide
+                                icon="Clock"
+                                className="w-5 h-5 text-orange-400"
+                              />
+                              <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                                Timing Configuration
+                              </label>
+                            </div>
+                            <div className="grid grid-cols-3 gap-4">
+                              <div className="space-y-3 group">
+                                <label className="block text-sm font-medium text-white/70 dark:text-slate-400">
+                                  Time
+                                </label>
+                                <div className="relative">
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={reminder.time}
+                                    onChange={(e) => {
+                                      const newReminders = [
+                                        ...(reminderSettings?.reminders || []),
+                                      ];
+                                      newReminders[index].time = parseInt(
+                                        e.target.value
+                                      );
+                                      setReminderSettings({
+                                        reminders: newReminders,
+                                      });
+                                    }}
+                                    className="w-full px-4 py-3 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 focus:border-orange-400/50 focus:ring-2 focus:ring-orange-400/20 transition-all duration-200 shadow-inner"
+                                  />
+                                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-500/5 to-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                                </div>
+                              </div>
+                              <div className="space-y-3 group">
+                                <label className="block text-sm font-medium text-white/70 dark:text-slate-400">
+                                  Unit
+                                </label>
+                                <div className="relative">
+                                  <select
+                                    value={reminder.timeUnit}
+                                    onChange={(e) => {
+                                      const newReminders = [
+                                        ...(reminderSettings?.reminders || []),
+                                      ];
+                                      newReminders[index].timeUnit = e.target
+                                        .value as "minutes" | "hours" | "days";
+                                      setReminderSettings({
+                                        reminders: newReminders,
+                                      });
+                                    }}
+                                    className="w-full px-4 py-3 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 focus:border-orange-400/50 focus:ring-2 focus:ring-orange-400/20 transition-all duration-200 shadow-inner appearance-none cursor-pointer"
+                                  >
+                                    <option value="minutes">Minutes</option>
+                                    <option value="hours">Hours</option>
+                                    <option value="days">Days</option>
+                                  </select>
+                                  <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                                    <Lucide
+                                      icon="ChevronDown"
+                                      className="w-4 h-4 text-white/50"
+                                    />
+                                  </div>
+                                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-500/5 to-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                                </div>
+                              </div>
+                              <div className="space-y-3 group">
+                                <label className="block text-sm font-medium text-white/70 dark:text-slate-400">
+                                  When to Send
+                                </label>
+                                <div className="relative">
+                                  <select
+                                    value={reminder.type}
+                                    onChange={(e) => {
+                                      const newReminders = [
+                                        ...(reminderSettings?.reminders || []),
+                                      ];
+                                      newReminders[index].type = e.target
+                                        .value as "before" | "after";
+                                      setReminderSettings({
+                                        reminders: newReminders,
+                                      });
+                                    }}
+                                    className="w-full px-4 py-3 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 focus:border-orange-400/50 focus:ring-2 focus:ring-orange-400/20 transition-all duration-200 shadow-inner appearance-none cursor-pointer"
+                                  >
+                                    <option value="before">
+                                      Before Appointment
+                                    </option>
+                                    <option value="after">
+                                      After Appointment
+                                    </option>
+                                  </select>
+                                  <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                                    <Lucide
+                                      icon="ChevronDown"
+                                      className="w-4 h-4 text-white/50"
+                                    />
+                                  </div>
+                                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-500/5 to-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          {/* Message Template */}
+                          <div className="space-y-4">
+                            <div className="flex items-center space-x-3">
+                              <Lucide
+                                icon="MessageSquare"
+                                className="w-5 h-5 text-teal-400"
+                              />
+                              <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                                Message Template
+                              </label>
+                            </div>
+                            <div className="relative group">
+                              <textarea
+                                value={reminder.message}
+                                onChange={(e) => {
+                                  const newReminders = [
+                                    ...(reminderSettings?.reminders || []),
+                                  ];
+                                  newReminders[index].message = e.target.value;
+                                  setReminderSettings({
+                                    reminders: newReminders,
+                                  });
+                                }}
+                                rows={4}
+                                className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-teal-400/50 focus:ring-2 focus:ring-teal-400/20 transition-all duration-200 resize-none shadow-inner"
+                                placeholder="Enter your message here. Use {time}, {unit}, and {when} as placeholders."
+                              />
+                              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-teal-500/5 to-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                            </div>
+                            <div className="flex items-center space-x-2 text-xs text-white/60 dark:text-slate-400">
+                              <Lucide icon="Info" className="w-3 h-3" />
+                              <span>
+                                Available placeholders: {"{time}"}, {"{unit}"},{" "}
+                                {"{when}"}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       )}
-
-                      <div className="grid grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
-                            Time
-                          </label>
-                          <input
-                            type="number"
-                            min="1"
-                            value={reminder.time}
-                            onChange={(e) => {
-                              const newReminders = [
-                                ...(reminderSettings?.reminders || []),
-                              ];
-                              newReminders[index].time = parseInt(
-                                e.target.value
-                              );
-                              setReminderSettings({ reminders: newReminders });
-                            }}
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
-                            Unit
-                          </label>
-                          <select
-                            value={reminder.timeUnit}
-                            onChange={(e) => {
-                              const newReminders = [
-                                ...(reminderSettings?.reminders || []),
-                              ];
-                              newReminders[index].timeUnit = e.target.value as
-                                | "minutes"
-                                | "hours"
-                                | "days";
-                              setReminderSettings({ reminders: newReminders });
-                            }}
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                          >
-                            <option value="minutes">Minutes</option>
-                            <option value="hours">Hours</option>
-                            <option value="days">Days</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
-                            When to Send
-                          </label>
-                          <select
-                            value={reminder.type}
-                            onChange={(e) => {
-                              const newReminders = [
-                                ...(reminderSettings?.reminders || []),
-                              ];
-                              newReminders[index].type = e.target.value as
-                                | "before"
-                                | "after";
-                              setReminderSettings({ reminders: newReminders });
-                            }}
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                          >
-                            <option value="before">Before Appointment</option>
-                            <option value="after">After Appointment</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
-                          Message Template
-                        </label>
-                        <div className="relative">
-                          <textarea
-                            value={reminder.message}
-                            onChange={(e) => {
-                              const newReminders = [
-                                ...(reminderSettings?.reminders || []),
-                              ];
-                              newReminders[index].message = e.target.value;
-                              setReminderSettings({ reminders: newReminders });
-                            }}
-                            rows={3}
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            placeholder="Enter your message here. Use {time}, {unit}, and {when} as placeholders."
-                          />
-                          <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            Available placeholders: {"{time}"}, {"{unit}"},{" "}
-                            {"{when}"}
-                          </div>
-                        </div>
-                      </div>
                     </div>
-                  )}
+                  )
+                )}
+              </div>
+
+              {/* Footer Actions */}
+              <div className="mt-8 space-y-6">
+                {/* Add New Reminder Button */}
+                <button
+                  className="w-full px-6 py-4 bg-gradient-to-r from-emerald-500/80 to-teal-600/80 hover:from-emerald-600/90 hover:to-teal-700/90 text-white font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 backdrop-blur-xl border border-white/20 flex items-center justify-center space-x-3"
+                  onClick={() => {
+                    const newReminders = [
+                      ...(reminderSettings?.reminders || []),
+                      {
+                        enabled: true,
+                        time: 1,
+                        timeUnit: "days" as const,
+                        type: "before" as const,
+                        message:
+                          "Reminder: You have an appointment tomorrow at {time} {unit} {when}. Please be prepared!",
+                        recipientType: "both" as const,
+                      },
+                    ];
+                    setReminderSettings({ reminders: newReminders });
+                  }}
+                >
+                  <Lucide icon="Plus" className="w-5 h-5" />
+                  <span>Add New Reminder</span>
+                </button>
+
+                {/* Action Buttons */}
+                <div className="flex justify-between items-center pt-6 border-t border-white/10 dark:border-slate-700/20">
+                  <div className="flex space-x-3">
+                    <button
+                      className="px-6 py-3 bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 backdrop-blur-sm border border-white/20 dark:border-slate-600/20 text-white/90 hover:text-white rounded-2xl transition-all duration-200 font-medium"
+                      onClick={() => setIsReminderSettingsOpen(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="px-6 py-3 bg-gradient-to-r from-blue-500/80 to-violet-600/80 hover:from-blue-600/90 hover:to-violet-700/90 text-white font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 backdrop-blur-xl border border-white/20"
+                      onClick={() => updateReminderSettings(reminderSettings)}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <Lucide icon="Save" className="w-4 h-4" />
+                        <span>Save Settings</span>
+                      </div>
+                    </button>
+                  </div>
                 </div>
-              )
-            )}
-          </div>
-
-          <div className="mt-6 space-y-4">
-            <button
-              className="w-full px-4 py-3 text-sm font-medium text-white bg-primary rounded-lg hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center space-x-2"
-              onClick={() => {
-                const newReminders = [
-                  ...(reminderSettings?.reminders || []),
-                  {
-                    enabled: true,
-                    time: 1,
-                    timeUnit: "days" as const,
-                    type: "before" as const,
-                    message:
-                      "Reminder: You have an appointment tomorrow at {time} {unit} {when}. Please be prepared!",
-                    recipientType: "both" as const,
-                  },
-                ];
-                setReminderSettings({ reminders: newReminders });
-              }}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              <span>Add New Reminder</span>
-            </button>
-
-            <div className="flex justify-end space-x-3">
-              <button
-                className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600 transition-colors duration-200"
-                onClick={() => setIsReminderSettingsOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-6 py-2.5 text-sm font-medium text-white bg-primary rounded-lg hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors duration-200"
-                onClick={() => updateReminderSettings(reminderSettings)}
-              >
-                Save Settings
-              </button>
+              </div>
             </div>
           </div>
         </Dialog.Panel>
@@ -3107,226 +3395,375 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
         resetBookingLinkForm();
       }}
     >
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-        <Dialog.Panel className="w-full max-w-2xl p-6 bg-white rounded-lg shadow-xl mt-10 dark:bg-gray-800">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold dark:text-white">
-              Generate Booking Link
-            </h2>
-            <button
-              onClick={() => {
-                setIsBookingLinkModalOpen(false);
-                resetBookingLinkForm();
-              }}
-              className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
+      <div className="fixed inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl">
+        <Dialog.Panel className="w-full max-w-3xl relative bg-white/10 dark:bg-slate-800/10 backdrop-blur-3xl rounded-3xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden transform hover:scale-[1.005] transition-all duration-300">
+          {/* Enhanced Gradient Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 via-violet-500/5 to-purple-500/10 dark:from-blue-600/10 dark:via-violet-700/5 dark:to-purple-600/10 pointer-events-none" />
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Title <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={bookingLinkForm.title}
-                  onChange={(e) =>
-                    setBookingLinkForm({
-                      ...bookingLinkForm,
-                      title: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  placeholder="e.g., Consultation Appointment"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Duration (minutes)
-                </label>
-                <input
-                  type="number"
-                  value={bookingLinkForm.duration}
-                  onChange={(e) =>
-                    setBookingLinkForm({
-                      ...bookingLinkForm,
-                      duration: parseInt(e.target.value) || 60,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  placeholder="60"
-                  min="15"
-                  max="480"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Location
-              </label>
-              <input
-                type="text"
-                value={bookingLinkForm.location}
-                onChange={(e) =>
-                  setBookingLinkForm({
-                    ...bookingLinkForm,
-                    location: e.target.value,
-                  })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                placeholder="e.g., Office Location"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Description
-              </label>
-              <textarea
-                value={bookingLinkForm.description}
-                onChange={(e) =>
-                  setBookingLinkForm({
-                    ...bookingLinkForm,
-                    description: e.target.value,
-                  })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                rows={3}
-                placeholder="Brief description of the appointment..."
-              />
-            </div>
-
-            {employees.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Available Staff Members
-                </label>
-                <div className="space-y-2 max-h-32 overflow-y-auto">
-                  {employees.map((employee) => (
-                    <label
-                      key={employee.id}
-                      className="flex items-center space-x-2"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={bookingLinkForm.selectedStaff.includes(
-                          employee.name
-                        )}
-                        onChange={(e) => {
-                          const isChecked = e.target.checked;
-                          const updatedStaff = isChecked
-                            ? [...bookingLinkForm.selectedStaff, employee.name]
-                            : bookingLinkForm.selectedStaff.filter(
-                                (name) => name !== employee.name
-                              );
-                          setBookingLinkForm({
-                            ...bookingLinkForm,
-                            selectedStaff: updatedStaff,
-                          });
-                        }}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">
-                        {employee.name}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Phone (Optional)
-              </label>
-              <input
-                type="tel"
-                value={bookingLinkForm.phone}
-                onChange={(e) =>
-                  setBookingLinkForm({
-                    ...bookingLinkForm,
-                    phone: e.target.value,
-                  })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                placeholder="+60123456789 (leave blank to show PHONE placeholder)"
-              />
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Users will select their preferred date and time on the booking
-                page
-              </p>
-              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                💡 Example: "consultation-john" will create /booking/consultation-john/+60123456789
-              </p>
-            </div>
-
-            {generatedBookingLink && (
-              <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Generated Booking Links (One per Staff Member)
-                </label>
-                <div className="space-y-2">
-                  <textarea
-                    value={generatedBookingLink}
-                    readOnly
-                    rows={bookingLinkForm.selectedStaff.length + 1}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 dark:bg-gray-600 dark:border-gray-500 dark:text-white text-sm"
+          <div className="relative p-8">
+            <div className="flex items-center justify-between pb-6 border-b border-white/10 dark:border-slate-700/20">
+              <div className="flex items-center space-x-4">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-500/20 to-emerald-600/20 dark:from-green-600/20 dark:to-emerald-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 flex items-center justify-center shadow-lg">
+                  <Lucide
+                    icon="Link"
+                    className="w-7 h-7 text-green-400 dark:text-green-300"
                   />
-                  <button
-                    onClick={copyBookingLink}
-                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-                  >
-                    Copy All Links
-                  </button>
                 </div>
-                <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
-                  <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">📋 How to Use These Links:</h4>
-                  <ul className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
-                    <li>• Each staff member gets their own unique booking link</li>
-                    <li>• AI can send different links to different leads</li>
-                    <li>• When booked, the staff name is automatically set in Google Calendar</li>
-                    <li>• All appointments use the same shared calendar</li>
-                  </ul>
+                <div>
+                  <h3 className="text-2xl font-bold text-white/90 dark:text-slate-200">
+                    Generate Booking Link
+                  </h3>
+                  <p className="text-sm text-white/60 dark:text-slate-400 mt-1">
+                    Create personalized booking links for your clients
+                  </p>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  Each staff member gets their own unique booking link. Share the appropriate link with clients.
-                </p>
               </div>
-            )}
-
-            <div className="flex justify-end space-x-3 pt-4">
               <button
                 onClick={() => {
                   setIsBookingLinkModalOpen(false);
                   resetBookingLinkForm();
                 }}
-                className="px-4 py-2 text-gray-600 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500"
+                className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 text-slate-400 hover:text-white dark:hover:text-slate-200 transition-all duration-200 flex items-center justify-center backdrop-blur-sm border border-white/10"
               >
-                Cancel
+                <Lucide icon="X" className="w-4 h-4" />
               </button>
-              <button
-                onClick={generateBookingLink}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-              >
-                Generate Link
-              </button>
+            </div>
+
+            <div className="mt-8 space-y-8">
+              {/* Basic Information */}
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <Lucide icon="Type" className="w-5 h-5 text-blue-400" />
+                  <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                    Title <span className="text-red-400">*</span>
+                  </label>
+                </div>
+                <div className="relative group">
+                  <input
+                    type="text"
+                    value={bookingLinkForm.title}
+                    onChange={(e) =>
+                      setBookingLinkForm({
+                        ...bookingLinkForm,
+                        title: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-blue-400/50 focus:ring-2 focus:ring-blue-400/20 transition-all duration-200 shadow-inner"
+                    placeholder="e.g., Consultation Appointment"
+                  />
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-violet-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <Lucide icon="Clock" className="w-5 h-5 text-orange-400" />
+                  <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                    Duration (minutes)
+                  </label>
+                </div>
+                <div className="relative group">
+                  <input
+                    type="number"
+                    value={bookingLinkForm.duration}
+                    onChange={(e) =>
+                      setBookingLinkForm({
+                        ...bookingLinkForm,
+                        duration: parseInt(e.target.value) || 60,
+                      })
+                    }
+                    className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-orange-400/50 focus:ring-2 focus:ring-orange-400/20 transition-all duration-200 shadow-inner"
+                    placeholder="60"
+                    min="15"
+                    max="480"
+                  />
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-500/5 to-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Location */}
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <Lucide icon="MapPin" className="w-5 h-5 text-emerald-400" />
+                  <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                    Location
+                  </label>
+                </div>
+                <div className="relative group">
+                  <input
+                    type="text"
+                    value={bookingLinkForm.location}
+                    onChange={(e) =>
+                      setBookingLinkForm({
+                        ...bookingLinkForm,
+                        location: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-200 shadow-inner"
+                    placeholder="e.g., Office Location"
+                  />
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-emerald-500/5 to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <Lucide icon="FileText" className="w-5 h-5 text-teal-400" />
+                  <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                    Description
+                  </label>
+                </div>
+                <div className="relative group">
+                  <textarea
+                    value={bookingLinkForm.description}
+                    onChange={(e) =>
+                      setBookingLinkForm({
+                        ...bookingLinkForm,
+                        description: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-teal-400/50 focus:ring-2 focus:ring-teal-400/20 transition-all duration-200 resize-none shadow-inner"
+                    rows={3}
+                    placeholder="Brief description of the appointment..."
+                  />
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-teal-500/5 to-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Staff Selection */}
+              {employees.length > 0 && (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-3">
+                    <Lucide icon="Users" className="w-5 h-5 text-indigo-400" />
+                    <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                      Available Staff Members
+                    </label>
+                  </div>
+                  <div className="bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl p-4 max-h-40 overflow-y-auto">
+                    <div className="space-y-3">
+                      {employees.map((employee) => (
+                        <div
+                          key={employee.id}
+                          className="flex items-center space-x-3 p-2 rounded-xl hover:bg-white/5 transition-all duration-200"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={bookingLinkForm.selectedStaff.includes(
+                              employee.name
+                            )}
+                            onChange={(e) => {
+                              const isChecked = e.target.checked;
+                              const updatedStaff = isChecked
+                                ? [
+                                    ...bookingLinkForm.selectedStaff,
+                                    employee.name,
+                                  ]
+                                : bookingLinkForm.selectedStaff.filter(
+                                    (name) => name !== employee.name
+                                  );
+                              setBookingLinkForm({
+                                ...bookingLinkForm,
+                                selectedStaff: updatedStaff,
+                              });
+                            }}
+                            className="w-4 h-4 text-indigo-600 bg-white/10 border-white/30 rounded focus:ring-indigo-500/20"
+                          />
+                          <span className="text-white/90 dark:text-white font-medium">
+                            {employee.name}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Phone */}
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <Lucide icon="Phone" className="w-5 h-5 text-purple-400" />
+                  <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                    Phone (Optional)
+                  </label>
+                </div>
+                <div className="relative group">
+                  <input
+                    type="tel"
+                    value={bookingLinkForm.phone}
+                    onChange={(e) =>
+                      setBookingLinkForm({
+                        ...bookingLinkForm,
+                        phone: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-purple-400/50 focus:ring-2 focus:ring-purple-400/20 transition-all duration-200 shadow-inner"
+                    placeholder="+60123456789 (leave blank to show PHONE placeholder)"
+                  />
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-500/5 to-violet-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2 text-sm text-white/60 dark:text-slate-400">
+                    <Lucide icon="Info" className="w-3 h-3" />
+                    <span>
+                      Users will select their preferred date and time on the
+                      booking page
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2 text-xs text-blue-300 dark:text-blue-400">
+                    <Lucide icon="Lightbulb" className="w-3 h-3" />
+                    <span>
+                      Example: "consultation-john" will create
+                      /booking/consultation-john/+60123456789
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Generated Booking Links */}
+              {generatedBookingLink && (
+                <div className="space-y-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-3">
+                      <Lucide
+                        icon="ExternalLink"
+                        className="w-5 h-5 text-cyan-400"
+                      />
+                      <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                        Generated Booking Links (One per Staff Member)
+                      </label>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="relative group">
+                        <textarea
+                          value={generatedBookingLink}
+                          readOnly
+                          rows={bookingLinkForm.selectedStaff.length + 1}
+                          className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 text-sm shadow-inner resize-none"
+                        />
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                      </div>
+                      <button
+                        onClick={copyBookingLink}
+                        className="px-6 py-3 bg-gradient-to-r from-emerald-500/80 to-teal-600/80 hover:from-emerald-600/90 hover:to-teal-700/90 text-white font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 backdrop-blur-xl border border-white/20 flex items-center space-x-2"
+                      >
+                        <Lucide icon="Copy" className="w-4 h-4" />
+                        <span>Copy All Links</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Usage Instructions */}
+                  <div className="p-6 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 backdrop-blur-sm border border-blue-400/20 rounded-2xl">
+                    <div className="flex items-center space-x-3 mb-4">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500/30 to-cyan-600/30 backdrop-blur-sm border border-blue-400/30 flex items-center justify-center">
+                        <Lucide
+                          icon="BookOpen"
+                          className="w-4 h-4 text-blue-300"
+                        />
+                      </div>
+                      <h4 className="text-lg font-semibold text-blue-200">
+                        📋 How to Use These Links:
+                      </h4>
+                    </div>
+                    <div className="space-y-2 text-sm text-blue-100/80">
+                      <div className="flex items-start space-x-2">
+                        <Lucide
+                          icon="CheckCircle"
+                          className="w-4 h-4 text-blue-300 mt-0.5 flex-shrink-0"
+                        />
+                        <span>
+                          Each staff member gets their own unique booking link
+                        </span>
+                      </div>
+                      <div className="flex items-start space-x-2">
+                        <Lucide
+                          icon="CheckCircle"
+                          className="w-4 h-4 text-blue-300 mt-0.5 flex-shrink-0"
+                        />
+                        <span>
+                          AI can send different links to different leads
+                        </span>
+                      </div>
+                      <div className="flex items-start space-x-2">
+                        <Lucide
+                          icon="CheckCircle"
+                          className="w-4 h-4 text-blue-300 mt-0.5 flex-shrink-0"
+                        />
+                        <span>
+                          When booked, the staff name is automatically set in
+                          Google Calendar
+                        </span>
+                      </div>
+                      <div className="flex items-start space-x-2">
+                        <Lucide
+                          icon="CheckCircle"
+                          className="w-4 h-4 text-blue-300 mt-0.5 flex-shrink-0"
+                        />
+                        <span>
+                          All appointments use the same shared calendar
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2 text-xs text-white/60 dark:text-slate-400">
+                    <Lucide icon="Info" className="w-3 h-3" />
+                    <span>
+                      Each staff member gets their own unique booking link.
+                      Share the appropriate link with clients.
+                    </span>
+                  </div>
+                </div>
+              )}
+              {/* Footer Actions */}
+              <div className="flex items-center justify-between pt-6 border-t border-white/10 dark:border-slate-600/20">
+                <button
+                  onClick={() => {
+                    setIsBookingLinkModalOpen(false);
+                    resetBookingLinkForm();
+                  }}
+                  className="px-6 py-3 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 text-white/80 hover:text-white font-medium rounded-2xl transition-all duration-200 hover:shadow-lg group"
+                >
+                  <div className="flex items-center space-x-2">
+                    <Lucide
+                      icon="X"
+                      className="w-4 h-4 group-hover:scale-110 transition-transform"
+                    />
+                    <span>Cancel</span>
+                  </div>
+                </button>
+
+                <div className="flex items-center space-x-3">
+                  {generatedBookingLink && (
+                    <button
+                      onClick={() => setGeneratedBookingLink("")}
+                      className="px-6 py-3 bg-gradient-to-r from-amber-500/80 to-orange-600/80 hover:from-amber-600/90 hover:to-orange-700/90 backdrop-blur-sm border border-white/20 text-white font-medium rounded-2xl transition-all duration-200 hover:shadow-lg hover:scale-105 group"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <Lucide
+                          icon="RotateCcw"
+                          className="w-4 h-4 group-hover:rotate-12 transition-transform"
+                        />
+                        <span>Reset</span>
+                      </div>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={generateBookingLink}
+                    className="px-8 py-3 bg-gradient-to-r from-emerald-500/90 to-teal-600/90 hover:from-emerald-600 hover:to-teal-700 backdrop-blur-sm border border-white/20 text-white font-semibold rounded-2xl transition-all duration-200 hover:shadow-xl hover:scale-105 group"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <Lucide
+                        icon="Link"
+                        className="w-4 h-4 group-hover:scale-110 transition-transform"
+                      />
+                      <span>Generate Link</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </Dialog.Panel>
@@ -3411,54 +3848,6 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
     }
   };
 
-  // Update the save function to use the new response format
-  const handleSaveCalendarConfig = async () => {
-    debugLog("Saving calendar config", config);
-
-    const newConfig = {
-      ...config,
-      calendarId: config.calendarId?.trim() || "",
-    };
-
-    // Skip validation for empty calendar ID
-    if (newConfig.calendarId) {
-      try {
-        const result = await testGoogleCalendarConnection(newConfig.calendarId);
-        if (!result.success) {
-          toast.error(result.error || "Failed to connect to calendar");
-          return;
-        }
-      } catch (error) {
-        debugLog("Connection test error", error);
-        toast.error("Error testing calendar connection");
-        return;
-      }
-    }
-
-    try {
-      await updateCalendarConfig(newConfig);
-      setConfig(newConfig);
-
-      // Safely refresh the calendar
-      if (calendarRef.current) {
-        const calendarApi = (calendarRef.current as any).getApi();
-        try {
-          calendarApi.removeAllEventSources();
-          await calendarApi.refetchEvents();
-          debugLog("Calendar refreshed successfully");
-          toast.success("Calendar settings updated successfully");
-        } catch (error) {
-          debugLog("Calendar refresh error", error);
-        }
-      }
-
-      setIsCalendarConfigOpen(false);
-    } catch (error) {
-      debugLog("Save config error", error);
-      toast.error("Error saving calendar configuration");
-    }
-  };
-
   // Update the calendar options to handle errors gracefully
   const calendarOptions = {
     plugins: [
@@ -3471,7 +3860,9 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
     headerToolbar: {
       left: "prev,next today",
       center: "title",
-      right: isMobile ? "timeGridDay,timeGridWeek" : "dayGridMonth,timeGridWeek,timeGridDay",
+      right: isMobile
+        ? "timeGridDay,timeGridWeek"
+        : "dayGridMonth,timeGridWeek,timeGridDay",
     },
     editable: true, // Enable event editing
     eventClick: handleEventClick, // Add this to handle event clicks
@@ -3486,17 +3877,18 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
     slotDuration: isMobile ? "00:30:00" : "01:00:00",
     expandRows: true,
     dayMaxEventRows: isMobile ? 2 : 3,
-    aspectRatio: isMobile ? 0.85 : 1.5,
+    aspectRatio: undefined, // Remove aspect ratio to allow full height
     googleCalendarApiKey: import.meta.env.VITE_GOOGLE_CALENDAR_API_KEY,
     // Enhanced styling options
-    height: 'auto',
-    eventDisplay: 'block',
+    height: "100%",
+    contentHeight: "100%",
+    eventDisplay: "block",
     displayEventTime: true,
     displayEventEnd: false,
     eventTimeFormat: {
       hour: "numeric" as const,
       minute: "2-digit" as const,
-      hour12: true
+      hour12: true,
     },
     eventSources: [
       {
@@ -3690,7 +4082,8 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
       // Check if this is a Google Calendar event
       const isGoogleCalendarEvent = info.event.source?.googleCalendarId;
       const eventSource = info.event.extendedProps?.source;
-      const status = info.event.extendedProps?.appointmentStatus?.toLowerCase() || 'new';
+      const status =
+        info.event.extendedProps?.appointmentStatus?.toLowerCase() || "new";
 
       // Modern color schemes for different event types
       const statusGradients: Record<string, string> = {
@@ -3715,13 +4108,14 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
 
       if (isGoogleCalendarEvent || eventSource === "google-calendar") {
         // Modern Google Calendar event styling
-        info.el.style.background = "linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)";
+        info.el.style.background =
+          "linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)";
         info.el.style.borderLeft = "4px solid #0ea5e9";
         info.el.style.color = "#0c4a6e";
-        
+
         // Add calendar icon for Google events
-        const existingTitle = info.el.querySelector('.fc-event-title');
-        if (existingTitle && !existingTitle.querySelector('.google-cal-icon')) {
+        const existingTitle = info.el.querySelector(".fc-event-title");
+        if (existingTitle && !existingTitle.querySelector(".google-cal-icon")) {
           const icon = document.createElement("span");
           icon.className = "google-cal-icon";
           icon.textContent = "📅";
@@ -3734,7 +4128,7 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
         // Modern database event styling based on status
         const gradient = statusGradients[status] || statusGradients.new;
         info.el.style.background = gradient;
-        
+
         // Handle staff colors for multi-staff events
         const staffIds = info.event.extendedProps?.staff || [];
         const staffColors = employees
@@ -3748,10 +4142,12 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
           info.el.style.borderLeft = `4px solid ${staffColor}`;
         } else if (staffColors.length >= 2) {
           // Multiple staff - create a multi-color gradient
-          const colorStops = staffColors.map((color, index) => {
-            const percentage = (index / (staffColors.length - 1)) * 100;
-            return `${color}40 ${percentage}%`;
-          }).join(', ');
+          const colorStops = staffColors
+            .map((color, index) => {
+              const percentage = (index / (staffColors.length - 1)) * 100;
+              return `${color}40 ${percentage}%`;
+            })
+            .join(", ");
           info.el.style.background = `linear-gradient(135deg, ${colorStops})`;
           info.el.style.borderLeft = `4px solid ${staffColors[0]}`;
         }
@@ -3761,13 +4157,13 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
       const originalTransform = info.el.style.transform;
       const originalBoxShadow = info.el.style.boxShadow;
 
-      info.el.addEventListener('mouseenter', () => {
+      info.el.addEventListener("mouseenter", () => {
         info.el.style.transform = "translateY(-2px) scale(1.02)";
         info.el.style.boxShadow = "0 8px 25px rgba(0, 0, 0, 0.15)";
         info.el.style.zIndex = "10";
       });
 
-      info.el.addEventListener('mouseleave', () => {
+      info.el.addEventListener("mouseleave", () => {
         info.el.style.transform = originalTransform;
         info.el.style.boxShadow = originalBoxShadow;
         info.el.style.zIndex = "auto";
@@ -3778,11 +4174,16 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
       const contactNames = contacts.map((c: any) => c.name).join(", ");
       const tooltipText = [
         info.event.title,
-        info.event.extendedProps?.details && `Details: ${info.event.extendedProps.details}`,
+        info.event.extendedProps?.details &&
+          `Details: ${info.event.extendedProps.details}`,
         contactNames && `Contacts: ${contactNames}`,
-        eventSource === "google-calendar" ? "📅 Google Calendar" : "💾 Database Event"
-      ].filter(Boolean).join("\n");
-      
+        eventSource === "google-calendar"
+          ? "📅 Google Calendar"
+          : "💾 Database Event",
+      ]
+        .filter(Boolean)
+        .join("\n");
+
       info.el.title = tooltipText;
     },
   };
@@ -3828,621 +4229,264 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
     </CalendarErrorBoundary>
   </div>;
 
-  // Add new component for grid view
-  const GridView = () => {
-    const hours = [
-      "9:00 AM",
-      "10:00 AM",
-      "11:00 AM",
-      "12:00 PM",
-      "2:00 PM",
-      "3:00 PM",
-      "4:00 PM",
-    ];
-    const [selectedCell, setSelectedCell] = useState<{
-      row: number;
-      col: number;
-    } | null>(null);
-    const gridRef = useRef<HTMLDivElement>(null);
+  // Modify the return statement to include the view toggle button and conditional rendering
+  return (
+    <>
+      {/* Modern Glassmorphism Toolbar */}
+      <div className="mt-6 intro-y">
+        <div className="w-full relative">
+          {/* Glassmorphism container */}
+          <div className="relative bg-gradient-to-r from-white/70 via-white/60 to-white/70 dark:from-slate-800/50 dark:via-slate-700/40 dark:to-slate-800/50 backdrop-blur-2xl rounded-2xl border border-white/30 dark:border-slate-600/20 shadow-2xl overflow-hidden">
+            {/* Gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-purple-500/3 to-indigo-500/5 dark:from-blue-600/10 dark:via-purple-700/5 dark:to-indigo-600/10 pointer-events-none" />
 
-    // Debug logs
-
-    // Convert UTC to local time for comparison
-    const selectedDateAppointments = appointments.filter((apt) => {
-      const aptDate = new Date(apt.startTime);
-      const localAptDate = new Date(aptDate.getTime());
-      const aptDateStr = format(localAptDate, "yyyy-MM-dd");
-      const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
-
-      console.log("Comparing dates:", {
-        appointment: apt.title,
-        appointmentDate: aptDateStr,
-        selectedDate: selectedDateStr,
-        isMatch: aptDateStr === selectedDateStr,
-      });
-
-      return aptDateStr === selectedDateStr;
-    });
-
-    const formatAppointmentTime = (isoString: string) => {
-      const date = new Date(isoString);
-      return format(date, "h:mm a");
-    };
-
-    // Helper function to find employee by email
-    const findEmployeeByEmail = (email: string) => {
-      const employee = employees.find((emp) => emp.id === email);
-
-      return employee;
-    };
-
-    const [employeeExpenses, setEmployeeExpenses] = useState<
-      Record<string, { minyak: number; toll: number }>
-    >({});
-
-    // Handle keyboard navigation
-    useEffect(() => {
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if (!selectedCell) return;
-
-        const { row, col } = selectedCell;
-        const maxRow = hours.length - 1;
-        const maxCol = employees.length - 1;
-
-        switch (e.key) {
-          case "ArrowUp":
-            e.preventDefault();
-            if (row > 0) {
-              setSelectedCell({ row: row - 1, col });
-              scrollToCell(row - 1, col);
-            }
-            break;
-          case "ArrowDown":
-            e.preventDefault();
-            if (row < maxRow) {
-              setSelectedCell({ row: row + 1, col });
-              scrollToCell(row + 1, col);
-            }
-            break;
-          case "ArrowLeft":
-            e.preventDefault();
-            if (col > 0) {
-              setSelectedCell({ row, col: col - 1 });
-              scrollToCell(row, col - 1);
-            }
-            break;
-          case "ArrowRight":
-            e.preventDefault();
-            if (col < maxCol) {
-              setSelectedCell({ row, col: col + 1 });
-              scrollToCell(row, col + 1);
-            }
-            break;
-          case "Enter":
-          case " ":
-            e.preventDefault();
-            const employee = employees[col];
-            const hour = hours[row];
-            if (employee && hour) {
-              // Assuming handleEmptySlotClick is a function that needs to be defined
-              const handleEmptySlotClick = () => {};
-              handleEmptySlotClick();
-            }
-            break;
-        }
-      };
-
-      window.addEventListener("keydown", handleKeyDown);
-      return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [selectedCell, hours, employees]);
-
-    // Helper function to scroll to a specific cell
-    const scrollToCell = (row: number, col: number) => {
-      const cell = document.querySelector(
-        `[data-row="${row}"][data-col="${col}"]`
-      );
-      if (cell && gridRef.current) {
-        cell.scrollIntoView({
-          behavior: "smooth",
-          block: "nearest",
-          inline: "nearest",
-        });
-      }
-    };
-
-    // Fetch expenses useEffect
-    useEffect(() => {
-      const fetchExpenses = async () => {
-        try {
-          const userEmail = localStorage.getItem("userEmail");
-          if (!userEmail) return;
-
-          const response = await axios.get(
-            `${baseUrl}/api/expenses?email=${encodeURIComponent(
-              userEmail
-            )}&date=${format(selectedDate, "yyyy-MM-dd")}`
-          );
-          const expensesData = response.data || {};
-
-          setEmployeeExpenses(expensesData);
-        } catch (error) {
-          console.error("Error fetching expenses:", error);
-        }
-      };
-
-      fetchExpenses();
-    }, [selectedDate, employees]);
-
-    return (
-      <div className="flex flex-col h-[calc(100vh-200px)]">
-        {/* Date selector */}
-        <div className="mb-4 flex items-center gap-2">
-          <button
-            className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500"
-            onClick={() => {
-              const newDate = new Date(selectedDate);
-              newDate.setDate(newDate.getDate() - 1);
-
-              setSelectedDate(newDate);
-            }}
-          >
-            <Lucide icon="ChevronLeft" className="w-4 h-4" />
-          </button>
-
-          <input
-            type="date"
-            value={format(selectedDate, "yyyy-MM-dd")}
-            onChange={(e) => {
-              const newDate = new Date(e.target.value);
-
-              setSelectedDate(newDate);
-            }}
-            className="px-3 py-2 text-sm font-medium border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-          />
-
-          <button
-            className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500"
-            onClick={() => {
-              const newDate = new Date(selectedDate);
-              newDate.setDate(newDate.getDate() + 1);
-
-              setSelectedDate(newDate);
-            }}
-          >
-            <Lucide icon="ChevronRight" className="w-4 h-4" />
-          </button>
-
-          <button
-            className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500"
-            onClick={() => {
-              const newDate = new Date();
-
-              setSelectedDate(newDate);
-            }}
-          >
-            Today
-          </button>
-        </div>
-
-        {/* Grid container with scroll */}
-        <div
-          ref={gridRef}
-          className="overflow-auto flex-1 border border-gray-300 dark:border-gray-600 rounded-lg"
-          style={{
-            scrollbarWidth: "thin",
-            scrollbarColor: "rgb(156 163 175) transparent",
-          }}
-        >
-          <table className="min-w-full border-collapse h-full">
-            <thead className="sticky top-0 z-10 bg-gray-100 dark:bg-gray-700">
-              <tr>
-                <th className="sticky left-0 z-20 border border-gray-300 dark:border-gray-600 p-2 bg-gray-100 dark:bg-gray-700">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-800 dark:text-white">TIME</span>
-                    <span className="text-sm text-gray-600 dark:text-white">
-                      {format(selectedDate, "dd/MM/yyyy")}
-                    </span>
+            <div className="relative px-4 sm:px-6 py-4 sm:py-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                {/* Left: primary actions */}
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* View toggle (calendar grid) */}
+                  <div className="inline-flex rounded-2xl bg-white/20 dark:bg-slate-700/30 backdrop-blur-sm border border-white/30 dark:border-slate-600/20 overflow-hidden shadow-lg">
+                    <button
+                      onClick={() => setViewType("calendar")}
+                      className={`px-4 py-3 text-sm font-semibold flex items-center gap-2 transition-all duration-200 ${
+                        viewType === "calendar"
+                          ? "bg-gradient-to-r from-blue-500/80 to-indigo-600/80 text-white shadow-lg backdrop-blur-sm"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-slate-600/30"
+                      }`}
+                    >
+                      <Lucide icon="Calendar" className="w-4 h-4" />
+                      <span className="hidden sm:inline">Calendar</span>
+                    </button>
                   </div>
-                </th>
-                {employees.map((employee) => (
-                  <th
-                    key={employee.id}
-                    className="border border-gray-300 dark:border-gray-600 p-2 bg-gray-100 dark:bg-gray-700"
+
+                  {companyId === "0153" && (
+                    <button
+                      className="inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-violet-500/80 to-purple-600/80 hover:from-violet-600/90 hover:to-purple-700/90 rounded-2xl backdrop-blur-sm border border-white/20 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 group"
+                      onClick={() => navigate("/appointment-requests")}
+                    >
+                      <Lucide
+                        icon="ClipboardList"
+                        className="w-4 h-4 group-hover:scale-110 transition-transform"
+                      />
+                      <span className="hidden sm:inline">Requests</span>
+                    </button>
+                  )}
+
+                  <button
+                    className="inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-emerald-500/80 to-teal-600/80 hover:from-emerald-600/90 hover:to-teal-700/90 rounded-2xl backdrop-blur-sm border border-white/20 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 group"
+                    onClick={() => setIsBookingLinkModalOpen(true)}
                   >
-                    <div className="font-medium text-sm text-gray-800 dark:text-white">
-                      {employee.name}
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {hours.map((hour, rowIndex) => (
-                <tr key={hour}>
-                  <td className="sticky left-0 z-10 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 p-2 font-medium text-gray-800 dark:text-white">
-                    {hour}
-                  </td>
-                  {employees.map((employee, colIndex) => {
-                    const appointments = selectedDateAppointments.filter(
-                      (apt) => {
-                        const aptTime = formatAppointmentTime(apt.startTime);
-                        const isAssignedToStaff =
-                          apt.staff.length === 0 ||
-                          apt.staff.includes(employee.id);
-                        return aptTime === hour && isAssignedToStaff;
-                      }
-                    );
+                    <Lucide
+                      icon="Link"
+                      className="w-4 h-4 group-hover:scale-110 transition-transform"
+                    />
+                    <span className="hidden sm:inline">Booking Link</span>
+                  </button>
 
-                    const handleEmptySlotClick = () => {
-                      const timeDate = parse(hour, "h:mm a", new Date());
-                      const formattedHour = format(timeDate, "HH:mm");
-                      const endTimeDate = addHours(timeDate, 1);
-                      const formattedEndHour = format(endTimeDate, "HH:mm");
-
+                  {/* Add appointment */}
+                  <button
+                    className="inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-blue-500/80 to-cyan-600/80 hover:from-blue-600/90 hover:to-cyan-700/90 rounded-2xl backdrop-blur-sm border border-white/20 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 group"
+                    onClick={() => {
+                      setSelectedContact(null);
                       setCurrentEvent({
                         title: "",
-                        dateStr: format(selectedDate, "yyyy-MM-dd"),
-                        startTimeStr: formattedHour,
-                        endTimeStr: formattedEndHour,
+                        dateStr: "",
+                        startTimeStr: "",
+                        endTimeStr: "",
                         extendedProps: {
                           address: "",
-                          appointmentStatus: "new",
-                          staff: [employee.id],
+                          appointmentStatus: "",
+                          staff: "",
                           dateAdded: new Date().toISOString(),
                           tags: [],
                           details: "",
                           meetLink: "",
                         },
                       });
-
-                      setSelectedEmployeeIds([employee.id]);
                       setAddModalOpen(true);
-                    };
-
-                    return (
-                      <td
-                        key={`${employee.id}-${hour}`}
-                        data-row={rowIndex}
-                        data-col={colIndex}
-                        className={`border border-gray-300 dark:border-gray-600 p-2 min-w-[200px] relative cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                          selectedCell?.row === rowIndex &&
-                          selectedCell?.col === colIndex
-                            ? "ring-2 ring-primary ring-inset"
-                            : ""
-                        }`}
-                        onClick={() => {
-                          setSelectedCell({ row: rowIndex, col: colIndex });
-                          if (appointments.length === 0) {
-                            handleEmptySlotClick();
-                          }
-                        }}
-                        tabIndex={0}
-                      >
-                        {appointments.map((apt) => (
-                          <div
-                            key={apt.id}
-                            className="text-xs p-2 mb-1 rounded cursor-pointer hover:opacity-90 text-white"
-                            style={{
-                              backgroundColor: "#51484f",
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleAppointmentClick(apt);
-                            }}
-                          >
-                            <div className="font-medium flex justify-between items-center">
-                              <span>{apt.title || "Untitled"}</span>
-                              {apt.appointmentStatus && (
-                                <span className="text-xs px-1 rounded bg-white/20 text-white">
-                                  {apt.appointmentStatus}
-                                </span>
-                              )}
-                            </div>
-
-                            {apt.address && (
-                              <div className="text-xs mt-1 opacity-75 text-white">
-                                📍 {apt.address}
-                              </div>
-                            )}
-
-                            <div className="text-xs mt-1 opacity-75 text-white">
-                              {formatAppointmentTime(apt.startTime)} -{" "}
-                              {formatAppointmentTime(apt.endTime)}
-                            </div>
-                          </div>
-                        ))}
-                        {appointments.length === 0 && (
-                          <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100">
-                            <span className="text-xs text-gray-400 dark:text-gray-500">
-                              Click to add appointment
-                            </span>
-                          </div>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-              <tr>
-                <td className="sticky left-0 z-10 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 p-2 font-medium text-gray-800 dark:text-white">
-                  MINYAK & TOL
-                </td>
-                {employees.map((employee) => {
-                  const expenses = employeeExpenses[employee.id] || {
-                    minyak: 0,
-                    toll: 0,
-                  };
-
-                  const handleExpenseChange = async (
-                    type: "minyak" | "toll",
-                    value: number
-                  ) => {
-                    try {
-                      const userEmail = localStorage.getItem("userEmail");
-                      if (!userEmail) return;
-
-                      const newExpenses = {
-                        ...expenses,
-                        [type]: value,
-                      };
-
-                      setEmployeeExpenses((prev) => ({
-                        ...prev,
-                        [employee.id]: newExpenses,
-                      }));
-
-                      await axios.put(`${baseUrl}/api/expenses`, {
-                        email: userEmail,
-                        date: format(selectedDate, "yyyy-MM-dd"),
-                        employeeId: employee.id,
-                        expenses: newExpenses,
-                      });
-                    } catch (error) {
-                      console.error("Error updating expense:", error);
-                    }
-                  };
-                  return (
-                    <td
-                      key={`${employee.id}-expenses`}
-                      className="border border-gray-300 dark:border-gray-600 p-2"
-                    >
-                      <div className="text-sm">
-                        <div className="flex justify-between items-center mb-2">
-                          <span>Minyak:</span>
-                          <div className="flex items-center">
-                            <span className="mr-1">RM</span>
-                            <input
-                              type="number"
-                              min="0"
-                              step="1"
-                              className="w-20 px-2 py-1 text-right border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                              value={
-                                expenses.minyak === 0
-                                  ? "0"
-                                  : expenses.minyak || ""
-                              }
-                              onChange={(e) => {
-                                const value =
-                                  e.target.value === ""
-                                    ? 0
-                                    : parseFloat(e.target.value);
-                                handleExpenseChange("minyak", value);
-                              }}
-                            />
-                          </div>
-                        </div>
-                        <div className="flex justify-between items-center mb-2">
-                          <span>Toll:</span>
-                          <div className="flex items-center">
-                            <span className="mr-1">RM</span>
-                            <input
-                              type="number"
-                              min="0"
-                              step="1"
-                              className="w-20 px-2 py-1 text-right border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                              value={
-                                expenses.toll === 0 ? "0" : expenses.toll || ""
-                              }
-                              onChange={(e) => {
-                                const value =
-                                  e.target.value === ""
-                                    ? 0
-                                    : parseFloat(e.target.value);
-                                handleExpenseChange("toll", value);
-                              }}
-                            />
-                          </div>
-                        </div>
-                        <div className="flex justify-between font-medium border-t border-gray-200 dark:border-gray-600 mt-1 pt-1">
-                          <span>Total:</span>
-                          <span>
-                            RM{" "}
-                            {(
-                              (expenses.minyak || 0) + (expenses.toll || 0)
-                            ).toFixed(2)}
-                          </span>
-                        </div>
-                      </div>
-                    </td>
-                  );
-                })}
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {/* Scroll indicators */}
-        <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-          Use arrow keys to navigate or scroll to view more
-        </div>
-      </div>
-    );
-  };
-
-  // Modify the return statement to include the view toggle button and conditional rendering
-  return (
-    <>
-      {/* Modern toolbar */}
-      <div className="mt-6 intro-y">
-        <div className="w-full bg-white/60 dark:bg-gray-800/60 backdrop-blur rounded-xl border border-gray-200 dark:border-gray-700 px-3 sm:px-5 py-3 sm:py-4 shadow-sm">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            {/* Left: primary actions */}
-            <div className="flex flex-wrap items-center gap-2">
-              {/* View toggle (calendar vs slots grid) */}
-              <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <button
-                  onClick={() => setViewType("calendar")}
-                  className={`px-3 py-2 text-sm font-medium flex items-center gap-2 ${
-                    viewType === "calendar"
-                      ? "bg-primary text-white"
-                      : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                  }`}
-                >
-                  <Lucide icon="Calendar" className="w-4 h-4" />
-                  <span className="hidden sm:inline">Calendar</span>
-                </button>
-                <button
-                  onClick={() => setViewType("grid")}
-                  className={`px-3 py-2 text-sm font-medium flex items-center gap-2 ${
-                    viewType === "grid"
-                      ? "bg-primary text-white"
-                      : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                  }`}
-                >
-                  <Lucide icon="TableProperties" className="w-4 h-4" />
-                  <span className="hidden sm:inline">Slots</span>
-                </button>
-              </div>
-
-              {companyId === "0153" && (
-                <button
-                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:opacity-90"
-                  onClick={() => navigate("/appointment-requests")}
-                >
-                  <Lucide icon="ClipboardList" className="w-4 h-4" />
-                  <span className="hidden sm:inline">Requests</span>
-                </button>
-              )}
-
-              <button
-                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700"
-                onClick={() => setIsBookingLinkModalOpen(true)}
-              >
-                <Lucide icon="Link" className="w-4 h-4" />
-                <span className="hidden sm:inline">Booking Link</span>
-              </button>
-
-              {/* Add appointment */}
-              <button
-                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
-                onClick={() => {
-                  setSelectedContact(null);
-                  setCurrentEvent({
-                    title: "",
-                    dateStr: "",
-                    startTimeStr: "",
-                    endTimeStr: "",
-                    extendedProps: {
-                      address: "",
-                      appointmentStatus: "",
-                      staff: "",
-                      dateAdded: new Date().toISOString(),
-                      tags: [],
-                      details: "",
-                      meetLink: "",
-                    },
-                  });
-                  setAddModalOpen(true);
-                }}
-              >
-                <Lucide icon="FilePenLine" className="w-4 h-4" />
-                <span className="hidden sm:inline">Add</span>
-              </button>
-            </div>
-
-            {/* Right: filters */}
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Quick search */}
-              <div className="relative">
-                <Lucide icon="Search" className="w-4 h-4 absolute left-2 top-2.5 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search appointments..."
-                  className="pl-7 pr-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                />
-              </div>
-
-              {/* Employee select */}
-              {employees.length > 0 && (
-                <div className="relative">
-                  <select
-                    value={selectedEmployeeId}
-                    onChange={handleEmployeeChange}
-                    className="px-2 py-2 pr-8 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 appearance-none"
+                    }}
                   >
-                    <option value="">All Staff</option>
-                    {employees.map((employee) => (
-                      <option key={employee.id} value={employee.id}>
-                        {employee.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Status */}
-              <select
-                value={filterStatus}
-                onChange={handleStatusFilterChange}
-                className="px-2 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-              >
-                <option value="">All</option>
-                <option value="new">New</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="cancelled">Cancelled</option>
-                <option value="showed">Showed</option>
-                <option value="noshow">No Show</option>
-                <option value="rescheduled">Rescheduled</option>
-                <option value="lost">Lost</option>
-                <option value="closed">Closed</option>
-              </select>
-
-              {/* Date */}
-              <div className="relative">
-                <input
-                  type="date"
-                  value={filterDate}
-                  onChange={handleDateFilterChange}
-                  className="px-2 py-2 pr-8 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                />
-                {filterDate && (
-                  <button
-                    onClick={() => setFilterDate("")}
-                    className="absolute right-1.5 top-1.5 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
-                    aria-label="Clear date filter"
-                  >
-                    <Lucide icon="X" className="w-4 h-4 text-gray-400" />
+                    <Lucide
+                      icon="FilePenLine"
+                      className="w-4 h-4 group-hover:scale-110 transition-transform"
+                    />
+                    <span className="hidden sm:inline">Add</span>
                   </button>
-                )}
-              </div>
+                </div>
 
-              {/* Settings */}
-              <button
-                className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
-                onClick={() => setIsCalendarConfigOpen(true)}
-                title="Calendar settings"
-              >
-                <Lucide icon="Settings" className="w-4 h-4" />
-              </button>
-              <button
-                className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
-                onClick={() => setIsReminderSettingsOpen(true)}
-                title="Reminder settings"
-              >
-                <Lucide icon="Bell" className="w-4 h-4" />
-              </button>
+                {/* Right: filters */}
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* Quick search */}
+                  <div className="relative group">
+                    <Lucide
+                      icon="Search"
+                      className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 group-focus-within:text-blue-400 transition-colors"
+                    />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search appointments..."
+                      className="pl-10 pr-4 py-3 text-sm rounded-2xl bg-white/20 dark:bg-slate-700/30 backdrop-blur-sm border border-white/30 dark:border-slate-600/20 text-gray-700 dark:text-gray-300 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400/50 shadow-inner transition-all duration-200 min-w-[200px]"
+                    />
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                  </div>
+
+                  {/* Employee select */}
+                  {employees.length > 0 && (
+                    <div className="relative group">
+                      <select
+                        value={selectedEmployeeId}
+                        onChange={handleEmployeeChange}
+                        className="pl-4 pr-10 py-3 text-sm rounded-2xl bg-white/40 dark:bg-slate-800/60 backdrop-blur-sm border border-white/30 dark:border-slate-600/20 text-gray-700 dark:text-gray-200 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-400/30 focus:border-purple-400/50 shadow-inner transition-all duration-200 min-w-[120px]"
+                        style={{
+                          colorScheme: "dark",
+                        }}
+                      >
+                        <option
+                          value=""
+                          className="bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200"
+                        >
+                          All Staff
+                        </option>
+                        {employees.map((employee) => (
+                          <option
+                            key={employee.id}
+                            value={employee.id}
+                            className="bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200"
+                          >
+                            {employee.name}
+                          </option>
+                        ))}
+                      </select>
+                      <Lucide
+                        icon="ChevronDown"
+                        className="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-400 pointer-events-none"
+                      />
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-500/5 to-violet-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                    </div>
+                  )}
+
+                  {/* Status */}
+                  <div className="relative group">
+                    <select
+                      value={filterStatus}
+                      onChange={handleStatusFilterChange}
+                      className="pl-4 pr-10 py-3 text-sm rounded-2xl bg-white/40 dark:bg-slate-800/60 backdrop-blur-sm border border-white/30 dark:border-slate-600/20 text-gray-700 dark:text-gray-200 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400/50 shadow-inner transition-all duration-200 min-w-[100px]"
+                      style={{
+                        colorScheme: "dark",
+                      }}
+                    >
+                      <option
+                        value=""
+                        className="bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200"
+                      >
+                        All
+                      </option>
+                      <option
+                        value="new"
+                        className="bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200"
+                      >
+                        New
+                      </option>
+                      <option
+                        value="confirmed"
+                        className="bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200"
+                      >
+                        Confirmed
+                      </option>
+                      <option
+                        value="cancelled"
+                        className="bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200"
+                      >
+                        Cancelled
+                      </option>
+                      <option
+                        value="showed"
+                        className="bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200"
+                      >
+                        Showed
+                      </option>
+                      <option
+                        value="noshow"
+                        className="bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200"
+                      >
+                        No Show
+                      </option>
+                      <option
+                        value="rescheduled"
+                        className="bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200"
+                      >
+                        Rescheduled
+                      </option>
+                      <option
+                        value="lost"
+                        className="bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200"
+                      >
+                        Lost
+                      </option>
+                      <option
+                        value="closed"
+                        className="bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200"
+                      >
+                        Closed
+                      </option>
+                    </select>
+                    <Lucide
+                      icon="ChevronDown"
+                      className="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-400 pointer-events-none"
+                    />
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-indigo-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                  </div>
+
+                  {/* Date */}
+                  <div className="relative group">
+                    <input
+                      type="date"
+                      value={filterDate}
+                      onChange={handleDateFilterChange}
+                      className="pl-4 pr-12 py-3 text-sm rounded-2xl bg-white/20 dark:bg-slate-700/30 backdrop-blur-sm border border-white/30 dark:border-slate-600/20 text-gray-700 dark:text-gray-300 cursor-pointer focus:outline-none focus:ring-2 focus:ring-orange-400/30 focus:border-orange-400/50 shadow-inner transition-all duration-200"
+                    />
+                    {filterDate && (
+                      <button
+                        onClick={() => setFilterDate("")}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-lg hover:bg-white/20 dark:hover:bg-slate-600/30 transition-colors group"
+                        aria-label="Clear date filter"
+                      >
+                        <Lucide
+                          icon="X"
+                          className="w-3 h-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        />
+                      </button>
+                    )}
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-500/5 to-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                  </div>
+
+                  {/* Settings buttons */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-white/20 dark:bg-slate-700/30 backdrop-blur-sm border border-white/30 dark:border-slate-600/20 hover:bg-white/30 dark:hover:bg-slate-600/40 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 group"
+                      onClick={() => setIsCalendarConfigOpen(true)}
+                      title="Calendar settings"
+                    >
+                      <Lucide
+                        icon="Settings"
+                        className="w-4 h-4 group-hover:rotate-45 transition-transform duration-200"
+                      />
+                    </button>
+                    <button
+                      className="inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-white/20 dark:bg-slate-700/30 backdrop-blur-sm border border-white/30 dark:border-slate-600/20 hover:bg-white/30 dark:hover:bg-slate-600/40 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 group"
+                      onClick={() => setIsReminderSettingsOpen(true)}
+                      title="Reminder settings"
+                    >
+                      <Lucide
+                        icon="Bell"
+                        className="w-4 h-4 group-hover:animate-pulse transition-all duration-200"
+                      />
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -4458,239 +4502,339 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
         >
           <div className="relative h-full">
             {/* Modern glassmorphism container */}
-            <div 
-              className="h-full rounded-2xl border border-white/20 dark:border-gray-700/30 shadow-xl overflow-hidden appointments-container"
-              style={{
-                background: 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(248,250,252,0.8) 100%)',
-                backdropFilter: 'blur(20px)',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-              }}
-            >
-              <div className="p-6">
-                {/* Enhanced header */}
-                <div className="flex justify-between items-center mb-6">
+            <div className="h-full relative">
+              {/* Glassmorphism container */}
+              <div
+                className="relative bg-gradient-to-r from-white/70 via-white/60 to-white/70 dark:from-slate-800/50 dark:via-slate-700/40 dark:to-slate-800/50 backdrop-blur-2xl rounded-2xl border border-white/30 dark:border-slate-600/20 shadow-2xl overflow-hidden h-full"
+                style={{
+                  height: isMobile
+                    ? "calc(100vh - 240px)"
+                    : "calc(100vh - 180px)",
+                  minHeight: "600px",
+                }}
+              >
+                {/* Gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-purple-500/3 to-indigo-500/5 dark:from-blue-600/10 dark:via-purple-700/5 dark:to-indigo-600/10 pointer-events-none" />
+
+                <div className="relative px-6 py-6 h-full flex flex-col">
+                  {/* Enhanced header with glassmorphism styling */}
+                  <div className="flex justify-between items-center mb-6 p-4 bg-white/20 dark:bg-slate-700/30 backdrop-blur-sm rounded-2xl border border-white/30 dark:border-slate-600/20 shadow-lg">
                     <div>
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                      Appointments
-                    </h2>
-                    <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">
-                      {filteredAppointments.length} {filteredAppointments.length === 1 ? 'appointment' : 'appointments'}
-                    </p>
+                      <h2 className="text-2xl font-bold bg-gradient-to-r from-slate-800 via-slate-700 to-slate-900 dark:from-white dark:via-slate-100 dark:to-slate-200 bg-clip-text text-transparent">
+                        Appointments
+                      </h2>
+                      <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 font-medium">
+                        {filteredAppointments.length}{" "}
+                        {filteredAppointments.length === 1
+                          ? "appointment"
+                          : "appointments"}
+                      </p>
                     </div>
-                  
-                  {/* Modern status legend */}
-                  <div className="flex flex-wrap gap-1">
-                    <div className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-                      <div className="w-1.5 h-1.5 bg-gray-500 dark:bg-gray-400 rounded-full mr-1"></div>
-                      New
-                    </div>
-                    <div className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-emerald-100 dark:bg-emerald-800 text-emerald-600 dark:text-emerald-300">
-                      <div className="w-1.5 h-1.5 bg-emerald-500 dark:bg-emerald-400 rounded-full mr-1"></div>
-                      Confirmed
-                    </div>
-                    <div className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 dark:bg-red-800 text-red-600 dark:text-red-300">
-                      <div className="w-1.5 h-1.5 bg-red-500 dark:bg-red-400 rounded-full mr-1"></div>
-                      Cancelled
+
+                    {/* Modern status legend */}
+                    <div className="flex flex-wrap gap-2">
+                      <div className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-slate-500/20 to-gray-500/20 dark:from-slate-400/20 dark:to-gray-400/20 text-slate-700 dark:text-slate-300 border border-slate-200/40 dark:border-slate-700/40 backdrop-blur-sm">
+                        <div className="w-1.5 h-1.5 bg-slate-500 dark:bg-slate-400 rounded-full mr-2"></div>
+                        New
+                      </div>
+                      <div className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-emerald-500/20 to-green-500/20 dark:from-emerald-400/20 dark:to-green-400/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200/40 dark:border-emerald-700/40 backdrop-blur-sm">
+                        <div className="w-1.5 h-1.5 bg-emerald-500 dark:bg-emerald-400 rounded-full mr-2"></div>
+                        Confirmed
+                      </div>
+                      <div className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-red-500/20 to-pink-500/20 dark:from-red-400/20 dark:to-pink-400/20 text-red-700 dark:text-red-300 border border-red-200/40 dark:border-red-700/40 backdrop-blur-sm">
+                        <div className="w-1.5 h-1.5 bg-red-500 dark:bg-red-400 rounded-full mr-2"></div>
+                        Cancelled
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Enhanced appointments list */}
-                <div className="space-y-3 max-h-[calc(100vh-20rem)] sm:max-h-[calc(100vh-16rem)] overflow-y-auto pr-2 scrollbar-custom pb-4">
-                  {filteredAppointments.length > 0 ? (
-                    filteredAppointments.map((appointment, index) => {
-                      const statusColors: Record<string, { bg: string; border: string; accent: string; text: string; darkBg: string; darkBorder: string; darkText: string }> = {
-                        new: { 
-                          bg: 'from-gray-50 to-gray-100', 
-                          border: 'border-gray-200', 
-                          accent: 'bg-gray-500', 
-                          text: 'text-gray-700',
-                          darkBg: 'dark:from-gray-700 dark:to-gray-800',
-                          darkBorder: 'dark:border-gray-600',
-                          darkText: 'dark:text-gray-200'
-                        },
-                        showed: { 
-                          bg: 'from-blue-50 to-indigo-100', 
-                          border: 'border-blue-200', 
-                          accent: 'bg-blue-500', 
-                          text: 'text-blue-700',
-                          darkBg: 'dark:from-blue-900 dark:to-indigo-900',
-                          darkBorder: 'dark:border-blue-600',
-                          darkText: 'dark:text-blue-200'
-                        },
-                        cancelled: { 
-                          bg: 'from-red-50 to-rose-100', 
-                          border: 'border-red-200', 
-                          accent: 'bg-red-500', 
-                          text: 'text-red-700',
-                          darkBg: 'dark:from-red-900 dark:to-rose-900',
-                          darkBorder: 'dark:border-red-600',
-                          darkText: 'dark:text-red-200'
-                        },
-                        confirmed: { 
-                          bg: 'from-emerald-50 to-green-100', 
-                          border: 'border-emerald-200', 
-                          accent: 'bg-emerald-500', 
-                          text: 'text-emerald-700',
-                          darkBg: 'dark:from-emerald-900 dark:to-green-900',
-                          darkBorder: 'dark:border-emerald-600',
-                          darkText: 'dark:text-emerald-200'
-                        },
-                        noshow: { 
-                          bg: 'from-orange-50 to-amber-100', 
-                          border: 'border-orange-200', 
-                          accent: 'bg-orange-500', 
-                          text: 'text-orange-700',
-                          darkBg: 'dark:from-orange-900 dark:to-amber-900',
-                          darkBorder: 'dark:border-orange-600',
-                          darkText: 'dark:text-orange-200'
-                        },
-                        rescheduled: { 
-                          bg: 'from-cyan-50 to-sky-100', 
-                          border: 'border-cyan-200', 
-                          accent: 'bg-cyan-500', 
-                          text: 'text-cyan-700',
-                          darkBg: 'dark:from-cyan-900 dark:to-sky-900',
-                          darkBorder: 'dark:border-cyan-600',
-                          darkText: 'dark:text-cyan-200'
-                        },
-                        lost: { 
-                          bg: 'from-gray-50 to-slate-100', 
-                          border: 'border-gray-300', 
-                          accent: 'bg-gray-600', 
-                          text: 'text-gray-600',
-                          darkBg: 'dark:from-gray-800 dark:to-slate-800',
-                          darkBorder: 'dark:border-gray-500',
-                          darkText: 'dark:text-gray-300'
-                        },
-                        closed: { 
-                          bg: 'from-purple-50 to-violet-100', 
-                          border: 'border-purple-200', 
-                          accent: 'bg-purple-500', 
-                          text: 'text-purple-700',
-                          darkBg: 'dark:from-purple-900 dark:to-violet-900',
-                          darkBorder: 'dark:border-purple-600',
-                          darkText: 'dark:text-purple-200'
-                        },
-                      };
-                      
-                      const statusStyle = statusColors[appointment.appointmentStatus?.toLowerCase() || 'new'] || statusColors.new;
-                      
-                      return (
-                        <div
-                          key={index}
-                          onClick={() => handleAppointmentClick(appointment)}
-                          className={`group relative rounded-xl border ${statusStyle.border} ${statusStyle.darkBorder} bg-gradient-to-br ${statusStyle.bg} ${statusStyle.darkBg} transition-all duration-300 cursor-pointer hover:shadow-lg hover:scale-[1.02] hover:-translate-y-1 overflow-hidden`}
-                        >
-                          {/* Status accent bar */}
-                          <div className={`absolute top-0 left-0 right-0 h-1 ${statusStyle.accent} opacity-80`}></div>
-                          
-                          <div className="p-4">
-                            <div className="flex items-start gap-3">
-                              {/* Status indicator */}
-                              <div className={`w-3 h-3 rounded-full ${statusStyle.accent} mt-1.5 shadow-sm flex-shrink-0`}></div>
-                              
-                              <div className="flex-1 min-w-0">
-                                {/* Header */}
-                                <div className="flex justify-between items-start mb-3">
-                                  <h3 className={`text-lg font-semibold ${statusStyle.text} ${statusStyle.darkText} truncate pr-4 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors`}>
+                  {/* Enhanced appointments list */}
+                  <div className="flex-1 space-y-4 max-h-[calc(100vh-18rem)] sm:max-h-[calc(100vh-14rem)] overflow-y-auto pr-2 scrollbar-custom pb-4">
+                    {filteredAppointments.length > 0 ? (
+                      filteredAppointments.map((appointment, index) => {
+                        const statusColors: Record<
+                          string,
+                          {
+                            bg: string;
+                            border: string;
+                            accent: string;
+                            text: string;
+                            darkBg: string;
+                            darkBorder: string;
+                            darkText: string;
+                            glassEffect: string;
+                          }
+                        > = {
+                          new: {
+                            bg: "from-slate-50 to-gray-50",
+                            border: "border-slate-200",
+                            accent: "bg-slate-500",
+                            text: "text-slate-700",
+                            darkBg: "dark:from-slate-700 dark:to-slate-800",
+                            darkBorder: "dark:border-slate-600",
+                            darkText: "dark:text-slate-200",
+                            glassEffect: "rgba(100,116,139,0.1)",
+                          },
+                          showed: {
+                            bg: "from-blue-50 to-indigo-50",
+                            border: "border-blue-200",
+                            accent: "bg-blue-500",
+                            text: "text-blue-700",
+                            darkBg: "dark:from-blue-900 dark:to-indigo-900",
+                            darkBorder: "dark:border-blue-600",
+                            darkText: "dark:text-blue-200",
+                            glassEffect: "rgba(59,130,246,0.1)",
+                          },
+                          cancelled: {
+                            bg: "from-red-50 to-rose-50",
+                            border: "border-red-200",
+                            accent: "bg-red-500",
+                            text: "text-red-700",
+                            darkBg: "dark:from-red-900 dark:to-rose-900",
+                            darkBorder: "dark:border-red-600",
+                            darkText: "dark:text-red-200",
+                            glassEffect: "rgba(239,68,68,0.1)",
+                          },
+                          confirmed: {
+                            bg: "from-emerald-50 to-green-50",
+                            border: "border-emerald-200",
+                            accent: "bg-emerald-500",
+                            text: "text-emerald-700",
+                            darkBg: "dark:from-emerald-900 dark:to-green-900",
+                            darkBorder: "dark:border-emerald-600",
+                            darkText: "dark:text-emerald-200",
+                            glassEffect: "rgba(16,185,129,0.1)",
+                          },
+                          noshow: {
+                            bg: "from-orange-50 to-amber-50",
+                            border: "border-orange-200",
+                            accent: "bg-orange-500",
+                            text: "text-orange-700",
+                            darkBg: "dark:from-orange-900 dark:to-amber-900",
+                            darkBorder: "dark:border-orange-600",
+                            darkText: "dark:text-orange-200",
+                            glassEffect: "rgba(249,115,22,0.1)",
+                          },
+                          rescheduled: {
+                            bg: "from-cyan-50 to-sky-50",
+                            border: "border-cyan-200",
+                            accent: "bg-cyan-500",
+                            text: "text-cyan-700",
+                            darkBg: "dark:from-cyan-900 dark:to-sky-900",
+                            darkBorder: "dark:border-cyan-600",
+                            darkText: "dark:text-cyan-200",
+                            glassEffect: "rgba(14,165,233,0.1)",
+                          },
+                          lost: {
+                            bg: "from-gray-50 to-slate-50",
+                            border: "border-gray-300",
+                            accent: "bg-gray-600",
+                            text: "text-gray-600",
+                            darkBg: "dark:from-gray-800 dark:to-slate-800",
+                            darkBorder: "dark:border-gray-500",
+                            darkText: "dark:text-gray-300",
+                            glassEffect: "rgba(115,115,115,0.1)",
+                          },
+                          closed: {
+                            bg: "from-purple-50 to-violet-50",
+                            border: "border-purple-200",
+                            accent: "bg-purple-500",
+                            text: "text-purple-700",
+                            darkBg: "dark:from-purple-900 dark:to-violet-900",
+                            darkBorder: "dark:border-purple-600",
+                            darkText: "dark:text-purple-200",
+                            glassEffect: "rgba(139,92,246,0.1)",
+                          },
+                        };
+
+                        const statusStyle =
+                          statusColors[
+                            appointment.appointmentStatus?.toLowerCase() ||
+                              "new"
+                          ] || statusColors.new;
+
+                        return (
+                          <div
+                            key={index}
+                            onClick={() => handleAppointmentClick(appointment)}
+                            className={`group relative bg-gradient-to-br ${statusStyle.bg} ${statusStyle.darkBg} backdrop-blur-sm border ${statusStyle.border} ${statusStyle.darkBorder} rounded-2xl p-5 transition-all duration-300 cursor-pointer hover:shadow-xl hover:shadow-${statusStyle.glassEffect}/20 hover:-translate-y-1 hover:scale-[1.02] transform-gpu`}
+                          >
+                            {/* Status indicator dot */}
+                            <div
+                              className={`absolute top-4 right-4 w-3 h-3 rounded-full ${statusStyle.accent} shadow-lg`}
+                              style={{
+                                boxShadow: `0 0 12px ${statusStyle.glassEffect}`,
+                              }}
+                            />
+
+                            <div className="space-y-4">
+                              {/* Header with title and time */}
+                              <div className="flex items-start justify-between pr-6">
+                                <div className="flex-1 min-w-0">
+                                  <h3
+                                    className={`text-lg font-semibold ${statusStyle.text} ${statusStyle.darkText} line-clamp-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors duration-200`}
+                                  >
                                     {appointment.title}
                                   </h3>
-                                  <div className="text-right text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                                    <div className="font-medium">
-                                      {new Date(appointment.startTime).toLocaleString("en-US", {
-                                        weekday: "short",
-                                        month: "short",
-                                        day: "numeric",
-                                      })}
-                                    </div>
-                                    <div className="text-xs text-gray-400 dark:text-gray-500">
-                                      {new Date(appointment.startTime).toLocaleString("en-US", {
-                                        hour: "numeric",
-                                        minute: "numeric",
-                                        hour12: true,
-                                      })}{" "}
-                                      -{" "}
-                                      {new Date(appointment.endTime).toLocaleString("en-US", {
-                                        hour: "numeric",
-                                        minute: "numeric",
-                                        hour12: true,
-                                      })}
-                                    </div>
-                                  </div>
+                                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                                    {new Date(
+                                      appointment.startTime
+                                    ).toLocaleDateString("en-US", {
+                                      weekday: "short",
+                                      month: "short",
+                                      day: "numeric",
+                                    })}{" "}
+                                    •{" "}
+                                    {new Date(
+                                      appointment.startTime
+                                    ).toLocaleTimeString("en-US", {
+                                      hour: "numeric",
+                                      minute: "2-digit",
+                                      hour12: true,
+                                    })}{" "}
+                                    -{" "}
+                                    {new Date(
+                                      appointment.endTime
+                                    ).toLocaleTimeString("en-US", {
+                                      hour: "numeric",
+                                      minute: "2-digit",
+                                      hour12: true,
+                                    })}
+                                  </p>
                                 </div>
+                              </div>
 
-                                {/* Contacts */}
-                                {appointment.contacts && appointment.contacts.length > 0 && (
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <div className="text-gray-400 dark:text-gray-500">👤</div>
-                                    <span className="text-sm text-gray-600 dark:text-gray-300 font-medium truncate">
-                                      {appointment.contacts.map((c) => c.name).join(", ")}
-                                    </span>
+                              {/* Contact info */}
+                              {appointment.contacts &&
+                                appointment.contacts.length > 0 && (
+                                  <div className="flex items-center space-x-3 bg-white/40 dark:bg-slate-700/40 rounded-xl px-3 py-2.5 backdrop-blur-sm border border-white/30 dark:border-slate-600/30">
+                                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500/20 to-violet-500/20 dark:from-blue-400/20 dark:to-violet-400/20 flex items-center justify-center border border-blue-200/40 dark:border-blue-700/40">
+                                      <Lucide
+                                        icon="User"
+                                        className="w-4 h-4 text-blue-600 dark:text-blue-400"
+                                      />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 line-clamp-1">
+                                        {appointment.contacts
+                                          .map((c) => c.name)
+                                          .join(", ")}
+                                      </p>
+                                    </div>
                                   </div>
                                 )}
 
-                                {/* Tags */}
-                                {appointment.tags && appointment.tags.length > 0 && (
-                                  <div className="flex flex-wrap gap-1.5 mb-2">
+                              {/* Tags */}
+                              {appointment.tags &&
+                                appointment.tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-2">
                                     {appointment.tags.slice(0, 2).map((tag) => (
                                       <span
                                         key={tag.id}
-                                        className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-white/60 dark:bg-gray-700/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-600"
+                                        className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-indigo-500/20 to-purple-500/20 dark:from-indigo-400/20 dark:to-purple-400/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200/40 dark:border-indigo-700/40 backdrop-blur-sm"
                                       >
                                         {tag.name}
                                       </span>
                                     ))}
                                     {appointment.tags.length > 2 && (
-                                      <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300">
+                                      <span className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100/80 dark:bg-slate-600/60 text-slate-600 dark:text-slate-300">
                                         +{appointment.tags.length - 2}
                                       </span>
                                     )}
                                   </div>
                                 )}
 
-                                {/* Details preview */}
-                                {appointment.details && (
-                                  <div className="mt-2 text-sm text-gray-500 dark:text-gray-400 line-clamp-2 italic">
+                              {/* Details preview */}
+                              {appointment.details && (
+                                <div className="bg-white/30 dark:bg-slate-700/30 rounded-xl px-3 py-2.5 backdrop-blur-sm border border-white/20 dark:border-slate-600/20">
+                                  <p className="text-sm text-slate-600 dark:text-slate-300 line-clamp-2 italic">
                                     {appointment.details}
-                                  </div>
-                                )}
+                                  </p>
+                                </div>
+                              )}
 
-                                {/* Action icons */}
-                                <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-200/50 dark:border-gray-600/50">
-                                  <div className="flex items-center gap-2">
-                                    {appointment.meetLink && (
-                                      <div className="w-6 h-6 rounded-md bg-blue-100 dark:bg-blue-800 flex items-center justify-center">
-                                        <span className="text-xs">📹</span>
-                                      </div>
-                                    )}
-                                    {appointment.address && (
-                                      <div className="w-6 h-6 rounded-md bg-green-100 dark:bg-green-800 flex items-center justify-center">
-                                        <span className="text-xs">📍</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className={`text-xs font-semibold px-2 py-1 rounded-full ${statusStyle.bg} ${statusStyle.darkBg} ${statusStyle.text} ${statusStyle.darkText} capitalize`}>
-                                    {appointment.appointmentStatus || 'new'}
-                                  </div>
+                              {/* Footer with status and quick actions */}
+                              <div className="flex items-center justify-between pt-3 border-t border-white/30 dark:border-slate-600/30">
+                                <span
+                                  className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold backdrop-blur-sm border transition-all duration-200 ${
+                                    appointment.appointmentStatus?.toLowerCase() ===
+                                    "confirmed"
+                                      ? "bg-gradient-to-r from-emerald-500/20 to-green-500/20 dark:from-emerald-400/20 dark:to-green-400/20 text-emerald-700 dark:text-emerald-300 border-emerald-200/40 dark:border-emerald-700/40"
+                                      : appointment.appointmentStatus?.toLowerCase() ===
+                                        "cancelled"
+                                      ? "bg-gradient-to-r from-red-500/20 to-pink-500/20 dark:from-red-400/20 dark:to-pink-400/20 text-red-700 dark:text-red-300 border-red-200/40 dark:border-red-700/40"
+                                      : appointment.appointmentStatus?.toLowerCase() ===
+                                        "showed"
+                                      ? "bg-gradient-to-r from-blue-500/20 to-indigo-500/20 dark:from-blue-400/20 dark:to-indigo-400/20 text-blue-700 dark:text-blue-300 border-blue-200/40 dark:border-blue-700/40"
+                                      : "bg-gradient-to-r from-slate-500/20 to-gray-500/20 dark:from-slate-400/20 dark:to-gray-400/20 text-slate-700 dark:text-slate-300 border-slate-200/40 dark:border-slate-700/40"
+                                  }`}
+                                >
+                                  <div
+                                    className={`w-1.5 h-1.5 rounded-full mr-2 ${
+                                      appointment.appointmentStatus?.toLowerCase() ===
+                                      "confirmed"
+                                        ? "bg-emerald-500"
+                                        : appointment.appointmentStatus?.toLowerCase() ===
+                                          "cancelled"
+                                        ? "bg-red-500"
+                                        : appointment.appointmentStatus?.toLowerCase() ===
+                                          "showed"
+                                        ? "bg-blue-500"
+                                        : "bg-slate-500"
+                                    }`}
+                                  />
+                                  {appointment.appointmentStatus || "New"}
+                                </span>
+
+                                <div className="flex items-center space-x-2">
+                                  {appointment.meetLink && (
+                                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500/20 to-indigo-500/20 dark:from-blue-400/20 dark:to-indigo-400/20 flex items-center justify-center border border-blue-200/40 dark:border-blue-700/40">
+                                      <Lucide
+                                        icon="Video"
+                                        className="w-4 h-4 text-blue-600 dark:text-blue-400"
+                                      />
+                                    </div>
+                                  )}
+                                  {appointment.address && (
+                                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500/20 to-green-500/20 dark:from-emerald-400/20 dark:to-green-400/20 flex items-center justify-center border border-emerald-200/40 dark:border-emerald-700/40">
+                                      <Lucide
+                                        icon="MapPin"
+                                        className="w-4 h-4 text-emerald-600 dark:text-emerald-400"
+                                      />
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
                           </div>
+                        );
+                      })
+                    ) : (
+                      <div
+                        className="text-center py-16 bg-white/50 dark:bg-slate-800/50 rounded-2xl backdrop-blur-sm border border-white/30 dark:border-slate-600/30"
+                        style={{
+                          boxShadow: "0 8px 32px rgba(0,0,0,0.1)",
+                        }}
+                      >
+                        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-500/20 to-violet-500/20 dark:from-blue-400/20 dark:to-violet-400/20 flex items-center justify-center border border-blue-200/40 dark:border-blue-700/40">
+                          <Lucide
+                            icon="Calendar"
+                            className="w-8 h-8 text-blue-500/70 dark:text-blue-400/70"
+                          />
                         </div>
-                      );
-                    })
-                  ) : (
-                    <div className="text-center py-12">
-                      <div className="text-gray-400 text-lg mb-2">📅</div>
-                      <div className="text-gray-500 font-medium">No appointments yet</div>
-                      <div className="text-gray-400 text-sm">Your upcoming appointments will appear here</div>
-                    </div>
-                  )}
+                        <h4 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                          No appointments yet
+                        </h4>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 max-w-48 mx-auto leading-relaxed">
+                          Your upcoming appointments will appear here
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-            
+
             {/* CSS styles */}
             <style>
               {`
@@ -4698,6 +4842,306 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
                 background: linear-gradient(135deg, rgba(30,41,59,0.9) 0%, rgba(15,23,42,0.95) 100%) !important;
                 border: 1px solid rgba(255,255,255,0.1) !important;
                 box-shadow: 0 8px 32px rgba(0,0,0,0.3) !important;
+              }
+              
+              /* Modern Calendar Glassmorphism Styles */
+              .calendar-glassmorphism-container {
+                position: relative;
+                transition: all 0.3s ease;
+              }
+              
+              .dark .calendar-glassmorphism-container {
+                background: linear-gradient(135deg, rgba(30,41,59,0.95) 0%, rgba(15,23,42,0.9) 100%) !important;
+                border: 1px solid rgba(255,255,255,0.15) !important;
+                box-shadow: 0 20px 64px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05) !important;
+              }
+              
+              .dark .calendar-content {
+                background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%) !important;
+              }
+              
+              /* FullCalendar Glassmorphism Customization */
+              .fc {
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+                height: 100% !important;
+              }
+              
+              .fc-view-harness-active > .fc-view {
+                height: 100% !important;
+              }
+              
+              .fc .fc-view-harness {
+                height: 100% !important;
+              }
+              
+              /* Header styling */
+              .fc-header-toolbar {
+                background: linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(248,250,252,0.6) 100%) !important;
+                backdrop-filter: blur(20px) !important;
+                border-radius: 1rem !important;
+                padding: 1rem !important;
+                margin-bottom: 1.5rem !important;
+                border: 1px solid rgba(255,255,255,0.3) !important;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.1) !important;
+              }
+              
+              .dark .fc-header-toolbar {
+                background: linear-gradient(135deg, rgba(30,41,59,0.8) 0%, rgba(15,23,42,0.6) 100%) !important;
+                border: 1px solid rgba(255,255,255,0.1) !important;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.3) !important;
+              }
+              
+              /* Title styling */
+              .fc-toolbar-title {
+                color: #1e293b !important;
+                font-weight: 700 !important;
+                font-size: 1.5rem !important;
+                text-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+              }
+              
+              .dark .fc-toolbar-title {
+                color: #f8fafc !important;
+                text-shadow: 0 2px 4px rgba(0,0,0,0.5) !important;
+              }
+              
+              /* Button styling */
+              .fc-button {
+                background: linear-gradient(135deg, rgba(99,102,241,0.9) 0%, rgba(139,92,246,0.8) 100%) !important;
+                border: none !important;
+                border-radius: 0.75rem !important;
+                padding: 0.5rem 1rem !important;
+                font-weight: 600 !important;
+                text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
+                box-shadow: 0 4px 12px rgba(99,102,241,0.3) !important;
+                transition: all 0.3s ease !important;
+                backdrop-filter: blur(10px) !important;
+              }
+              
+              .fc-button:hover {
+                background: linear-gradient(135deg, rgba(79,70,229,0.9) 0%, rgba(124,58,237,0.8) 100%) !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 6px 20px rgba(99,102,241,0.4) !important;
+              }
+              
+              .fc-button-active,
+              .fc-button:focus {
+                background: linear-gradient(135deg, rgba(67,56,202,0.9) 0%, rgba(109,40,217,0.8) 100%) !important;
+                box-shadow: 0 4px 12px rgba(67,56,202,0.4) !important;
+              }
+              
+              /* Today button special styling */
+              .fc-today-button {
+                background: linear-gradient(135deg, rgba(16,185,129,0.9) 0%, rgba(5,150,105,0.8) 100%) !important;
+                box-shadow: 0 4px 12px rgba(16,185,129,0.3) !important;
+              }
+              
+              .fc-today-button:hover {
+                background: linear-gradient(135deg, rgba(5,150,105,0.9) 0%, rgba(4,120,87,0.8) 100%) !important;
+                box-shadow: 0 6px 20px rgba(16,185,129,0.4) !important;
+              }
+              
+              /* Calendar grid styling */
+              .fc-view-harness {
+                background: rgba(255,255,255,0.4) !important;
+                backdrop-filter: blur(15px) !important;
+                border-radius: 1rem !important;
+                border: 1px solid rgba(255,255,255,0.2) !important;
+                overflow: hidden !important;
+              }
+              
+              .dark .fc-view-harness {
+                background: rgba(30,41,59,0.4) !important;
+                border: 1px solid rgba(255,255,255,0.1) !important;
+              }
+              
+              /* Day grid styling */
+              .fc-daygrid-day {
+                background: rgba(255,255,255,0.2) !important;
+                border: 1px solid rgba(0,0,0,0.05) !important;
+                transition: all 0.2s ease !important;
+              }
+              
+              .fc-daygrid-day:hover {
+                background: rgba(99,102,241,0.1) !important;
+                transform: scale(1.002) !important;
+              }
+              
+              .dark .fc-daygrid-day {
+                background: rgba(15,23,42,0.3) !important;
+                border: 1px solid rgba(255,255,255,0.05) !important;
+              }
+              
+              .dark .fc-daygrid-day:hover {
+                background: rgba(99,102,241,0.2) !important;
+              }
+              
+              /* Today highlight */
+              .fc-day-today {
+                background: linear-gradient(135deg, rgba(59,130,246,0.2) 0%, rgba(99,102,241,0.15) 100%) !important;
+                border: 2px solid rgba(59,130,246,0.4) !important;
+              }
+              
+              .dark .fc-day-today {
+                background: linear-gradient(135deg, rgba(59,130,246,0.3) 0%, rgba(99,102,241,0.2) 100%) !important;
+                border: 2px solid rgba(59,130,246,0.5) !important;
+              }
+              
+              /* Day numbers */
+              .fc-daygrid-day-number {
+                color: #334155 !important;
+                font-weight: 600 !important;
+                padding: 0.5rem !important;
+                text-shadow: 0 1px 2px rgba(255,255,255,0.8) !important;
+              }
+              
+              .dark .fc-daygrid-day-number {
+                color: #cbd5e1 !important;
+                text-shadow: 0 1px 2px rgba(0,0,0,0.5) !important;
+              }
+              
+              .fc-day-today .fc-daygrid-day-number {
+                color: #1e40af !important;
+                font-weight: 700 !important;
+              }
+              
+              .dark .fc-day-today .fc-daygrid-day-number {
+                color: #93c5fd !important;
+              }
+              
+              /* Events styling */
+              .fc-event {
+                background: linear-gradient(135deg, rgba(99,102,241,0.9) 0%, rgba(139,92,246,0.8) 100%) !important;
+                border: none !important;
+                border-radius: 0.5rem !important;
+                backdrop-filter: blur(10px) !important;
+                box-shadow: 0 4px 12px rgba(99,102,241,0.3) !important;
+                margin: 2px !important;
+                transition: all 0.3s ease !important;
+                border-left: 4px solid rgba(67,56,202,0.8) !important;
+              }
+              
+              .fc-event:hover {
+                transform: translateY(-1px) scale(1.02) !important;
+                box-shadow: 0 8px 25px rgba(99,102,241,0.4) !important;
+                z-index: 10 !important;
+              }
+              
+              .fc-event-title {
+                font-weight: 600 !important;
+                text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
+                padding: 0.25rem !important;
+              }
+              
+              /* Time grid styling */
+              .fc-timegrid-slot {
+                border-color: rgba(0,0,0,0.05) !important;
+              }
+              
+              .dark .fc-timegrid-slot {
+                border-color: rgba(255,255,255,0.05) !important;
+              }
+              
+              .fc-timegrid-axis {
+                background: rgba(255,255,255,0.6) !important;
+                backdrop-filter: blur(10px) !important;
+              }
+              
+              .dark .fc-timegrid-axis {
+                background: rgba(30,41,59,0.6) !important;
+              }
+              
+              /* Week/Day view columns */
+              .fc-timegrid-col {
+                background: rgba(255,255,255,0.2) !important;
+                border-color: rgba(0,0,0,0.05) !important;
+              }
+              
+              .dark .fc-timegrid-col {
+                background: rgba(15,23,42,0.2) !important;
+                border-color: rgba(255,255,255,0.05) !important;
+              }
+              
+              /* Scrollbars */
+              .fc-scroller::-webkit-scrollbar {
+                width: 8px;
+                height: 8px;
+              }
+              
+              .fc-scroller::-webkit-scrollbar-track {
+                background: rgba(0,0,0,0.05);
+                border-radius: 4px;
+              }
+              
+              .fc-scroller::-webkit-scrollbar-thumb {
+                background: linear-gradient(135deg, rgba(99,102,241,0.6) 0%, rgba(139,92,246,0.5) 100%);
+                border-radius: 4px;
+                backdrop-filter: blur(5px);
+              }
+              
+              .fc-scroller::-webkit-scrollbar-thumb:hover {
+                background: linear-gradient(135deg, rgba(79,70,229,0.7) 0%, rgba(124,58,237,0.6) 100%);
+              }
+              
+              .dark .fc-scroller::-webkit-scrollbar-track {
+                background: rgba(255,255,255,0.05);
+              }
+              
+              .dark .fc-scroller::-webkit-scrollbar-thumb {
+                background: linear-gradient(135deg, rgba(99,102,241,0.7) 0%, rgba(139,92,246,0.6) 100%);
+              }
+              
+              /* Custom animations */
+              @keyframes glassmorphism-glow {
+                0% { box-shadow: 0 20px 64px rgba(0,0,0,0.1), 0 0 0 1px rgba(255,255,255,0.1); }
+                50% { box-shadow: 0 25px 80px rgba(99,102,241,0.15), 0 0 0 1px rgba(255,255,255,0.2); }
+                100% { box-shadow: 0 20px 64px rgba(0,0,0,0.1), 0 0 0 1px rgba(255,255,255,0.1); }
+              }
+              
+              @keyframes shine-effect {
+                0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); opacity: 0; }
+                50% { opacity: 0.3; }
+                100% { transform: translateX(100%) translateY(100%) rotate(45deg); opacity: 0; }
+              }
+              
+              .calendar-glassmorphism-container:hover {
+                animation: glassmorphism-glow 3s ease-in-out infinite;
+              }
+              
+              .event-content-glassmorphism:hover .shine-effect {
+                animation: shine-effect 1.2s ease-out;
+                opacity: 0.2 !important;
+              }
+              
+              /* Enhanced event hover states */
+              .event-content-glassmorphism {
+                will-change: transform, box-shadow, background;
+              }
+              
+              /* Appointment Cards Glassmorphism */
+              .appointment-card-glassmorphism {
+                will-change: transform, box-shadow, background;
+                transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+              }
+              
+              .appointment-card-glassmorphism:hover {
+                transform: translateY(-8px) scale(1.03);
+                box-shadow: 0 20px 64px rgba(0,0,0,0.15), 0 8px 32px rgba(99,102,241,0.2);
+              }
+              
+              .appointment-card-glassmorphism:hover .appointment-shine-effect {
+                opacity: 1;
+                animation: appointment-shine 1.5s ease-out;
+              }
+              
+              @keyframes appointment-shine {
+                0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+                100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+              }
+              
+              /* Enhanced appointment container height */
+              .appointments-container {
+                height: calc(100vh - 180px);
+                min-height: 600px;
               }
               
               .scrollbar-custom::-webkit-scrollbar {
@@ -4734,24 +5178,67 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
           </div>
         </div>
 
-        {/* Calendar/Grid View */}
+        {/* Calendar View */}
         <div
           className={`${
             isMobile ? (mobileTab === "calendar" ? "block" : "hidden") : ""
           } md:col-span-8 xl:col-span-8 2xl:col-span-9`}
         >
-          <div className="p-0 sm:p-5 box intro-y">
+          <div className="relative h-full">
             {viewType === "calendar" ? (
               <CalendarErrorBoundary>
+                {/* Modern glassmorphism calendar container */}
                 <div
-                  className="calendar-container"
-                  style={{ height: isMobile ? "calc(100vh - 290px)" : "calc(100vh - 220px)", overflowY: "auto" }}
+                  className="calendar-glassmorphism-container rounded-3xl border border-white/20 dark:border-gray-700/30 shadow-2xl overflow-hidden"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.9) 100%)",
+                    backdropFilter: "blur(30px)",
+                    boxShadow:
+                      "0 20px 64px rgba(0,0,0,0.1), 0 0 0 1px rgba(255,255,255,0.1)",
+                    height: isMobile
+                      ? "calc(100vh - 240px)"
+                      : "calc(100vh - 180px)",
+                    minHeight: "600px",
+                  }}
                 >
-                  <FullCalendar {...calendarOptions} ref={calendarRef} />
+                  {/* Glassmorphism inner content */}
+                  <div className="relative h-full">
+                    {/* Subtle gradient overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 via-purple-50/20 to-indigo-50/30 dark:from-blue-900/10 dark:via-purple-900/10 dark:to-indigo-900/10 pointer-events-none"></div>
+
+                    {/* Calendar content */}
+                    <div
+                      className="calendar-content relative z-10 h-full p-4"
+                      style={{
+                        background:
+                          "linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)",
+                        backdropFilter: "blur(10px)",
+                        borderRadius: "1.25rem",
+                        overflow: "hidden",
+                        display: "flex",
+                        flexDirection: "column",
+                      }}
+                    >
+                      <div style={{ flex: 1, minHeight: 0 }}>
+                        <FullCalendar {...calendarOptions} ref={calendarRef} />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </CalendarErrorBoundary>
             ) : (
-              <GridView />
+              <div className="flex items-center justify-center h-96 text-gray-500 dark:text-gray-400">
+                <div className="text-center">
+                  <div className="text-4xl mb-4">📅</div>
+                  <div className="text-lg font-medium">
+                    Nothing to show here yet
+                  </div>
+                  <div className="text-sm opacity-70">
+                    Switch to calendar view to see your appointments
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -4779,619 +5266,827 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
             });
             setAddModalOpen(true);
           }}
-          className="fixed bottom-20 right-5 z-40 w-14 h-14 rounded-full bg-primary text-white shadow-lg flex items-center justify-center hover:opacity-90"
+          className="fixed bottom-20 right-5 z-40 w-16 h-16 rounded-3xl bg-gradient-to-r from-blue-500/80 to-cyan-600/80 hover:from-blue-600/90 hover:to-cyan-700/90 backdrop-blur-2xl border border-white/20 shadow-2xl hover:shadow-blue-500/25 text-white flex items-center justify-center transform hover:scale-110 active:scale-95 transition-all duration-300 group"
+          style={{
+            background: "linear-gradient(135deg, rgba(59,130,246,0.9) 0%, rgba(34,211,238,0.8) 100%)",
+            backdropFilter: "blur(20px)",
+            boxShadow: "0 20px 40px rgba(59,130,246,0.3), 0 0 0 1px rgba(255,255,255,0.1)",
+          }}
           aria-label="Add appointment"
         >
-          <Lucide icon="Plus" className="w-6 h-6" />
+          {/* Gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent rounded-3xl pointer-events-none" />
+          
+          {/* Plus icon */}
+          <Lucide 
+            icon="Plus" 
+            className="w-7 h-7 relative z-10 group-hover:rotate-90 transition-transform duration-300" 
+          />
+          
+          {/* Ripple effect on hover */}
+          <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-blue-400/20 to-cyan-400/20 opacity-0 group-hover:opacity-100 group-hover:scale-150 transition-all duration-500 pointer-events-none" />
         </button>
       </div>
 
       {/* Edit Modal */}
       {editModalOpen && (
         <Dialog open={editModalOpen} onClose={() => setEditModalOpen(false)}>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-            <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10 dark:bg-gray-800">
-              <div className="flex items-center p-4 border-b dark:border-gray-700">
-                <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
-                  <Lucide icon="User" className="w-6 h-6" />
-                </div>
-                <div>
-                  <span className="text-xl dark:text-white">
-                    Edit Appointment
-                  </span>
-                </div>
-              </div>
-              <div className="mt-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Title
-                  </label>
-                  <input
-                    type="text"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={currentEvent?.title || ""}
-                    onChange={(e) =>
-                      setCurrentEvent({
-                        ...currentEvent,
-                        title: e.target.value,
-                      })
-                    }
-                  />
-                </div>
+          <div className="fixed inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl">
+            <Dialog.Panel className="w-full max-w-4xl relative bg-white/10 dark:bg-slate-800/10 backdrop-blur-3xl rounded-3xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden overflow-y-auto transform hover:scale-[1.005] transition-all duration-300">
+              {/* Enhanced Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 via-violet-500/5 to-purple-500/10 dark:from-blue-600/10 dark:via-violet-700/5 dark:to-purple-600/10 pointer-events-none" />
 
-                {/* Address */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Address
-                  </label>
-                  <input
-                    type="text"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={currentEvent?.extendedProps?.address || ""}
-                    onChange={(e) =>
-                      setCurrentEvent({
-                        ...currentEvent,
-                        extendedProps: {
-                          ...currentEvent.extendedProps,
-                          address: e.target.value,
-                        },
-                      })
-                    }
-                  />
-                </div>
-
-                {/* Date and Time */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={currentEvent?.dateStr || ""}
-                    onChange={handleDateChange}
-                  />
-                </div>
-
-                {/* Time Selection */}
-                <div>
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <label className="block text-xs text-gray-500 dark:text-gray-400">
-                        Start Time
-                      </label>
-                      <input
-                        type="time"
-                        className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        value={currentEvent?.startTimeStr || ""}
-                        onChange={(e) => {
-                          const startTime = e.target.value;
-                          setCurrentEvent((prev: { endTimeStr: any }) => ({
-                            ...prev,
-                            startTimeStr: startTime,
-                            // Automatically set end time to 1 hour after start time if not set
-                            endTimeStr:
-                              prev?.endTimeStr ||
-                              format(
-                                addHours(
-                                  parse(startTime, "HH:mm", new Date()),
-                                  1
-                                ),
-                                "HH:mm"
-                              ),
-                          }));
-                        }}
+              <div className="relative p-8">
+                <div className="flex items-center justify-between pb-6 border-b border-white/10 dark:border-slate-700/20">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500/20 to-violet-500/20 backdrop-blur-sm flex items-center justify-center border border-white/10">
+                      <Lucide
+                        icon="Calendar"
+                        className="w-6 h-6 text-blue-400"
                       />
                     </div>
+                    <h3 className="text-2xl font-bold bg-gradient-to-r from-white via-blue-100 to-violet-100 dark:from-white dark:via-blue-100 dark:to-violet-100 bg-clip-text text-transparent">
+                      Edit Appointment
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setEditModalOpen(false)}
+                    className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 text-slate-400 hover:text-white dark:hover:text-slate-200 transition-all duration-200 flex items-center justify-center backdrop-blur-sm border border-white/10"
+                  >
+                    <Lucide icon="X" className="w-4 h-4" />
+                  </button>
+                </div>
 
-                    <div className="flex-1">
-                      <label className="block text-xs text-gray-500 dark:text-gray-400">
-                        End Time
-                      </label>
-                      <input
-                        type="time"
-                        className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        value={currentEvent?.endTimeStr || ""}
-                        min={currentEvent?.startTimeStr || "00:00"}
-                        onChange={(e) => {
-                          const endTime = e.target.value;
-                          if (
-                            endTime <= (currentEvent?.startTimeStr || "00:00")
-                          ) {
-                            // If end time is before or equal to start time, set it to 1 hour after start time
-                            const newEndTime = format(
-                              addHours(
-                                parse(
-                                  currentEvent?.startTimeStr || "00:00",
-                                  "HH:mm",
-                                  new Date()
-                                ),
-                                1
-                              ),
-                              "HH:mm"
-                            );
-                            setCurrentEvent((prev: any) => ({
-                              ...prev,
-                              endTimeStr: newEndTime,
-                            }));
-                          } else {
-                            setCurrentEvent((prev: any) => ({
-                              ...prev,
-                              endTimeStr: endTime,
-                            }));
+                <div className="mt-8 space-y-8">
+                  <div className="grid grid-cols-1 gap-6">
+                    {/* Title Input */}
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3">
+                        <Lucide icon="Type" className="w-5 h-5 text-blue-400" />
+                        <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                          Title
+                        </label>
+                      </div>
+                      <div className="relative group">
+                        <input
+                          type="text"
+                          className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-blue-400/50 focus:ring-2 focus:ring-blue-400/20 transition-all duration-200 shadow-inner"
+                          value={currentEvent?.title || ""}
+                          onChange={(e) =>
+                            setCurrentEvent({
+                              ...currentEvent,
+                              title: e.target.value,
+                            })
                           }
-                        }}
-                      />
+                          placeholder="Enter appointment title"
+                        />
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-violet-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                      </div>
                     </div>
-                  </div>
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Appointment Status
-                  </label>
-                  <select
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={currentEvent?.extendedProps?.appointmentStatus || ""}
-                    onChange={(e) =>
-                      setCurrentEvent({
-                        ...currentEvent,
-                        extendedProps: {
-                          ...currentEvent.extendedProps,
-                          appointmentStatus: e.target.value,
-                        },
-                      })
-                    }
-                  >
-                    <option value="" disabled>
-                      Set a status
-                    </option>
-                    <option value="new">New</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="cancelled">Cancelled</option>
-                    <option value="showed">Showed</option>
-                    <option value="noshow">No Show</option>
-                    <option value="rescheduled">Rescheduled</option>
-                    <option value="lost">Lost</option>
-                    <option value="closed">Closed</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Appointment Type
-                  </label>
-                  <select
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={
-                      currentEvent?.extendedProps?.appointmentType || "general"
-                    }
-                    onChange={(e) =>
-                      setCurrentEvent({
-                        ...currentEvent,
-                        extendedProps: {
-                          ...currentEvent.extendedProps,
-                          appointmentType: e.target.value,
-                        },
-                      })
-                    }
-                  >
-                    <option value="general">General</option>
-                    <option value="consultation">Consultation</option>
-                    <option value="service">Service</option>
-                    <option value="installation">Installation</option>
-                    <option value="maintenance">Maintenance</option>
-                    <option value="repair">Repair</option>
-                    <option value="follow-up">Follow-up</option>
-                    <option value="emergency">Emergency</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Google Meet Link
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                      value={currentEvent?.extendedProps?.meetLink || ""}
-                      onChange={(e) =>
-                        setCurrentEvent({
-                          ...currentEvent,
-                          extendedProps: {
-                            ...currentEvent.extendedProps,
-                            meetLink: e.target.value,
-                          },
-                        })
-                      }
-                      placeholder="https://meet.google.com/..."
-                    />
-                  </div>
-                  {currentEvent?.extendedProps?.meetLink && (
-                    <div className="flex justify-between items-center mt-2 p-2 bg-gray-50 dark:bg-gray-700 rounded">
-                      <a
-                        href={currentEvent.extendedProps.meetLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 dark:text-blue-400 text-sm hover:underline"
-                      >
-                        Open Meet Link
-                      </a>
-                      <button
-                        className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
-                        onClick={() => {
-                          navigator.clipboard.writeText(
-                            currentEvent.extendedProps.meetLink
-                          );
-                        }}
-                      >
-                        Copy Link
-                      </button>
+                    {/* Address Input */}
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3">
+                        <Lucide
+                          icon="MapPin"
+                          className="w-5 h-5 text-emerald-400"
+                        />
+                        <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                          Address
+                        </label>
+                      </div>
+                      <div className="relative group">
+                        <input
+                          type="text"
+                          className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-200 shadow-inner"
+                          value={currentEvent?.extendedProps?.address || ""}
+                          onChange={(e) =>
+                            setCurrentEvent({
+                              ...currentEvent,
+                              extendedProps: {
+                                ...currentEvent.extendedProps,
+                                address: e.target.value,
+                              },
+                            })
+                          }
+                          placeholder="Enter appointment address"
+                        />
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-emerald-500/5 to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                      </div>
                     </div>
-                  )}
-                  {!currentEvent?.extendedProps?.notificationSent &&
-                    currentEvent?.extendedProps?.meetLink && (
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
-                        Meeting link will be sent to contacts when you save
+
+                    {/* Date Input */}
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3">
+                        <Lucide
+                          icon="Calendar"
+                          className="w-5 h-5 text-violet-400"
+                        />
+                        <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                          Date
+                        </label>
+                      </div>
+                      <div className="relative group">
+                        <input
+                          type="date"
+                          className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 focus:border-violet-400/50 focus:ring-2 focus:ring-violet-400/20 transition-all duration-200 shadow-inner"
+                          value={currentEvent?.dateStr || ""}
+                          onChange={handleDateChange}
+                        />
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-violet-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    {/* Time Selection */}
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3">
+                        <Lucide
+                          icon="Clock"
+                          className="w-5 h-5 text-orange-400"
+                        />
+                        <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                          Time
+                        </label>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="relative group">
+                          <label className="block text-xs text-white/70 dark:text-slate-400 mb-1 font-medium">
+                            Start Time
+                          </label>
+                          <input
+                            type="time"
+                            className="w-full px-4 py-3 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 focus:border-orange-400/50 focus:ring-2 focus:ring-orange-400/20 transition-all duration-200 shadow-inner"
+                            value={currentEvent?.startTimeStr || ""}
+                            onChange={(e) => {
+                              const startTime = e.target.value;
+                              setCurrentEvent((prev: { endTimeStr: any }) => ({
+                                ...prev,
+                                startTimeStr: startTime,
+                                // Automatically set end time to 1 hour after start time if not set
+                                endTimeStr:
+                                  prev?.endTimeStr ||
+                                  format(
+                                    addHours(
+                                      parse(startTime, "HH:mm", new Date()),
+                                      1
+                                    ),
+                                    "HH:mm"
+                                  ),
+                              }));
+                            }}
+                          />
+                          <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-500/5 to-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                        </div>
+
+                        <div className="relative group">
+                          <label className="block text-xs text-white/70 dark:text-slate-400 mb-1 font-medium">
+                            End Time
+                          </label>
+                          <input
+                            type="time"
+                            className="w-full px-4 py-3 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 focus:border-orange-400/50 focus:ring-2 focus:ring-orange-400/20 transition-all duration-200 shadow-inner"
+                            value={currentEvent?.endTimeStr || ""}
+                            min={currentEvent?.startTimeStr || "00:00"}
+                            onChange={(e) => {
+                              const endTime = e.target.value;
+                              if (
+                                endTime <=
+                                (currentEvent?.startTimeStr || "00:00")
+                              ) {
+                                // If end time is before or equal to start time, set it to 1 hour after start time
+                                const newEndTime = format(
+                                  addHours(
+                                    parse(
+                                      currentEvent?.startTimeStr || "00:00",
+                                      "HH:mm",
+                                      new Date()
+                                    ),
+                                    1
+                                  ),
+                                  "HH:mm"
+                                );
+                                setCurrentEvent((prev: any) => ({
+                                  ...prev,
+                                  endTimeStr: newEndTime,
+                                }));
+                              } else {
+                                setCurrentEvent((prev: any) => ({
+                                  ...prev,
+                                  endTimeStr: endTime,
+                                }));
+                              }
+                            }}
+                          />
+                          <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-500/5 to-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Appointment Status */}
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3">
+                        <Lucide
+                          icon="CheckCircle"
+                          className="w-5 h-5 text-green-400"
+                        />
+                        <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                          Status
+                        </label>
+                      </div>
+                      <div className="relative group">
+                        <select
+                          className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 focus:border-green-400/50 focus:ring-2 focus:ring-green-400/20 transition-all duration-200 shadow-inner"
+                          value={
+                            currentEvent?.extendedProps?.appointmentStatus || ""
+                          }
+                          onChange={(e) =>
+                            setCurrentEvent({
+                              ...currentEvent,
+                              extendedProps: {
+                                ...currentEvent.extendedProps,
+                                appointmentStatus: e.target.value,
+                              },
+                            })
+                          }
+                        >
+                          <option
+                            value=""
+                            disabled
+                            className="bg-slate-800 text-white"
+                          >
+                            Set a status
+                          </option>
+                          <option
+                            value="new"
+                            className="bg-slate-800 text-white"
+                          >
+                            New
+                          </option>
+                          <option
+                            value="confirmed"
+                            className="bg-slate-800 text-white"
+                          >
+                            Confirmed
+                          </option>
+                          <option
+                            value="cancelled"
+                            className="bg-slate-800 text-white"
+                          >
+                            Cancelled
+                          </option>
+                          <option
+                            value="showed"
+                            className="bg-slate-800 text-white"
+                          >
+                            Showed
+                          </option>
+                          <option
+                            value="noshow"
+                            className="bg-slate-800 text-white"
+                          >
+                            No Show
+                          </option>
+                          <option
+                            value="rescheduled"
+                            className="bg-slate-800 text-white"
+                          >
+                            Rescheduled
+                          </option>
+                          <option
+                            value="lost"
+                            className="bg-slate-800 text-white"
+                          >
+                            Lost
+                          </option>
+                          <option
+                            value="closed"
+                            className="bg-slate-800 text-white"
+                          >
+                            Closed
+                          </option>
+                        </select>
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-green-500/5 to-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    {/* Appointment Type */}
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3">
+                        <Lucide
+                          icon="Tag"
+                          className="w-5 h-5 text-purple-400"
+                        />
+                        <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                          Type
+                        </label>
+                      </div>
+                      <div className="relative group">
+                        <select
+                          className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 focus:border-purple-400/50 focus:ring-2 focus:ring-purple-400/20 transition-all duration-200 shadow-inner"
+                          value={
+                            currentEvent?.extendedProps?.appointmentType ||
+                            "general"
+                          }
+                          onChange={(e) =>
+                            setCurrentEvent({
+                              ...currentEvent,
+                              extendedProps: {
+                                ...currentEvent.extendedProps,
+                                appointmentType: e.target.value,
+                              },
+                            })
+                          }
+                        >
+                          <option
+                            value="general"
+                            className="bg-slate-800 text-white"
+                          >
+                            General
+                          </option>
+                          <option
+                            value="consultation"
+                            className="bg-slate-800 text-white"
+                          >
+                            Consultation
+                          </option>
+                          <option
+                            value="service"
+                            className="bg-slate-800 text-white"
+                          >
+                            Service
+                          </option>
+                          <option
+                            value="installation"
+                            className="bg-slate-800 text-white"
+                          >
+                            Installation
+                          </option>
+                          <option
+                            value="maintenance"
+                            className="bg-slate-800 text-white"
+                          >
+                            Maintenance
+                          </option>
+                          <option
+                            value="repair"
+                            className="bg-slate-800 text-white"
+                          >
+                            Repair
+                          </option>
+                          <option
+                            value="follow-up"
+                            className="bg-slate-800 text-white"
+                          >
+                            Follow-up
+                          </option>
+                          <option
+                            value="emergency"
+                            className="bg-slate-800 text-white"
+                          >
+                            Emergency
+                          </option>
+                        </select>
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Google Meet Link */}
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-3">
+                      <Lucide
+                        icon="Video"
+                        className="w-5 h-5 text-indigo-400"
+                      />
+                      <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                        Google Meet Link
+                      </label>
+                    </div>
+                    <div className="relative group">
+                      <input
+                        type="text"
+                        className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/20 transition-all duration-200 shadow-inner"
+                        value={currentEvent?.extendedProps?.meetLink || ""}
+                        onChange={(e) =>
+                          setCurrentEvent({
+                            ...currentEvent,
+                            extendedProps: {
+                              ...currentEvent.extendedProps,
+                              meetLink: e.target.value,
+                            },
+                          })
+                        }
+                        placeholder="https://meet.google.com/..."
+                      />
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-indigo-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                    </div>
+                    {currentEvent?.extendedProps?.meetLink && (
+                      <div className="flex justify-between items-center p-4 bg-indigo-500/10 backdrop-blur-xl rounded-2xl border border-indigo-400/20">
+                        <a
+                          href={currentEvent.extendedProps.meetLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-indigo-300 text-sm hover:underline font-medium flex items-center space-x-2"
+                        >
+                          <Lucide icon="ExternalLink" className="w-4 h-4" />
+                          <span>Open Meet Link</span>
+                        </a>
+                        <button
+                          className="text-sm text-indigo-400 hover:text-indigo-300 px-3 py-1 rounded-xl bg-white/5 hover:bg-white/10 backdrop-blur-sm transition-all duration-200 border border-white/10"
+                          onClick={() => {
+                            navigator.clipboard.writeText(
+                              currentEvent.extendedProps.meetLink
+                            );
+                          }}
+                        >
+                          Copy Link
+                        </button>
                       </div>
                     )}
-                  {currentEvent?.extendedProps?.notificationSent && (
-                    <div className="text-sm text-green-600 dark:text-green-400">
-                      Meeting link has been sent to contacts
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Tags
-                  </label>
-                  <Select
-                    isMulti
-                    options={appointmentTags.map((tag: any) => ({
-                      value: tag.id,
-                      label: tag.name,
-                    }))}
-                    value={
-                      currentEvent?.extendedProps?.tags?.map((tag: any) => ({
-                        value: tag.id,
-                        label: tag.name,
-                      })) || []
-                    }
-                    onChange={handleTagChange}
-                    className="capitalize"
-                    styles={{
-                      control: (provided, state) => ({
-                        ...provided,
-                        backgroundColor: state.isFocused
-                          ? "#ffffff"
-                          : "#f9fafb", // Light mode background
-                        borderColor: state.isFocused ? "#2563eb" : "#d1d5db", // Light mode border
-                        boxShadow: state.isFocused
-                          ? "0 0 0 1px #2563eb"
-                          : "none", // Light mode shadow
-                        "&:hover": {
-                          borderColor: "#2563eb", // Light mode hover border
-                        },
-                        "&.dark": {
-                          backgroundColor: state.isFocused
-                            ? "#374151"
-                            : "#1f2937", // Dark mode background
-                          borderColor: state.isFocused ? "#3b82f6" : "#4b5563", // Dark mode border
-                          boxShadow: state.isFocused
-                            ? "0 0 0 1px #3b82f6"
-                            : "none", // Dark mode shadow
-                          "&:hover": {
-                            borderColor: "#3b82f6", // Dark mode hover border
-                          },
-                        },
-                      }),
-                      menu: (provided, state) => ({
-                        ...provided,
-                        backgroundColor: state.selectProps.menuIsOpen
-                          ? "#ffffff"
-                          : "#f9fafb", // Light mode menu background
-                        "&.dark": {
-                          backgroundColor: state.selectProps.menuIsOpen
-                            ? "#374151"
-                            : "#1f2937", // Dark mode menu background
-                        },
-                      }),
-                      multiValue: (provided, state) => ({
-                        ...provided,
-                        backgroundColor: "#e5e7eb", // Light mode multi-value background
-                        "&.dark": {
-                          backgroundColor: "#4b5563", // Dark mode multi-value background
-                        },
-                      }),
-                      multiValueLabel: (provided, state) => ({
-                        ...provided,
-                        color: "#1f2937", // Light mode multi-value label color
-                        "&.dark": {
-                          color: "#d1d5db", // Dark mode multi-value label color
-                        },
-                      }),
-                      multiValueRemove: (provided, state) => ({
-                        ...provided,
-                        color: "#1f2937", // Light mode multi-value remove color
-                        "&:hover": {
-                          backgroundColor: "#d1d5db", // Light mode multi-value remove hover background
-                          color: "#111827", // Light mode multi-value remove hover color
-                        },
-                        "&.dark": {
-                          color: "#d1d5db", // Dark mode multi-value remove color
-                          "&:hover": {
-                            backgroundColor: "#6b7280", // Dark mode multi-value remove hover background
-                            color: "#f9fafb", // Dark mode multi-value remove hover color
-                          },
-                        },
-                      }),
-                    }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Staff
-                  </label>
-                  <div className="block w-full mt-1 border border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2 dark:bg-gray-700 dark:border-gray-600">
-                    {employees.map((employee) => (
-                      <div key={employee.id} className="flex items-center">
-                        <input
-                          type="checkbox"
-                          id={`employee-${employee.id}`}
-                          checked={currentEvent?.extendedProps?.staff.includes(
-                            employee.id
-                          )}
-                          onChange={() => handleStaffChange(employee.id)}
-                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:bg-gray-600 dark:border-gray-500"
-                        />
-                        <label
-                          htmlFor={`employee-${employee.id}`}
-                          className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300"
-                        >
-                          {employee.name}
-                        </label>
+                    {!currentEvent?.extendedProps?.notificationSent &&
+                      currentEvent?.extendedProps?.meetLink && (
+                        <div className="text-sm text-white/70 dark:text-slate-400 bg-white/5 dark:bg-slate-700/20 backdrop-blur-sm px-4 py-3 rounded-2xl border border-white/10">
+                          Meeting link will be sent to contacts when you save
+                        </div>
+                      )}
+                    {currentEvent?.extendedProps?.notificationSent && (
+                      <div className="text-sm text-green-400 bg-green-500/10 backdrop-blur-sm px-4 py-3 rounded-2xl border border-green-400/20">
+                        Meeting link has been sent to contacts
                       </div>
-                    ))}
+                    )}
                   </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Contacts
-                  </label>
-                  <Select
-                    options={contacts
-                      // Remove duplicates and sort alphabetically, filter out invalid contacts
-                      .filter(
-                        (contact, index, self) =>
-                          contact?.id &&
-                          index ===
-                            self.findIndex((c) => c.id === contact.id) &&
-                          (contact?.name ||
-                            contact?.firstName ||
-                            contact?.lastName)
-                      )
-                      .sort((a, b) => {
-                        const nameA =
-                          a.name ||
-                          `${a.firstName || ""} ${a.lastName || ""}`.trim() ||
-                          "Unnamed Contact";
-                        const nameB =
-                          b.name ||
-                          `${b.firstName || ""} ${b.lastName || ""}`.trim() ||
-                          "Unnamed Contact";
-                        return nameA.localeCompare(nameB);
-                      })
-                      .map((contact) => ({
-                        value: contact.id,
-                        label:
-                          contact.name ||
-                          `${contact.firstName || ""} ${
-                            contact.lastName || ""
-                          }`.trim() ||
-                          "Unnamed Contact",
-                      }))}
-                    value={
-                      selectedContact
-                        ? {
-                            value: selectedContact.id,
-                            label:
-                              selectedContact.name ||
-                              `${selectedContact.firstName || ""} ${
-                                selectedContact.lastName || ""
-                              }`.trim() ||
-                              "Unnamed Contact",
-                          }
-                        : null
-                    }
-                    onChange={handleContactChange}
-                    className="react-select-container"
-                    classNamePrefix="react-select"
-                    styles={{
-                      control: (base) => ({
-                        ...base,
-                        minHeight: "42px",
-                        borderColor: "rgb(209 213 219)",
-                        backgroundColor: "white",
-                        "&:hover": {
-                          borderColor: "rgb(107 114 128)",
-                        },
-                      }),
-                      option: (base, state) => ({
-                        ...base,
-                        backgroundColor: state.isSelected
-                          ? "#1e40af"
-                          : state.isFocused
-                          ? "#e5e7eb"
-                          : "white",
-                        color: state.isSelected ? "white" : "black",
-                        "&:active": {
-                          backgroundColor: "#1e40af",
-                        },
-                      }),
-                    }}
-                    placeholder="Select contact..."
-                    isClearable
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Additional Details
-                  </label>
-                  <textarea
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={currentEvent?.extendedProps?.details || ""}
-                    onChange={(e) =>
-                      setCurrentEvent({
-                        ...currentEvent,
-                        extendedProps: {
-                          ...currentEvent.extendedProps,
-                          details: e.target.value,
-                        },
-                      })
-                    }
-                    rows={4}
-                    placeholder="Add any additional details about the appointment..."
-                  />
-                </div>
-                {/* <div className="mt-6 border-t pt-6">
-                  <h3 className="text-lg font-medium mb-4 dark:text-white">Reminder Settings</h3>
-                  
-                  {selectedContact ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          id="enable-reminders"
-                          checked={currentEvent?.reminders?.enabled ?? true}
-                          onChange={(e) => {
-                            const defaultOptions = [
-                              { type: '24h', enabled: true, message: "Your appointment is tomorrow" },
-                              { type: '3h', enabled: true, message: "Your appointment is in 3 hours" },
-                              { type: '1h', enabled: true, message: "Your appointment is in 1 hour" },
-                              { type: 'after', enabled: true, message: "Thank you for your visit today" }
-                            ];
 
-                            setCurrentEvent((prev: any) => ({
-                              ...prev,
-                              reminders: {
-                                enabled: e.target.checked,
-                                options: prev?.reminders?.options || defaultOptions
-                              }
-                            }));
-                          }}
-                          className="mr-2"
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Staff */}
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-3">
+                        <Lucide
+                          icon="Users"
+                          className="w-5 h-5 text-indigo-400"
                         />
-                        <label htmlFor="enable-reminders" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Enable appointment reminders
+                        <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                          Staff
                         </label>
                       </div>
-
-                      {currentEvent?.reminders?.enabled && (
-                        <div className="space-y-4 pl-6">
-                          {[
-                            { type: '24h', label: '24 Hour Reminder', defaultMessage: "Your appointment is tomorrow" },
-                            { type: '3h', label: '3 Hour Reminder', defaultMessage: "Your appointment is in 3 hours" },
-                            { type: '1h', label: '1 Hour Reminder', defaultMessage: "Your appointment is in 1 hour" },
-                            { type: 'after', label: 'Post-Appointment Message (1 hour after)', defaultMessage: "Thank you for your visit today" }
-                          ].map(({ type, label, defaultMessage }) => (
-                            <div key={type} className="space-y-2">
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id={`${type}-reminder`}
-                                  checked={currentEvent?.reminders?.options?.find((o: any) => o.type === type)?.enabled ?? true}
-                                  onChange={(e) => {
-                                    setCurrentEvent((prev: any) => {
-                                      const options = [...(prev?.reminders?.options || [])];
-                                      const index = options.findIndex(o => o.type === type);
-                                      
-                                      if (index >= 0) {
-                                        options[index] = { ...options[index], enabled: e.target.checked };
-                                      } else {
-                                        options.push({ type, enabled: e.target.checked, message: defaultMessage });
-                                      }
-
-                                      return {
-                                        ...prev,
-                                        reminders: {
-                                          ...prev?.reminders,
-                                          options
-                                        }
-                                      };
-                                    });
-                                  }}
-                                  className="mr-2"
-                                />
-                                <label htmlFor={`${type}-reminder`} className="text-sm text-gray-700 dark:text-gray-300">
-                                  {label}
-                                </label>
-                              </div>
-                              {currentEvent?.reminders?.options?.find((o: any) => o.type === type)?.enabled && (
-                                <textarea
-                                  value={currentEvent?.reminders?.options?.find((o: any) => o.type === type)?.message || defaultMessage}
-                                  onChange={(e) => {
-                                    setCurrentEvent((prev: any) => {
-                                      const options = [...(prev?.reminders?.options || [])];
-                                      const index = options.findIndex(o => o.type === type);
-                                      
-                                      if (index >= 0) {
-                                        options[index] = { ...options[index], message: e.target.value };
-                                      } else {
-                                        options.push({ type, enabled: true, message: e.target.value });
-                                      }
-
-                                      return {
-                                        ...prev,
-                                        reminders: {
-                                          ...prev?.reminders,
-                                          options
-                                        }
-                                      };
-                                    });
-                                  }}
-                                  className="w-full mt-1 text-sm rounded-md border p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                  rows={2}
-                                  placeholder={`Enter ${label.toLowerCase()} message...`}
-                                />
-                              )}
+                      <div className="relative">
+                        <div className="bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl p-4 space-y-3 shadow-inner">
+                          {employees.map((employee) => (
+                            <div
+                              key={employee.id}
+                              className="flex items-center space-x-3 group"
+                            >
+                              <input
+                                type="checkbox"
+                                id={`employee-${employee.id}`}
+                                checked={currentEvent?.extendedProps?.staff.includes(
+                                  employee.id
+                                )}
+                                onChange={() => handleStaffChange(employee.id)}
+                                className="w-4 h-4 text-indigo-600 bg-white/10 border-white/30 rounded focus:ring-indigo-500/20 dark:focus:ring-indigo-400/20 dark:ring-offset-gray-800 focus:ring-2 dark:bg-slate-700/30 dark:border-slate-600/30"
+                              />
+                              <label
+                                htmlFor={`employee-${employee.id}`}
+                                className="text-sm font-medium text-white/80 dark:text-slate-300 cursor-pointer group-hover:text-white transition-colors duration-200"
+                              >
+                                {employee.name}
+                              </label>
                             </div>
                           ))}
                         </div>
-                      )}
+                      </div>
                     </div>
-                  ) : (
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      Select contacts to enable reminder settings
+
+                    {/* Tags */}
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-3">
+                        <Lucide icon="Hash" className="w-5 h-5 text-cyan-400" />
+                        <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                          Tags
+                        </label>
+                      </div>
+                      <Select
+                        isMulti
+                        options={appointmentTags.map((tag: any) => ({
+                          value: tag.id,
+                          label: tag.name,
+                        }))}
+                        value={
+                          currentEvent?.extendedProps?.tags?.map(
+                            (tag: any) => ({
+                              value: tag.id,
+                              label: tag.name,
+                            })
+                          ) || []
+                        }
+                        onChange={handleTagChange}
+                        className="capitalize"
+                        styles={{
+                          control: (provided, state) => ({
+                            ...provided,
+                            backgroundColor: "rgba(30, 41, 59, 0.8)",
+                            backdropFilter: "blur(16px)",
+                            borderColor: state.isFocused
+                              ? "rgba(34, 211, 238, 0.6)"
+                              : "rgba(255, 255, 255, 0.3)",
+                            borderRadius: "16px",
+                            borderWidth: "1px",
+                            boxShadow: state.isFocused
+                              ? "0 0 0 2px rgba(34, 211, 238, 0.3)"
+                              : "none",
+                            minHeight: "56px",
+                            padding: "4px 8px",
+                            transition: "all 0.2s ease",
+                            "&:hover": {
+                              borderColor: "rgba(34, 211, 238, 0.6)",
+                              backgroundColor: "rgba(30, 41, 59, 0.9)",
+                            },
+                          }),
+                          placeholder: (provided) => ({
+                            ...provided,
+                            color: "rgba(248, 250, 252, 0.6)",
+                          }),
+                          input: (provided) => ({
+                            ...provided,
+                            color: "rgb(248, 250, 252)",
+                          }),
+                          menu: (provided) => ({
+                            ...provided,
+                            backgroundColor: "rgba(15, 23, 42, 0.95)",
+                            backdropFilter: "blur(20px)",
+                            borderRadius: "16px",
+                            border: "1px solid rgba(255, 255, 255, 0.2)",
+                            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.7)",
+                            zIndex: 9999,
+                          }),
+                          option: (provided, state) => ({
+                            ...provided,
+                            backgroundColor: state.isSelected
+                              ? "rgba(34, 211, 238, 0.9)"
+                              : state.isFocused
+                              ? "rgba(34, 211, 238, 0.2)"
+                              : "transparent",
+                            color: state.isSelected
+                              ? "white"
+                              : "rgb(248, 250, 252)",
+                            padding: "12px 16px",
+                            fontWeight: state.isSelected ? "600" : "500",
+                            "&:active": {
+                              backgroundColor: "rgba(34, 211, 238, 0.7)",
+                            },
+                          }),
+                          multiValue: (provided) => ({
+                            ...provided,
+                            backgroundColor: "rgba(34, 211, 238, 0.3)",
+                            borderRadius: "8px",
+                            border: "1px solid rgba(34, 211, 238, 0.4)",
+                          }),
+                          multiValueLabel: (provided) => ({
+                            ...provided,
+                            color: "rgb(248, 250, 252)",
+                            fontWeight: "600",
+                          }),
+                          multiValueRemove: (provided) => ({
+                            ...provided,
+                            color: "rgb(248, 250, 252)",
+                            "&:hover": {
+                              backgroundColor: "rgba(239, 68, 68, 0.3)",
+                              color: "#fef2f2",
+                            },
+                          }),
+                          indicatorSeparator: () => ({
+                            display: "none",
+                          }),
+                          dropdownIndicator: (provided) => ({
+                            ...provided,
+                            color: "rgba(248, 250, 252, 0.6)",
+                            "&:hover": {
+                              color: "rgb(248, 250, 252)",
+                            },
+                          }),
+                          clearIndicator: (provided) => ({
+                            ...provided,
+                            color: "rgba(248, 250, 252, 0.6)",
+                            "&:hover": {
+                              color: "rgb(248, 250, 252)",
+                            },
+                          }),
+                        }}
+                      />
                     </div>
-                  )}
-                </div> */}
-              </div>
-              <div className="flex justify-end mt-6 space-x-2">
-                {currentEvent?.id && (
-                  <button
-                    className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600"
-                    onClick={() => {
-                      handleDeleteAppointment(currentEvent.id);
-                      setEditModalOpen(false);
-                    }}
-                  >
-                    Delete
-                  </button>
-                )}
-                <button
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500"
-                  onClick={() => setEditModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                {initialAppointmentStatus !== "showed" &&
-                  initialAppointmentStatus !== "noshow" && (
-                    <button
-                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
-                      onClick={handleSaveAppointment}
+                  </div>
+
+                  {/* Contacts */}
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-3">
+                      <Lucide
+                        icon="Contact"
+                        className="w-5 h-5 text-rose-400"
+                      />
+                      <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                        Contacts
+                      </label>
+                    </div>
+                    <Select
+                      options={contacts
+                        // Remove duplicates and sort alphabetically, filter out invalid contacts
+                        .filter(
+                          (contact, index, self) =>
+                            contact?.id &&
+                            index ===
+                              self.findIndex((c) => c.id === contact.id) &&
+                            (contact?.name ||
+                              contact?.firstName ||
+                              contact?.lastName)
+                        )
+                        .sort((a, b) => {
+                          const nameA =
+                            a.name ||
+                            `${a.firstName || ""} ${a.lastName || ""}`.trim() ||
+                            "Unnamed Contact";
+                          const nameB =
+                            b.name ||
+                            `${b.firstName || ""} ${b.lastName || ""}`.trim() ||
+                            "Unnamed Contact";
+                          return nameA.localeCompare(nameB);
+                        })
+                        .map((contact) => ({
+                          value: contact.id,
+                          label:
+                            contact.name ||
+                            `${contact.firstName || ""} ${
+                              contact.lastName || ""
+                            }`.trim() ||
+                            "Unnamed Contact",
+                        }))}
+                      value={
+                        selectedContact
+                          ? {
+                              value: selectedContact.id,
+                              label:
+                                selectedContact.name ||
+                                `${selectedContact.firstName || ""} ${
+                                  selectedContact.lastName || ""
+                                }`.trim() ||
+                                "Unnamed Contact",
+                            }
+                          : null
+                      }
+                      onChange={handleContactChange}
+                      className="react-select-container"
+                      classNamePrefix="react-select"
+                      styles={{
+                        control: (provided, state) => ({
+                          ...provided,
+                          backgroundColor: "rgba(30, 41, 59, 0.8)",
+                          backdropFilter: "blur(16px)",
+                          borderColor: state.isFocused
+                            ? "rgba(244, 63, 94, 0.6)"
+                            : "rgba(255, 255, 255, 0.3)",
+                          borderRadius: "16px",
+                          borderWidth: "1px",
+                          boxShadow: state.isFocused
+                            ? "0 0 0 2px rgba(244, 63, 94, 0.3)"
+                            : "none",
+                          minHeight: "56px",
+                          padding: "4px 8px",
+                          transition: "all 0.2s ease",
+                          "&:hover": {
+                            borderColor: "rgba(244, 63, 94, 0.6)",
+                            backgroundColor: "rgba(30, 41, 59, 0.9)",
+                          },
+                        }),
+                        singleValue: (provided) => ({
+                          ...provided,
+                          color: "rgb(248, 250, 252)",
+                          fontWeight: "500",
+                        }),
+                        placeholder: (provided) => ({
+                          ...provided,
+                          color: "rgba(248, 250, 252, 0.6)",
+                        }),
+                        input: (provided) => ({
+                          ...provided,
+                          color: "rgb(248, 250, 252)",
+                        }),
+                        menu: (provided) => ({
+                          ...provided,
+                          backgroundColor: "rgba(15, 23, 42, 0.95)",
+                          backdropFilter: "blur(20px)",
+                          borderRadius: "16px",
+                          border: "1px solid rgba(255, 255, 255, 0.2)",
+                          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.7)",
+                          zIndex: 9999,
+                        }),
+                        option: (provided, state) => ({
+                          ...provided,
+                          backgroundColor: state.isSelected
+                            ? "rgba(244, 63, 94, 0.9)"
+                            : state.isFocused
+                            ? "rgba(244, 63, 94, 0.2)"
+                            : "transparent",
+                          color: state.isSelected
+                            ? "white"
+                            : "rgb(248, 250, 252)",
+                          padding: "12px 16px",
+                          fontWeight: state.isSelected ? "600" : "500",
+                          "&:active": {
+                            backgroundColor: "rgba(244, 63, 94, 0.7)",
+                          },
+                        }),
+                        indicatorSeparator: () => ({
+                          display: "none",
+                        }),
+                        dropdownIndicator: (provided) => ({
+                          ...provided,
+                          color: "rgba(248, 250, 252, 0.6)",
+                          "&:hover": {
+                            color: "rgb(248, 250, 252)",
+                          },
+                        }),
+                        clearIndicator: (provided) => ({
+                          ...provided,
+                          color: "rgba(248, 250, 252, 0.6)",
+                          "&:hover": {
+                            color: "rgb(248, 250, 252)",
+                          },
+                        }),
+                      }}
+                      placeholder="Select contact..."
+                      isClearable
+                    />
+                  </div>
+
+                  {/* Additional Details */}
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-3">
+                      <Lucide
+                        icon="FileText"
+                        className="w-5 h-5 text-teal-400"
+                      />
+                      <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                        Additional Details
+                      </label>
+                    </div>
+                    <div className="relative group">
+                      <textarea
+                        className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-teal-400/50 focus:ring-2 focus:ring-teal-400/20 transition-all duration-200 resize-none shadow-inner"
+                        value={currentEvent?.extendedProps?.details || ""}
+                        onChange={(e) =>
+                          setCurrentEvent({
+                            ...currentEvent,
+                            extendedProps: {
+                              ...currentEvent.extendedProps,
+                              details: e.target.value,
+                            },
+                          })
+                        }
+                        rows={4}
+                        placeholder="Add any additional details about the appointment..."
+                      />
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-teal-500/5 to-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center mt-10 pt-6 border-t border-white/10 dark:border-slate-700/20">
+                  <div className="flex space-x-3">
+                    {currentEvent?.id && (
+                      <Button
+                        variant="outline-secondary"
+                        onClick={() => {
+                          handleDeleteAppointment(currentEvent.id);
+                          setEditModalOpen(false);
+                        }}
+                        className="px-6 py-3 bg-red-500/10 hover:bg-red-500/20 backdrop-blur-sm border border-red-400/20 text-red-400 hover:text-red-300 rounded-2xl transition-all duration-200 font-medium"
+                      >
+                        <Lucide icon="Trash2" className="w-4 h-4 mr-2" />
+                        Delete
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline-secondary"
+                      onClick={() => setEditModalOpen(false)}
+                      className="px-6 py-3 bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 backdrop-blur-sm border border-white/20 dark:border-slate-600/20 text-white/90 hover:text-white rounded-2xl transition-all duration-200 font-medium"
                     >
-                      Save
-                    </button>
-                  )}
+                      Cancel
+                    </Button>
+                    {initialAppointmentStatus !== "showed" &&
+                      initialAppointmentStatus !== "noshow" && (
+                        <Button
+                          variant="primary"
+                          onClick={handleSaveAppointment}
+                          className="px-8 py-3 bg-gradient-to-r from-blue-500 via-violet-500 to-purple-500 hover:from-blue-600 hover:via-violet-600 hover:to-purple-600 border-0 text-white rounded-2xl transition-all duration-200 font-semibold shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transform hover:scale-105"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <Lucide icon="Save" className="w-4 h-4" />
+                            <span>Save Changes</span>
+                          </div>
+                        </Button>
+                      )}
+                  </div>
+                </div>
               </div>
             </Dialog.Panel>
           </div>
@@ -5401,303 +6096,616 @@ Bagi tujuan menambahbaik 😊 perkidmatan, kami ingin bertanya adakah cik perpua
       {/* Add Modal */}
       {addModalOpen && (
         <Dialog open={addModalOpen} onClose={() => setAddModalOpen(false)}>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-            <Dialog.Panel className="w-full max-w-md p-6 bg-white rounded-md mt-10 dark:bg-gray-800">
-              <div className="flex items-center p-4 border-b dark:border-gray-700">
-                <div className="block w-12 h-12 overflow-hidden rounded-full shadow-lg bg-gray-700 flex items-center justify-center text-white mr-4">
-                  <Lucide icon="User" className="w-6 h-6" />
-                </div>
-                <div>
-                  <span className="text-xl dark:text-white">
-                    Add New Appointment
-                  </span>
-                </div>
-              </div>
-              <div className="mt-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Title
-                  </label>
-                  <input
-                    type="text"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={currentEvent?.title || ""}
-                    onChange={(e) =>
-                      setCurrentEvent({
-                        ...currentEvent,
-                        title: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Address
-                  </label>
-                  <input
-                    type="text"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={currentEvent?.extendedProps?.address || ""}
-                    onChange={(e) =>
-                      setCurrentEvent({
-                        ...currentEvent,
-                        extendedProps: {
-                          ...currentEvent.extendedProps,
-                          address: e.target.value,
-                        },
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={currentEvent?.dateStr || ""}
-                    onChange={handleDateChange}
-                  />
-                </div>
-                <div>
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <label className="block text-xs text-gray-500 dark:text-gray-400">
-                        Start Time
-                      </label>
-                      <input
-                        type="time"
-                        className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        value={currentEvent?.startTimeStr || ""}
-                        onChange={(e) => {
-                          const startTime = e.target.value;
-                          setCurrentEvent((prev: { endTimeStr: any }) => ({
-                            ...prev,
-                            startTimeStr: startTime,
-                            // Automatically set end time to 1 hour after start time if not set
-                            endTimeStr:
-                              prev?.endTimeStr ||
-                              format(
-                                addHours(
-                                  parse(startTime, "HH:mm", new Date()),
-                                  1
-                                ),
-                                "HH:mm"
-                              ),
-                          }));
-                        }}
+          <div className="fixed inset-0 flex items-center justify-center p-4 bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80 backdrop-blur-xl">
+            <Dialog.Panel className="w-full max-w-4xl relative bg-white/10 dark:bg-slate-800/10 backdrop-blur-3xl rounded-3xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden overflow-y-auto transform hover:scale-[1.005] transition-all duration-300">
+              {/* Enhanced Gradient Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-400/10 via-violet-500/5 to-purple-500/10 dark:from-blue-600/10 dark:via-violet-700/5 dark:to-purple-600/10 pointer-events-none" />
+
+              <div className="relative p-8">
+                <div className="flex items-center justify-between pb-6 border-b border-white/10 dark:border-slate-700/20">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500/20 to-violet-600/20 dark:from-blue-600/20 dark:to-violet-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 flex items-center justify-center shadow-lg">
+                      <Lucide
+                        icon="Plus"
+                        className="w-7 h-7 text-blue-400 dark:text-blue-300"
                       />
                     </div>
-
-                    <div className="flex-1">
-                      <label className="block text-xs text-gray-500 dark:text-gray-400">
-                        End Time
-                      </label>
-                      <input
-                        type="time"
-                        className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        value={currentEvent?.endTimeStr || ""}
-                        min={currentEvent?.startTimeStr || "00:00"}
-                        onChange={(e) => {
-                          const endTime = e.target.value;
-                          if (
-                            endTime <= (currentEvent?.startTimeStr || "00:00")
-                          ) {
-                            // If end time is before or equal to start time, set it to 1 hour after start time
-                            const newEndTime = format(
-                              addHours(
-                                parse(
-                                  currentEvent?.startTimeStr || "00:00",
-                                  "HH:mm",
-                                  new Date()
-                                ),
-                                1
-                              ),
-                              "HH:mm"
-                            );
-                            setCurrentEvent((prev: any) => ({
-                              ...prev,
-                              endTimeStr: newEndTime,
-                            }));
-                          } else {
-                            setCurrentEvent((prev: any) => ({
-                              ...prev,
-                              endTimeStr: endTime,
-                            }));
-                          }
-                        }}
-                      />
+                    <div>
+                      <h3 className="text-2xl font-bold text-white/90 dark:text-slate-200">
+                        Add New Appointment
+                      </h3>
+                      <p className="text-sm text-white/60 dark:text-slate-400 mt-1">
+                        Create a new appointment with modern scheduling
+                      </p>
                     </div>
                   </div>
+                  <button
+                    onClick={() => setAddModalOpen(false)}
+                    className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 text-slate-400 hover:text-white dark:hover:text-slate-200 transition-all duration-200 flex items-center justify-center backdrop-blur-sm border border-white/10"
+                  >
+                    <Lucide icon="X" className="w-4 h-4" />
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Staff
-                  </label>
-                  <div className="block w-full mt-1 border border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 p-2 dark:bg-gray-700 dark:border-gray-600">
-                    {employees.map((employee) => (
-                      <div key={employee.id} className="flex items-center">
-                        <input
-                          type="checkbox"
-                          id={`employee-${employee.id}`}
-                          checked={selectedEmployeeIds.includes(employee.id)}
-                          onChange={() =>
-                            handleStaffChangeAddModal(employee.id)
-                          }
-                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:bg-gray-600 dark:border-gray-500"
-                        />
-                        <label
-                          htmlFor={`employee-${employee.id}`}
-                          className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300"
-                        >
-                          {employee.name}
+                <div className="mt-8 space-y-8">
+                  <div className="grid grid-cols-1 gap-6">
+                    {/* Title Input */}
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3">
+                        <Lucide icon="Type" className="w-5 h-5 text-blue-400" />
+                        <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                          Title
                         </label>
                       </div>
-                    ))}
+                      <div className="relative group">
+                        <input
+                          type="text"
+                          className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-blue-400/50 focus:ring-2 focus:ring-blue-400/20 transition-all duration-200 shadow-inner"
+                          value={currentEvent?.title || ""}
+                          onChange={(e) =>
+                            setCurrentEvent({
+                              ...currentEvent,
+                              title: e.target.value,
+                            })
+                          }
+                          placeholder="Enter appointment title"
+                        />
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-violet-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    {/* Address Input */}
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3">
+                        <Lucide
+                          icon="MapPin"
+                          className="w-5 h-5 text-emerald-400"
+                        />
+                        <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                          Address
+                        </label>
+                      </div>
+                      <div className="relative group">
+                        <input
+                          type="text"
+                          className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-200 shadow-inner"
+                          value={currentEvent?.extendedProps?.address || ""}
+                          onChange={(e) =>
+                            setCurrentEvent({
+                              ...currentEvent,
+                              extendedProps: {
+                                ...currentEvent.extendedProps,
+                                address: e.target.value,
+                              },
+                            })
+                          }
+                          placeholder="Enter appointment address"
+                        />
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-emerald-500/5 to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    {/* Date Input */}
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3">
+                        <Lucide
+                          icon="Calendar"
+                          className="w-5 h-5 text-violet-400"
+                        />
+                        <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                          Date
+                        </label>
+                      </div>
+                      <div className="relative group">
+                        <input
+                          type="date"
+                          className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 focus:border-violet-400/50 focus:ring-2 focus:ring-violet-400/20 transition-all duration-200 shadow-inner"
+                          value={currentEvent?.dateStr || ""}
+                          onChange={handleDateChange}
+                        />
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-violet-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    {/* Time Selection */}
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3">
+                        <Lucide
+                          icon="Clock"
+                          className="w-5 h-5 text-orange-400"
+                        />
+                        <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                          Time
+                        </label>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="relative group">
+                          <label className="block text-xs text-white/70 dark:text-slate-400 mb-1 font-medium">
+                            Start Time
+                          </label>
+                          <input
+                            type="time"
+                            className="w-full px-4 py-3 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 focus:border-orange-400/50 focus:ring-2 focus:ring-orange-400/20 transition-all duration-200 shadow-inner"
+                            value={currentEvent?.startTimeStr || ""}
+                            onChange={(e) => {
+                              const startTime = e.target.value;
+                              setCurrentEvent((prev: { endTimeStr: any }) => ({
+                                ...prev,
+                                startTimeStr: startTime,
+                                // Automatically set end time to 1 hour after start time if not set
+                                endTimeStr:
+                                  prev?.endTimeStr ||
+                                  format(
+                                    addHours(
+                                      parse(startTime, "HH:mm", new Date()),
+                                      1
+                                    ),
+                                    "HH:mm"
+                                  ),
+                              }));
+                            }}
+                          />
+                          <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-500/5 to-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                        </div>
+
+                        <div className="relative group">
+                          <label className="block text-xs text-white/70 dark:text-slate-400 mb-1 font-medium">
+                            End Time
+                          </label>
+                          <input
+                            type="time"
+                            className="w-full px-4 py-3 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 focus:border-orange-400/50 focus:ring-2 focus:ring-orange-400/20 transition-all duration-200 shadow-inner"
+                            value={currentEvent?.endTimeStr || ""}
+                            min={currentEvent?.startTimeStr || "00:00"}
+                            onChange={(e) => {
+                              const endTime = e.target.value;
+                              if (
+                                endTime <=
+                                (currentEvent?.startTimeStr || "00:00")
+                              ) {
+                                // If end time is before or equal to start time, set it to 1 hour after start time
+                                const newEndTime = format(
+                                  addHours(
+                                    parse(
+                                      currentEvent?.startTimeStr || "00:00",
+                                      "HH:mm",
+                                      new Date()
+                                    ),
+                                    1
+                                  ),
+                                  "HH:mm"
+                                );
+                                setCurrentEvent((prev: any) => ({
+                                  ...prev,
+                                  endTimeStr: newEndTime,
+                                }));
+                              } else {
+                                setCurrentEvent((prev: any) => ({
+                                  ...prev,
+                                  endTimeStr: endTime,
+                                }));
+                              }
+                            }}
+                          />
+                          <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-500/5 to-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Appointment Status */}
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-3">
+                        <Lucide
+                          icon="Activity"
+                          className="w-5 h-5 text-yellow-400"
+                        />
+                        <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                          Status
+                        </label>
+                      </div>
+                      <div className="relative group">
+                        <select
+                          className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 focus:border-yellow-400/50 focus:ring-2 focus:ring-yellow-400/20 transition-all duration-200 shadow-inner appearance-none cursor-pointer"
+                          style={{
+                            colorScheme: "dark",
+                          }}
+                          value={
+                            currentEvent?.extendedProps?.appointmentStatus || ""
+                          }
+                          onChange={(e) =>
+                            setCurrentEvent({
+                              ...currentEvent,
+                              extendedProps: {
+                                ...currentEvent.extendedProps,
+                                appointmentStatus: e.target.value,
+                              },
+                            })
+                          }
+                        >
+                          <option value="" disabled style={{ backgroundColor: "rgba(15, 23, 42, 0.95)", color: "rgba(248, 250, 252, 0.6)" }}>
+                            Set a status
+                          </option>
+                          <option value="new" style={{ backgroundColor: "rgba(15, 23, 42, 0.95)", color: "rgb(248, 250, 252)" }}>New</option>
+                          <option value="confirmed" style={{ backgroundColor: "rgba(15, 23, 42, 0.95)", color: "rgb(248, 250, 252)" }}>Confirmed</option>
+                          <option value="cancelled" style={{ backgroundColor: "rgba(15, 23, 42, 0.95)", color: "rgb(248, 250, 252)" }}>Cancelled</option>
+                          <option value="showed" style={{ backgroundColor: "rgba(15, 23, 42, 0.95)", color: "rgb(248, 250, 252)" }}>Showed</option>
+                          <option value="noshow" style={{ backgroundColor: "rgba(15, 23, 42, 0.95)", color: "rgb(248, 250, 252)" }}>No Show</option>
+                          <option value="rescheduled" style={{ backgroundColor: "rgba(15, 23, 42, 0.95)", color: "rgb(248, 250, 252)" }}>Rescheduled</option>
+                          <option value="lost" style={{ backgroundColor: "rgba(15, 23, 42, 0.95)", color: "rgb(248, 250, 252)" }}>Lost</option>
+                          <option value="closed" style={{ backgroundColor: "rgba(15, 23, 42, 0.95)", color: "rgb(248, 250, 252)" }}>Closed</option>
+                        </select>
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-yellow-500/5 to-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    {/* Appointment Type */}
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-3">
+                        <Lucide
+                          icon="Briefcase"
+                          className="w-5 h-5 text-purple-400"
+                        />
+                        <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                          Type
+                        </label>
+                      </div>
+                      <div className="relative group">
+                        <select
+                          className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 focus:border-purple-400/50 focus:ring-2 focus:ring-purple-400/20 transition-all duration-200 shadow-inner appearance-none cursor-pointer"
+                          style={{
+                            colorScheme: "dark",
+                          }}
+                          value={
+                            currentEvent?.extendedProps?.appointmentType ||
+                            "general"
+                          }
+                          onChange={(e) =>
+                            setCurrentEvent({
+                              ...currentEvent,
+                              extendedProps: {
+                                ...currentEvent.extendedProps,
+                                appointmentType: e.target.value,
+                              },
+                            })
+                          }
+                        >
+                          <option value="general" style={{ backgroundColor: "rgba(15, 23, 42, 0.95)", color: "rgb(248, 250, 252)" }}>General</option>
+                          <option value="consultation" style={{ backgroundColor: "rgba(15, 23, 42, 0.95)", color: "rgb(248, 250, 252)" }}>Consultation</option>
+                          <option value="service" style={{ backgroundColor: "rgba(15, 23, 42, 0.95)", color: "rgb(248, 250, 252)" }}>Service</option>
+                          <option value="installation" style={{ backgroundColor: "rgba(15, 23, 42, 0.95)", color: "rgb(248, 250, 252)" }}>Installation</option>
+                          <option value="maintenance" style={{ backgroundColor: "rgba(15, 23, 42, 0.95)", color: "rgb(248, 250, 252)" }}>Maintenance</option>
+                          <option value="repair" style={{ backgroundColor: "rgba(15, 23, 42, 0.95)", color: "rgb(248, 250, 252)" }}>Repair</option>
+                          <option value="follow-up" style={{ backgroundColor: "rgba(15, 23, 42, 0.95)", color: "rgb(248, 250, 252)" }}>Follow-up</option>
+                          <option value="emergency" style={{ backgroundColor: "rgba(15, 23, 42, 0.95)", color: "rgb(248, 250, 252)" }}>Emergency</option>
+                        </select>
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-500/5 to-violet-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Staff Section */}
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-3">
+                        <Lucide
+                          icon="Users"
+                          className="w-5 h-5 text-indigo-400"
+                        />
+                        <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                          Staff
+                        </label>
+                      </div>
+                      <div className="relative">
+                        <div className="bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl p-4 space-y-3 shadow-inner">
+                          {employees.map((employee) => (
+                            <div
+                              key={employee.id}
+                              className="flex items-center space-x-3 group"
+                            >
+                              <input
+                                type="checkbox"
+                                id={`employee-${employee.id}`}
+                                checked={selectedEmployeeIds.includes(
+                                  employee.id
+                                )}
+                                onChange={() =>
+                                  handleStaffChangeAddModal(employee.id)
+                                }
+                                className="w-4 h-4 text-indigo-600 bg-white/10 border-white/30 rounded focus:ring-indigo-500/20 dark:focus:ring-indigo-400/20 dark:ring-offset-gray-800 focus:ring-2 dark:bg-slate-700/30 dark:border-slate-600/30"
+                              />
+                              <label
+                                htmlFor={`employee-${employee.id}`}
+                                className="text-sm font-medium text-white/80 dark:text-slate-300 cursor-pointer group-hover:text-white transition-colors duration-200"
+                              >
+                                {employee.name}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Tags */}
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-3">
+                        <Lucide icon="Tag" className="w-5 h-5 text-cyan-400" />
+                        <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                          Tags
+                        </label>
+                      </div>
+                      <Select
+                        isMulti
+                        options={appointmentTags.map((tag: any) => ({
+                          value: tag.id,
+                          label: tag.name,
+                        }))}
+                        value={
+                          currentEvent?.extendedProps?.tags?.map(
+                            (tag: any) => ({
+                              value: tag.id,
+                              label: tag.name,
+                            })
+                          ) || []
+                        }
+                        onChange={handleTagChange}
+                        className="react-select-container"
+                        classNamePrefix="react-select"
+                        styles={{
+                          control: (provided, state) => ({
+                            ...provided,
+                            backgroundColor: "rgba(30, 41, 59, 0.8)",
+                            backdropFilter: "blur(16px)",
+                            borderColor: state.isFocused
+                              ? "rgba(34, 211, 238, 0.6)"
+                              : "rgba(255, 255, 255, 0.3)",
+                            borderRadius: "16px",
+                            borderWidth: "1px",
+                            boxShadow: state.isFocused
+                              ? "0 0 0 2px rgba(34, 211, 238, 0.3)"
+                              : "none",
+                            minHeight: "56px",
+                            padding: "4px 8px",
+                            transition: "all 0.2s ease",
+                            "&:hover": {
+                              borderColor: "rgba(34, 211, 238, 0.6)",
+                              backgroundColor: "rgba(30, 41, 59, 0.9)",
+                            },
+                          }),
+                          placeholder: (provided) => ({
+                            ...provided,
+                            color: "rgba(248, 250, 252, 0.6)",
+                          }),
+                          input: (provided) => ({
+                            ...provided,
+                            color: "rgb(248, 250, 252)",
+                          }),
+                          menu: (provided) => ({
+                            ...provided,
+                            backgroundColor: "rgba(15, 23, 42, 0.95)",
+                            backdropFilter: "blur(20px)",
+                            borderRadius: "16px",
+                            border: "1px solid rgba(255, 255, 255, 0.2)",
+                            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.7)",
+                            zIndex: 9999,
+                          }),
+                          option: (provided, state) => ({
+                            ...provided,
+                            backgroundColor: state.isSelected
+                              ? "rgba(34, 211, 238, 0.9)"
+                              : state.isFocused
+                              ? "rgba(34, 211, 238, 0.2)"
+                              : "transparent",
+                            color: state.isSelected
+                              ? "white"
+                              : "rgb(248, 250, 252)",
+                            padding: "12px 16px",
+                            fontWeight: state.isSelected ? "600" : "500",
+                            "&:active": {
+                              backgroundColor: "rgba(34, 211, 238, 0.7)",
+                            },
+                          }),
+                          multiValue: (provided) => ({
+                            ...provided,
+                            backgroundColor: "rgba(34, 211, 238, 0.3)",
+                            borderRadius: "8px",
+                            border: "1px solid rgba(34, 211, 238, 0.4)",
+                          }),
+                          multiValueLabel: (provided) => ({
+                            ...provided,
+                            color: "rgb(248, 250, 252)",
+                            fontWeight: "600",
+                          }),
+                          multiValueRemove: (provided) => ({
+                            ...provided,
+                            color: "rgb(248, 250, 252)",
+                            "&:hover": {
+                              backgroundColor: "rgba(239, 68, 68, 0.3)",
+                              color: "#fef2f2",
+                            },
+                          }),
+                          indicatorSeparator: () => ({
+                            display: "none",
+                          }),
+                          dropdownIndicator: (provided) => ({
+                            ...provided,
+                            color: "rgba(248, 250, 252, 0.6)",
+                            "&:hover": {
+                              color: "rgb(248, 250, 252)",
+                            },
+                          }),
+                          clearIndicator: (provided) => ({
+                            ...provided,
+                            color: "rgba(248, 250, 252, 0.6)",
+                            "&:hover": {
+                              color: "rgb(248, 250, 252)",
+                            },
+                          }),
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-3">
+                      <Lucide icon="Users" className="w-5 h-5 text-rose-400" />
+                      <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                        Contact
+                      </label>
+                    </div>
+                    <Select
+                      options={contacts.map((contact) => ({
+                        value: contact.id,
+                        label: contact.name,
+                      }))}
+                      value={
+                        selectedContact
+                          ? {
+                              value: selectedContact.id,
+                              label: selectedContact.name,
+                            }
+                          : null
+                      }
+                      onChange={handleContactChange}
+                      className="react-select-container"
+                      classNamePrefix="react-select"
+                      styles={{
+                        control: (provided, state) => ({
+                          ...provided,
+                          backgroundColor: "rgba(30, 41, 59, 0.8)",
+                          backdropFilter: "blur(16px)",
+                          borderColor: state.isFocused
+                            ? "rgba(244, 63, 94, 0.6)"
+                            : "rgba(255, 255, 255, 0.3)",
+                          borderRadius: "16px",
+                          borderWidth: "1px",
+                          boxShadow: state.isFocused
+                            ? "0 0 0 2px rgba(244, 63, 94, 0.3)"
+                            : "none",
+                          minHeight: "56px",
+                          padding: "4px 8px",
+                          transition: "all 0.2s ease",
+                          "&:hover": {
+                            borderColor: "rgba(244, 63, 94, 0.6)",
+                            backgroundColor: "rgba(30, 41, 59, 0.9)",
+                          },
+                        }),
+                        singleValue: (provided) => ({
+                          ...provided,
+                          color: "rgb(248, 250, 252)",
+                          fontWeight: "500",
+                        }),
+                        placeholder: (provided) => ({
+                          ...provided,
+                          color: "rgba(248, 250, 252, 0.6)",
+                        }),
+                        input: (provided) => ({
+                          ...provided,
+                          color: "rgb(248, 250, 252)",
+                        }),
+                        menu: (provided) => ({
+                          ...provided,
+                          backgroundColor: "rgba(15, 23, 42, 0.95)",
+                          backdropFilter: "blur(20px)",
+                          borderRadius: "16px",
+                          border: "1px solid rgba(255, 255, 255, 0.2)",
+                          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.7)",
+                          zIndex: 9999,
+                        }),
+                        option: (provided, state) => ({
+                          ...provided,
+                          backgroundColor: state.isSelected
+                            ? "rgba(244, 63, 94, 0.9)"
+                            : state.isFocused
+                            ? "rgba(244, 63, 94, 0.2)"
+                            : "transparent",
+                          color: state.isSelected
+                            ? "white"
+                            : "rgb(248, 250, 252)",
+                          padding: "12px 16px",
+                          fontWeight: state.isSelected ? "600" : "500",
+                          "&:active": {
+                            backgroundColor: "rgba(244, 63, 94, 0.7)",
+                          },
+                        }),
+                        indicatorSeparator: () => ({
+                          display: "none",
+                        }),
+                        dropdownIndicator: (provided) => ({
+                          ...provided,
+                          color: "rgba(248, 250, 252, 0.6)",
+                          "&:hover": {
+                            color: "rgb(248, 250, 252)",
+                          },
+                        }),
+                        clearIndicator: (provided) => ({
+                          ...provided,
+                          color: "rgba(248, 250, 252, 0.6)",
+                          "&:hover": {
+                            color: "rgb(248, 250, 252)",
+                          },
+                        }),
+                      }}
+                      placeholder="Select contact..."
+                      isClearable
+                    />
+                  </div>
+
+                  {/* Additional Details */}
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-3">
+                      <Lucide
+                        icon="FileText"
+                        className="w-5 h-5 text-teal-400"
+                      />
+                      <label className="text-lg font-semibold text-white/90 dark:text-slate-200">
+                        Additional Details
+                      </label>
+                    </div>
+                    <div className="relative group">
+                      <textarea
+                        className="w-full px-4 py-4 bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-teal-400/50 focus:ring-2 focus:ring-teal-400/20 transition-all duration-200 resize-none shadow-inner"
+                        value={currentEvent?.extendedProps?.details || ""}
+                        onChange={(e) => {
+                          const newDetails = e.target.value;
+                          setCurrentEvent({
+                            ...currentEvent,
+                            extendedProps: {
+                              ...currentEvent.extendedProps,
+                              details: newDetails,
+                            },
+                          });
+                        }}
+                        rows={4}
+                        placeholder="Add any additional details about the appointment..."
+                      />
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-teal-500/5 to-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Appointment Status
-                  </label>
-                  <select
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={currentEvent?.extendedProps?.appointmentStatus || ""}
-                    onChange={(e) =>
-                      setCurrentEvent({
-                        ...currentEvent,
-                        extendedProps: {
-                          ...currentEvent.extendedProps,
-                          appointmentStatus: e.target.value,
-                        },
-                      })
-                    }
-                  >
-                    <option value="" disabled>
-                      Set a status
-                    </option>
-                    <option value="new">New</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="cancelled">Cancelled</option>
-                    <option value="showed">Showed</option>
-                    <option value="noshow">No Show</option>
-                    <option value="rescheduled">Rescheduled</option>
-                    <option value="lost">Lost</option>
-                    <option value="closed">Closed</option>
-                  </select>
+                <div className="flex justify-between items-center mt-10 pt-6 border-t border-white/10 dark:border-slate-700/20">
+                  <div className="flex space-x-3">
+                    <button
+                      className="px-6 py-3 bg-white/5 hover:bg-white/10 dark:bg-slate-700/20 dark:hover:bg-slate-600/30 backdrop-blur-sm border border-white/20 dark:border-slate-600/20 text-white/90 hover:text-white rounded-2xl transition-all duration-200 font-medium"
+                      onClick={() => {
+                        setAddModalOpen(false);
+                        setSelectedContact(null);
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="px-6 py-3 bg-gradient-to-r from-blue-500/80 to-violet-600/80 hover:from-blue-600/90 hover:to-violet-700/90 text-white font-semibold rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 backdrop-blur-xl border border-white/20"
+                      onClick={handleAddAppointment}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <Lucide icon="Save" className="w-4 h-4" />
+                        <span>Save Appointment</span>
+                      </div>
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Appointment Type
-                  </label>
-                  <select
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    value={
-                      currentEvent?.extendedProps?.appointmentType || "general"
-                    }
-                    onChange={(e) =>
-                      setCurrentEvent({
-                        ...currentEvent,
-                        extendedProps: {
-                          ...currentEvent.extendedProps,
-                          appointmentType: e.target.value,
-                        },
-                      })
-                    }
-                  >
-                    <option value="general">General</option>
-                    <option value="consultation">Consultation</option>
-                    <option value="service">Service</option>
-                    <option value="installation">Installation</option>
-                    <option value="maintenance">Maintenance</option>
-                    <option value="repair">Repair</option>
-                    <option value="follow-up">Follow-up</option>
-                    <option value="emergency">Emergency</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Tags
-                  </label>
-                  <Select
-                    isMulti
-                    options={appointmentTags.map((tag: any) => ({
-                      value: tag.id,
-                      label: tag.name,
-                    }))}
-                    value={
-                      currentEvent?.extendedProps?.tags?.map((tag: any) => ({
-                        value: tag.id,
-                        label: tag.name,
-                      })) || []
-                    }
-                    onChange={handleTagChange}
-                    className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 bg-white text-gray-700 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Contacts
-                  </label>
-                  <Select
-                    options={contacts.map((contact) => ({
-                      value: contact.id,
-                      label: contact.name,
-                    }))}
-                    value={
-                      selectedContact
-                        ? {
-                            value: selectedContact.id,
-                            label: selectedContact.name,
-                          }
-                        : null
-                    }
-                    onChange={handleContactChange}
-                    className="capitalize dark:bg-gray-700 dark:text-white"
-                    placeholder="Select contact..."
-                    isClearable
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mt-2">
-                  Additional Details
-                </label>
-                <textarea
-                  className="block w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  value={currentEvent?.extendedProps?.details || ""}
-                  onChange={(e) => {
-                    const newDetails = e.target.value;
-                    setCurrentEvent({
-                      ...currentEvent,
-                      extendedProps: {
-                        ...currentEvent.extendedProps,
-                        details: newDetails,
-                      },
-                    });
-                  }}
-                  rows={4}
-                  placeholder="Add any additional details about the appointment..."
-                />
-              </div>
-              <div className="flex justify-end mt-6 space-x-2">
-                <button
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500"
-                  onClick={() => {
-                    setAddModalOpen(false);
-                    setSelectedContact(null);
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
-                  onClick={handleAddAppointment}
-                >
-                  Save
-                </button>
               </div>
             </Dialog.Panel>
           </div>
