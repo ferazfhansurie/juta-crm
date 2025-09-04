@@ -1330,6 +1330,7 @@ function Main() {
     null
   );
   const [qrCodes, setQrCodes] = useState<QRCodeData[]>([]);
+  const [phoneStatusLoading, setPhoneStatusLoading] = useState<boolean>(true);
   const [categories, setCategories] = useState<string[]>([]);
   const [quickReplyCategory, setQuickReplyCategory] = useState<string>("all");
   const [contactsState, setContactsState] = useState<ContactsState>({
@@ -2411,6 +2412,7 @@ function Main() {
       console.log("Phone names available, fetching phone status...");
       const fetchPhoneStatuses = async () => {
         try {
+          setPhoneStatusLoading(true);
           const botStatusResponse = await axios.get(
             `${baseUrl}/api/bot-status/${companyId}`
           );
@@ -2422,6 +2424,8 @@ function Main() {
           if (botStatusResponse.status === 200) {
             const data: BotStatusResponse = botStatusResponse.data;
             console.log("Additional bot status response data:", data);
+            console.log("data.phones:", data.phones, "Array.isArray:", Array.isArray(data.phones));
+            console.log("data.phoneCount:", data.phoneCount, "data.phoneInfo:", data.phoneInfo);
 
             if (data.phones && Array.isArray(data.phones)) {
               const qrCodesData: QRCodeData[] = data.phones.map(
@@ -2432,7 +2436,7 @@ function Main() {
                 })
               );
               console.log(
-                "Setting qrCodes from additional fetch:",
+                "Setting qrCodes from additional fetch (phones array):",
                 qrCodesData
               );
               setQrCodes(qrCodesData);
@@ -2449,10 +2453,27 @@ function Main() {
                 singlePhoneData
               );
               setQrCodes(singlePhoneData);
+            } else {
+              // Fallback: if we have status and phoneInfo but don't match the conditions above
+              console.log("Using fallback single phone data setup");
+              const fallbackPhoneData = [
+                {
+                  phoneIndex: 0,
+                  status: data.status || "unknown",
+                  qrCode: data.qrCode || null,
+                },
+              ];
+              console.log(
+                "Setting qrCodes fallback:",
+                fallbackPhoneData
+              );
+              setQrCodes(fallbackPhoneData);
             }
           }
         } catch (error) {
           console.error("Error in additional phone status fetch:", error);
+        } finally {
+          setPhoneStatusLoading(false);
         }
       };
 
@@ -2472,6 +2493,7 @@ function Main() {
           console.log("Page became visible, refreshing phone status...");
           const fetchPhoneStatuses = async () => {
             try {
+              setPhoneStatusLoading(true);
               const botStatusResponse = await axios.get(
                 `${baseUrl}/api/bot-status/${companyId}`
               );
@@ -2501,6 +2523,8 @@ function Main() {
                 "Error refreshing phone status on visibility change:",
                 error
               );
+            } finally {
+              setPhoneStatusLoading(false);
             }
           };
           fetchPhoneStatuses();
@@ -2691,11 +2715,15 @@ function Main() {
       }
       setLoadedPages(initialLoadedPages);
 
-      // Fetch first page messages for only the first page of contacts (first 20 visible contacts)
+      // Fetch first page messages for only the first page of contacts (first 10 visible contacts)
       console.log(
         "Starting background message caching for first page contacts..."
       );
-      const contactsToCache = sortedContacts.slice(0, 20); // Only cache first 20 contacts (first page)
+      
+      // Proactive cleanup before caching
+      cleanupOldMessageCaches();
+      
+      const contactsToCache = sortedContacts.slice(0, 10); // Only cache first 10 contacts to prevent quota issues
       console.log(
         `Caching messages for ${contactsToCache.length} contacts (first page only)`
       );
@@ -5361,6 +5389,47 @@ function Main() {
                 selectedContact,
                 contacts
               );
+            } else if (data.type === "auth_status") {
+              console.log("📱 [WEBSOCKET] Received auth_status:", data);
+              console.log("📱 [WEBSOCKET] data.phones:", data.phones, "Array.isArray:", Array.isArray(data.phones));
+              console.log("📱 [WEBSOCKET] data.phoneCount:", data.phoneCount, "data.phoneInfo:", data.phoneInfo);
+              
+              // Handle phone status updates
+              if (data.phones && Array.isArray(data.phones)) {
+                const qrCodesData = data.phones.map((phone: any) => ({
+                  phoneIndex: phone.phoneIndex,
+                  status: phone.status,
+                  qrCode: phone.qrCode,
+                }));
+                console.log("📱 [WEBSOCKET] Updating qrCodes from WebSocket (phones array):", qrCodesData);
+                setQrCodes(qrCodesData);
+                setPhoneStatusLoading(false);
+              } else if (data.phoneCount === 1 && data.phoneInfo) {
+                // Single phone format
+                const singlePhoneData = [
+                  {
+                    phoneIndex: 0,
+                    status: data.status,
+                    qrCode: data.qrCode,
+                  },
+                ];
+                console.log("📱 [WEBSOCKET] Updating qrCodes for single phone from WebSocket:", singlePhoneData);
+                setQrCodes(singlePhoneData);
+                setPhoneStatusLoading(false);
+              } else {
+                // Fallback: if we have status and phoneInfo but don't match the conditions above
+                console.log("📱 [WEBSOCKET] Using fallback single phone data setup");
+                const fallbackPhoneData = [
+                  {
+                    phoneIndex: 0,
+                    status: data.status || "unknown",
+                    qrCode: data.qrCode || null,
+                  },
+                ];
+                console.log("📱 [WEBSOCKET] Setting qrCodes fallback:", fallbackPhoneData);
+                setQrCodes(fallbackPhoneData);
+                setPhoneStatusLoading(false);
+              }
             } else if (data.type === "error") {
               console.error("WebSocket error message:", data.message);
               setWsError(data.message);
@@ -6228,7 +6297,16 @@ function Main() {
     try {
       const key = `cached_messages_${chatId}`;
       const stored = localStorage.getItem(key);
-      return stored ? JSON.parse(stored) : null;
+      if (!stored) return null;
+      
+      // Try to decompress first (new format)
+      try {
+        const decompressed = LZString.decompress(stored);
+        return decompressed ? JSON.parse(decompressed) : null;
+      } catch (decompressError) {
+        // Fallback to direct parsing (old format)
+        return JSON.parse(stored);
+      }
     } catch (error) {
       console.error("Error getting cached messages from localStorage:", error);
       return null;
@@ -6238,9 +6316,49 @@ function Main() {
   const setCachedMessages = (chatId: string, messages: any[]) => {
     try {
       const key = `cached_messages_${chatId}`;
-      localStorage.setItem(key, JSON.stringify(messages));
+      
+      // Limit messages to prevent quota issues (keep only last 50 messages per contact)
+      const limitedMessages = messages.slice(-50);
+      
+      // Compress the messages using LZString
+      const compressedMessages = LZString.compress(JSON.stringify(limitedMessages));
+      
+      // Check if we have enough space
+      const estimatedSize = compressedMessages.length;
+      const maxSize = 1024 * 1024; // 1MB limit per contact
+      
+      if (estimatedSize > maxSize) {
+        console.warn(`Message cache too large for ${chatId}, reducing to last 25 messages`);
+        const furtherLimitedMessages = messages.slice(-25);
+        const furtherCompressed = LZString.compress(JSON.stringify(furtherLimitedMessages));
+        localStorage.setItem(key, furtherCompressed);
+      } else {
+        localStorage.setItem(key, compressedMessages);
+      }
+      
+      // Store timestamp for cleanup purposes
+      localStorage.setItem(key + '_timestamp', Date.now().toString());
+      
+      console.log(`💾 Cached ${limitedMessages.length} messages for ${chatId} (compressed: ${estimatedSize} bytes)`);
     } catch (error) {
       console.error("Error setting cached messages to localStorage:", error);
+      
+      // If quota exceeded, try to clean up old caches and retry
+      if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+        console.log("🔄 Quota exceeded, cleaning up old message caches...");
+        cleanupOldMessageCaches();
+        
+        // Retry with fewer messages
+        try {
+          const key = `cached_messages_${chatId}`;
+          const limitedMessages = messages.slice(-25); // Even fewer messages
+          const compressedMessages = LZString.compress(JSON.stringify(limitedMessages));
+          localStorage.setItem(key, compressedMessages);
+          console.log(`✅ Successfully cached ${limitedMessages.length} messages after cleanup`);
+        } catch (retryError) {
+          console.error("Failed to cache messages even after cleanup:", retryError);
+        }
+      }
     }
   };
 
@@ -6250,6 +6368,75 @@ function Main() {
       localStorage.removeItem(key);
     } catch (error) {
       console.error("Error clearing cached messages from localStorage:", error);
+    }
+  };
+
+  const getLocalStorageUsage = () => {
+    let totalSize = 0;
+    let messageCacheSize = 0;
+    let messageCacheCount = 0;
+    
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key) {
+        const value = localStorage.getItem(key);
+        if (value) {
+          totalSize += value.length;
+          if (key.startsWith('cached_messages_')) {
+            messageCacheSize += value.length;
+            messageCacheCount++;
+          }
+        }
+      }
+    }
+    
+    return {
+      totalSize,
+      messageCacheSize,
+      messageCacheCount,
+      totalSizeMB: (totalSize / 1024 / 1024).toFixed(2),
+      messageCacheSizeMB: (messageCacheSize / 1024 / 1024).toFixed(2)
+    };
+  };
+
+  const cleanupOldMessageCaches = () => {
+    try {
+      console.log("🧹 Starting cleanup of old message caches...");
+      const usage = getLocalStorageUsage();
+      console.log(`📊 Current localStorage usage: ${usage.totalSizeMB}MB total, ${usage.messageCacheSizeMB}MB message caches (${usage.messageCacheCount} contacts)`);
+      
+      const keysToRemove: string[] = [];
+      
+      // Get all message cache keys
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('cached_messages_')) {
+          keysToRemove.push(key);
+        }
+      }
+      
+      // Remove oldest caches first (keep only the most recent 8)
+      if (keysToRemove.length > 8) {
+        const sortedKeys = keysToRemove.sort((a, b) => {
+          const aTime = localStorage.getItem(a + '_timestamp') || '0';
+          const bTime = localStorage.getItem(b + '_timestamp') || '0';
+          return parseInt(aTime) - parseInt(bTime);
+        });
+        
+        const keysToDelete = sortedKeys.slice(0, keysToRemove.length - 8);
+        keysToDelete.forEach(key => {
+          localStorage.removeItem(key);
+          localStorage.removeItem(key + '_timestamp');
+        });
+        
+        console.log(`🗑️ Removed ${keysToDelete.length} old message caches`);
+        
+        // Log new usage after cleanup
+        const newUsage = getLocalStorageUsage();
+        console.log(`📊 After cleanup: ${newUsage.totalSizeMB}MB total, ${newUsage.messageCacheSizeMB}MB message caches`);
+      }
+    } catch (error) {
+      console.error("Error during cache cleanup:", error);
     }
   };
 
@@ -11708,9 +11895,10 @@ function Main() {
 
           <div className="flex flex-col gap-1.5">
             {/* Phone Connection Status Indicator */}
-            {Object.entries(phoneNames).some(([index]) => {
+            {!phoneStatusLoading && Object.entries(phoneNames).some(([index]) => {
               const phoneStatus = qrCodes[parseInt(index)]?.status || "unknown";
               const isConnected = phoneStatus === "ready" || phoneStatus === "authenticated";
+              console.log('Banner check - phoneStatus:', phoneStatus, 'isConnected:', isConnected, 'qrCodes:', qrCodes, 'phoneNames:', phoneNames);
               return !isConnected;
             }) && (
               <div className="flex items-center justify-center space-x-1.5 text-xs text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 px-2 py-1 rounded-lg border border-orange-200 dark:border-orange-800/50">
@@ -14994,51 +15182,55 @@ function Main() {
         >
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-md"
             onClick={() => setShowPhoneModal(false)}
           />
 
           {/* Modal */}
           <div
-            className="relative w-full max-w-md transform transition-all duration-300 ease-out"
+            className="relative w-full max-w-lg transform transition-all duration-300 ease-out"
             data-phone-modal
             tabIndex={-1}
           >
-            {/* Glassmorphic Container */}
-            <div className="relative overflow-hidden rounded-xl bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border border-gray-200/50 dark:border-gray-600/50 shadow-2xl dark:shadow-black/20">
-              {/* Subtle gradient overlay */}
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 via-transparent to-purple-50/30 dark:from-blue-900/20 dark:via-transparent dark:to-purple-900/20" />
+            {/* Modern Glassmorphic Container */}
+            <div className="relative overflow-hidden rounded-2xl bg-white/90 dark:bg-gray-800/90 backdrop-blur-2xl border border-white/20 dark:border-gray-700/50 shadow-2xl dark:shadow-black/40">
+              {/* Animated gradient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/5 to-indigo-500/10 dark:from-blue-400/20 dark:via-purple-400/10 dark:to-indigo-400/20" />
+              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent animate-pulse" />
 
               {/* Content */}
-              <div className="relative p-6">
+              <div className="relative p-8">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                      <Lucide
-                        icon="Phone"
-                        className="w-5 h-5 text-blue-600 dark:text-blue-400"
-                      />
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center space-x-4">
+                    <div className="relative">
+                      <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg">
+                        <Lucide
+                          icon="Phone"
+                          className="w-6 h-6 text-white"
+                        />
+                      </div>
+                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-pulse" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        Select Phone
+                      <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                        Phone Selection
                       </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-300">
-                        Choose your active phone number
+                      <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                        Choose your active WhatsApp connection
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={() => setShowPhoneModal(false)}
-                    className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
+                    className="p-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all duration-200 hover:scale-110"
                   >
-                    <Lucide icon="X" className="w-4 h-4" />
+                    <Lucide icon="X" className="w-5 h-5" />
                   </button>
                 </div>
 
                 {/* Phone List */}
-                <div className="space-y-2.5 max-h-64 overflow-y-auto custom-scrollbar">
+                <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar mb-6">
                   {Object.entries(phoneNames).map(
                     ([index, phoneName], itemIndex) => {
                       const phoneStatus =
@@ -15056,66 +15248,75 @@ function Main() {
                             handlePhoneChange(parseInt(index));
                             setShowPhoneModal(false);
                           }}
-                          className={`w-full p-3.5 rounded-lg border transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] ${
+                          className={`group w-full p-4 rounded-xl border-2 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] ${
                             isCurrentPhone
-                              ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700/50 shadow-sm"
-                              : "bg-white dark:bg-gray-700/50 border-gray-200 dark:border-gray-600/50 hover:bg-gray-50 dark:hover:bg-gray-600/50 hover:border-blue-300 dark:hover:border-blue-500/50"
+                              ? "bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 border-blue-300 dark:border-blue-600/50 shadow-lg"
+                              : "bg-white/50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600/50 hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 dark:hover:from-gray-600/50 dark:hover:to-blue-900/20 hover:border-blue-300 dark:hover:border-blue-500/50 hover:shadow-md"
                           }`}
                           style={{
-                            animationDelay: `${itemIndex * 75}ms`,
-                            animation: "slideInUp 0.4s ease-out forwards",
+                            animationDelay: `${itemIndex * 100}ms`,
+                            animation: "slideInUp 0.5s ease-out forwards",
                           }}
                         >
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                              <div
-                                className={`p-2 rounded-md ${
-                                  isCurrentPhone
-                                    ? "bg-blue-100 dark:bg-blue-800/50"
-                                    : "bg-gray-100 dark:bg-gray-600/50"
-                                }`}
-                              >
-                                <Lucide
-                                  icon="Smartphone"
-                                  className={`w-4 h-4 ${
+                            <div className="flex items-center space-x-4">
+                              <div className="relative">
+                                <div
+                                  className={`p-3 rounded-xl shadow-md transition-all duration-300 ${
                                     isCurrentPhone
-                                      ? "text-blue-600 dark:text-blue-400"
-                                      : "text-gray-600 dark:text-gray-400"
+                                      ? "bg-gradient-to-br from-blue-500 to-indigo-600 shadow-blue-200 dark:shadow-blue-900/50"
+                                      : "bg-gradient-to-br from-gray-400 to-gray-500 group-hover:from-blue-400 group-hover:to-indigo-500"
                                   }`}
-                                />
+                                >
+                                  <Lucide
+                                    icon="Smartphone"
+                                    className="w-5 h-5 text-white"
+                                  />
+                                </div>
+                                {isCurrentPhone && (
+                                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-pulse" />
+                                )}
                               </div>
                               <div className="text-left">
                                 <div
-                                  className={`font-medium ${
+                                  className={`text-lg font-semibold ${
                                     isCurrentPhone
                                       ? "text-blue-900 dark:text-blue-100"
-                                      : "text-gray-900 dark:text-white"
+                                      : "text-gray-900 dark:text-white group-hover:text-blue-900 dark:group-hover:text-blue-100"
                                   }`}
                                 >
                                   {phoneName}
                                 </div>
-                                {isCurrentPhone && (
-                                  <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                                    Current Phone
-                                  </div>
-                                )}
+                                <div className="flex items-center space-x-2 mt-1">
+                                  {isCurrentPhone && (
+                                    <span className="text-xs bg-blue-100 dark:bg-blue-800/50 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full font-medium">
+                                      Active
+                                    </span>
+                                  )}
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                                    Phone {parseInt(index) + 1}
+                                  </span>
+                                </div>
                               </div>
                             </div>
 
                             <div className="flex flex-col items-end space-y-2">
-                              <span
-                                className={`text-xs px-2 py-1 rounded-full font-medium ${
+                              <div
+                                className={`flex items-center space-x-2 px-3 py-1.5 rounded-full font-medium text-sm ${
                                   isConnected
                                     ? "bg-green-100 text-green-700 dark:bg-green-800/50 dark:text-green-300"
                                     : "bg-red-100 text-red-700 dark:bg-red-800/50 dark:text-red-300"
                                 }`}
                               >
-                                {isConnected ? "Connected" : "Not Connected"}
-                              </span>
-
-                              {isCurrentPhone && (
-                                <div className="w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full animate-pulse" />
-                              )}
+                                <div
+                                  className={`w-2 h-2 rounded-full ${
+                                    isConnected ? "bg-green-500" : "bg-red-500"
+                                  }`}
+                                />
+                                <span>
+                                  {isConnected ? "Connected" : "Not Connected"}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </button>
@@ -15124,132 +15325,53 @@ function Main() {
                   )}
                 </div>
 
-                {/* Footer */}
-                <div className="mt-5 pt-4 border-t border-gray-200 dark:border-gray-600/50">
-                  <div className="text-center">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {Object.keys(phoneNames).length} phone
-                      {Object.keys(phoneNames).length !== 1 ? "s" : ""}{" "}
-                      available
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowPhoneModal(false)}
-                  className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
-                >
-                  <Lucide
-                    icon="X"
-                    className="w-4 h-4"
-                  />
-                </button>
-              </div>
-
-              {/* Phone List */}
-              <div className="space-y-2.5 max-h-64 overflow-y-auto custom-scrollbar">
-                {Object.entries(phoneNames).map(([index, phoneName], itemIndex) => {
-                  const phoneStatus =
-                    qrCodes[parseInt(index)]?.status || "unknown";
-                  const isConnected =
-                    phoneStatus === "ready" ||
-                    phoneStatus === "authenticated";
-                  const isCurrentPhone = userData?.phone === parseInt(index);
-
-                  return (
-                    <button
-                      key={index}
-                      onClick={() => {
-                        handlePhoneChange(parseInt(index));
-                        setShowPhoneModal(false);
-                      }}
-                      className={`w-full p-3.5 rounded-lg border transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] ${
-                        isCurrentPhone
-                          ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700/50 shadow-sm"
-                          : "bg-white dark:bg-gray-700/50 border-gray-200 dark:border-gray-600/50 hover:bg-gray-50 dark:hover:bg-gray-600/50 hover:border-blue-300 dark:hover:border-blue-500/50"
-                      }`}
-                      style={{
-                        animationDelay: `${itemIndex * 75}ms`,
-                        animation: 'slideInUp 0.4s ease-out forwards'
-                      }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className={`p-2 rounded-md ${
-                            isCurrentPhone
-                              ? "bg-blue-100 dark:bg-blue-800/50"
-                              : "bg-gray-100 dark:bg-gray-600/50"
-                          }`}>
-                            <Lucide
-                              icon="Smartphone"
-                              className={`w-4 h-4 ${
-                                isCurrentPhone
-                                  ? "text-blue-600 dark:text-blue-400"
-                                  : "text-gray-600 dark:text-gray-400"
-                              }`}
-                            />
-                          </div>
-                          <div className="text-left">
-                            <div className={`font-medium ${
-                              isCurrentPhone
-                                ? "text-blue-900 dark:text-blue-100"
-                                : "text-gray-900 dark:text-white"
-                            }`}>
-                              {phoneName}
-                            </div>
-                            {isCurrentPhone && (
-                              <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                                Current Phone
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <div className="flex flex-col items-end space-y-2">
-                          <span
-                            className={`text-xs px-2 py-1 rounded-full font-medium ${
-                              isConnected
-                                ? "bg-green-100 text-green-700 dark:bg-green-800/50 dark:text-green-300"
-                                : "bg-red-100 text-red-700 dark:bg-red-800/50 dark:text-red-300"
-                            }`}
-                          >
-                            {isConnected ? "Connected" : "Not Connected"}
-                          </span>
-                          
-                          {isCurrentPhone && (
-                            <div className="w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full animate-pulse" />
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Footer */}
-              <div className="mt-5 pt-4 border-t border-gray-200 dark:border-gray-600/50">
-                {/* Check if any phone is not connected */}
+                {/* Connect Phones Button - Show when no phones are connected */}
                 {Object.entries(phoneNames).some(([index]) => {
                   const phoneStatus = qrCodes[parseInt(index)]?.status || "unknown";
                   const isConnected = phoneStatus === "ready" || phoneStatus === "authenticated";
                   return !isConnected;
                 }) && (
-                  <div className="mb-3">
+                  <div className="mb-6">
                     <button
                       onClick={() => {
+                        console.log('Connect Phones button clicked, navigating to /loading');
                         navigate('/loading');
                         setShowPhoneModal(false);
                       }}
-                      className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium rounded-lg transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center space-x-2 shadow-md"
+                      className="group relative w-full px-6 py-4 bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-600 hover:from-blue-600 hover:via-blue-700 hover:to-indigo-700 text-white font-semibold rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center space-x-3 shadow-lg hover:shadow-xl border border-blue-400/30 overflow-hidden"
                     >
-                      <Lucide icon="Wifi" className="w-4 h-4" />
-                      <span>Connect Phones</span>
+                      {/* Animated background effect */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-out"></div>
+                      
+                      {/* Button content */}
+                      <div className="relative flex items-center space-x-3">
+                        <div className="p-1.5 bg-white/20 rounded-lg group-hover:bg-white/30 transition-colors duration-300">
+                          <Lucide icon="Wifi" className="w-5 h-5" />
+                        </div>
+                        <div className="flex flex-col items-start">
+                          <span className="text-base font-bold">Connect Phones</span>
+                          <span className="text-xs text-blue-100 group-hover:text-white transition-colors duration-300">
+                            Set up WhatsApp connection
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Arrow icon */}
+                      <div className="relative ml-2 group-hover:translate-x-1 transition-transform duration-300">
+                        <Lucide icon="ArrowRight" className="w-4 h-4" />
+                      </div>
                     </button>
                   </div>
                 )}
-                <div className="text-center">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {Object.keys(phoneNames).length} phone{Object.keys(phoneNames).length !== 1 ? 's' : ''} available
-                  </p>
+
+                {/* Footer */}
+                <div className="pt-4 border-t border-gray-200/50 dark:border-gray-600/50">
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {Object.keys(phoneNames).length} phone
+                      {Object.keys(phoneNames).length !== 1 ? "s" : ""} available
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

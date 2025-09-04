@@ -290,8 +290,8 @@ function LoadingPage() {
         } else if (data.phones.every(phone => phone.status === "ready" || phone.status === "authenticated")) {
           setBotStatus("ready");
           setShouldFetchContacts(true);
-          console.log("All phones ready, navigating to /chat");
-          navigate("/chat");
+       
+
         } else {
           setBotStatus(data.phones[0]?.status || "initializing");
         }
@@ -329,7 +329,7 @@ function LoadingPage() {
           console.log("Setting shouldFetchContacts to true");
           setShouldFetchContacts(true);
           console.log("Old format: Status ready, navigating to /chat");
-          navigate("/chat");
+
         } else {
           setBotStatus(data.status || "initializing");
         }
@@ -849,7 +849,7 @@ function LoadingPage() {
                     if (!isMountedRef.current) return;
                     setShouldFetchContacts(true);
                     console.log("WebSocket: All phones ready, navigating to /chat");
-                    navigate("/chat");
+
                     return;
                   }
                   // Set status based on first phone
@@ -884,7 +884,7 @@ function LoadingPage() {
                     if (!isMountedRef.current) return;
                     setShouldFetchContacts(true);
                     console.log("WebSocket old format: Status ready, navigating to /chat");
-                    navigate("/chat");
+          
                     return;
                   } else {
                     if (!isMountedRef.current) return;
@@ -900,7 +900,7 @@ function LoadingPage() {
                 if (data.action === "done_process") {
                   setBotStatus(data.status);
                   setProcessingComplete(true);
-                  navigate("/chat");
+    
                   return;
                 }
               } else if (data.type === "bot_activity") {
@@ -992,13 +992,13 @@ function LoadingPage() {
   useEffect(() => {
     if (shouldFetchContacts && !isLoading) {
       console.log("useEffect: shouldFetchContacts is true and not loading, navigating to /chat");
-      navigate("/chat");
+
     }
   }, [shouldFetchContacts, isLoading, navigate]);
 
   useEffect(() => {
     if (contactsFetched && fetchedChats === totalChats && contacts && contacts.length > 0) {
-      navigate("/chat");
+
     }
   }, [contactsFetched, fetchedChats, totalChats, contacts, navigate]);
 
@@ -1162,7 +1162,7 @@ function LoadingPage() {
   useEffect(() => {
     if (processingComplete && contactsFetched && !isLoading) {
       const timer = setTimeout(() => {
-        navigate("/chat");
+ 
       }, 1000); // Add a small delay to ensure smooth transition
       return () => clearTimeout(timer);
     }
@@ -1286,7 +1286,7 @@ function LoadingPage() {
   useEffect(() => {
     if (botStatus === "ready" || botStatus === "authenticated") {
       setShouldFetchContacts(true);
-      navigate("/chat");
+
     }
   }, [botStatus, navigate]);
 
