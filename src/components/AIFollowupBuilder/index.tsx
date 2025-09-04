@@ -537,6 +537,12 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
   const sendMessageToAI = async (messageText: string) => {
     if (isSending) return;
     
+    // Check if assistant info is loaded
+    if (!assistantInfo.instructions || loading) {
+      setError("Please wait for AI assistant information to load before making requests.");
+      return;
+    }
+    
     setIsSending(true);
     setError(null);
     
@@ -572,15 +578,29 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
       };
   
       // Use the brainstorming endpoint for follow-up suggestions with current prompt
+      console.log("=== API REQUEST DEBUG ===");
+      console.log("Request payload:", {
+        message: messageText,
+        email: userEmail,
+        currentPrompt: assistantInfo.instructions ? "Provided" : "Not provided",
+        currentFollowUps: currentFollowUpData
+      });
+      
       const response = await axios.post(
         'https://juta-dev.ngrok.dev/api/followup-brainstorm/',
         {
           message: messageText,
           email: userEmail,
           currentPrompt: assistantInfo.instructions, // Include current AI assistant instructions
-          currentFollowUps: currentFollowUpData
+          currentFollowUps: currentFollowUpData,
+          assistantId: assistantId // Include assistant ID
         }
       );
+      
+      console.log("=== API RESPONSE DEBUG ===");
+      console.log("Response status:", response.status);
+      console.log("Response headers:", response.headers);
+      console.log("Response data:", response.data);
       
       if (!response.data.success) {
         throw new Error(response.data.details || 'Failed to generate follow-up suggestions');
@@ -598,7 +618,11 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
       let responseText = 'No response provided';
       let templates: StageTemplateData[] = [];
       
-      // The AI response should contain templates
+      console.log("=== RESPONSE STRUCTURE DEBUG ===");
+      console.log("Full response:", JSON.stringify(response.data, null, 2));
+      
+      // The API response structure based on the provided code
+      // The API should return: { success: true, data: { templates: [...], explanation: "..." }, threadID: "..." }
       if (response.data?.data?.templates && Array.isArray(response.data.data.templates)) {
         templates = response.data.data.templates;
         responseText = response.data.data.explanation || 'Templates generated successfully';
@@ -618,6 +642,48 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
         if (response.data?.data) {
           console.log("Data fields:", Object.keys(response.data.data));
         }
+        
+        // Try to extract from the raw response text if it contains JSON
+        try {
+          const rawResponse = response.data?.rawResponse || response.data?.response || response.data?.answer;
+          if (rawResponse && typeof rawResponse === 'string') {
+            console.log("Trying to parse raw response:", rawResponse.substring(0, 500) + "...");
+            
+            // Look for JSON array in the response
+            const jsonMatch = rawResponse.match(/\[[\s\S]*\]/);
+            if (jsonMatch) {
+              const parsedTemplates = JSON.parse(jsonMatch[0]);
+              if (Array.isArray(parsedTemplates)) {
+                templates = parsedTemplates;
+                responseText = 'Templates generated successfully from raw response';
+                console.log("✅ Found templates in raw response JSON");
+              }
+            }
+          }
+        } catch (parseError) {
+          console.error("Failed to parse raw response:", parseError);
+        }
+        
+        // Additional fallback: Check if the response contains the expected structure but with different field names
+        if (templates.length === 0 && response.data?.data) {
+          console.log("Checking for alternative data structures...");
+          const data = response.data.data;
+          
+          // Check for common variations
+          if (data.stageTemplates && Array.isArray(data.stageTemplates)) {
+            templates = data.stageTemplates;
+            responseText = data.explanation || 'Templates generated successfully';
+            console.log("✅ Found templates in data.stageTemplates");
+          } else if (data.templateArray && Array.isArray(data.templateArray)) {
+            templates = data.templateArray;
+            responseText = data.explanation || 'Templates generated successfully';
+            console.log("✅ Found templates in data.templateArray");
+          } else if (data.results && Array.isArray(data.results)) {
+            templates = data.results;
+            responseText = data.explanation || 'Templates generated successfully';
+            console.log("✅ Found templates in data.results");
+          }
+        }
       }
       
       // Clean up the response text
@@ -633,15 +699,57 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
       }
       
       // Process templates and add templateId if missing
-      const processedTemplates = templates.map((template: any) => ({
-        templateId: template.templateId || generateTemplateId(),
-        stageName: template.stageName || template.name || 'Unknown Stage',
-        purpose: template.purpose || template.description || 'Follow-up sequence',
-        triggerTags: template.triggerTags || template.trigger_tags || [],
-        triggerKeywords: template.triggerKeywords || template.trigger_keywords || [],
-        messages: template.messages || template.messageArray || [],
-        messageCount: template.messageCount || template.message_count || (template.messages || template.messageArray || []).length
-      }));
+      const processedTemplates = templates.map((template: any) => {
+        console.log("Processing template:", template);
+        
+        // Ensure messages array exists and is properly formatted
+        let messages = template.messages || template.messageArray || [];
+        if (!Array.isArray(messages)) {
+          console.warn("Template messages is not an array:", messages);
+          messages = [];
+        }
+        
+        // Validate and clean each message
+        const validatedMessages = messages.map((msg: any, index: number) => {
+          if (!msg || typeof msg !== 'object') {
+            console.warn(`Invalid message at index ${index}:`, msg);
+            return null;
+          }
+          
+          // Ensure required fields exist
+          const validatedMessage = {
+            dayNumber: msg.dayNumber || 0,
+            sequence: msg.sequence || index + 1,
+            message: msg.message || '',
+            delayAfter: msg.delayAfter || {
+              value: 30,
+              unit: "minutes",
+              isInstantaneous: false
+            },
+            useScheduledTime: msg.useScheduledTime || false,
+            scheduledTime: msg.scheduledTime || "",
+            description: msg.description || `Day ${msg.dayNumber || 0} - Message ${index + 1}`,
+            addTags: msg.addTags || [],
+            removeTags: msg.removeTags || [],
+            specificNumbers: msg.specificNumbers || {
+              enabled: false,
+              numbers: []
+            }
+          };
+          
+          return validatedMessage;
+        }).filter(Boolean); // Remove any null values
+        
+        return {
+          templateId: template.templateId || generateTemplateId(),
+          stageName: template.stageName || template.name || 'Unknown Stage',
+          purpose: template.purpose || template.description || 'Follow-up sequence',
+          triggerTags: template.triggerTags || template.trigger_tags || [],
+          triggerKeywords: template.triggerKeywords || template.trigger_keywords || [],
+          messages: validatedMessages,
+          messageCount: validatedMessages.length
+        };
+      });
       
       // Store templates for later use
       setGeneratedData({
@@ -656,6 +764,20 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
       } else {
         setHasChanges(false);
         console.log("❌ No templates generated");
+        
+        // If no templates were generated, show a helpful message
+        const fallbackMessage: ChatMessage = {
+          from_me: false,
+          type: 'text',
+          text: `I couldn't generate follow-up templates from the response. This might be because:\n\n• The AI response didn't contain properly formatted JSON\n• The current prompt doesn't have clear conversation stages\n• There was an issue with the API response format\n\n**Debug Info:**\n- Response received: ${response.data ? 'Yes' : 'No'}\n- Response success: ${response.data?.success || 'Unknown'}\n- Templates found: ${templates.length}\n\n**Try asking:**\n• "Create 3 follow-up templates for lead nurturing"\n• "Generate follow-up messages for different conversation stages"\n• "Make follow-up templates based on my current AI prompt"`,
+          createdAt: new Date().toISOString(),
+        };
+        
+        setMessages(prevMessages => {
+          const filteredMessages = prevMessages.filter(msg => !msg.isLoading);
+          return [...filteredMessages, fallbackMessage];
+        });
+        return;
       }
       
       console.log("=== END BRAINSTORM DEBUG ===");

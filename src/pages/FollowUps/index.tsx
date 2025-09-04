@@ -501,40 +501,40 @@ const FollowUpsPage: React.FC = () => {
       // Create update data with all necessary fields
       const updateData: any = {
         message: editingMessage.message,
-        day_number: editingMessage.dayNumber,
+        dayNumber: editingMessage.dayNumber, // Use camelCase to match backend destructuring
         sequence: editingMessage.sequence,
         status: editingMessage.status || "active",
-        updated_at: new Date().toISOString(), // Add this field to match backend expectation
+        updatedAt: new Date().toISOString(), // Use camelCase to match backend destructuring
       };
 
-      // Always set delayAfter or scheduled_time
+      // Always set delayAfter or scheduledTime
       if (editingMessage.useScheduledTime && editingMessage.scheduledTime) {
-        updateData.use_scheduled_time = true;
-        updateData.scheduled_time = editingMessage.scheduledTime;
+        updateData.useScheduledTime = true;
+        updateData.scheduledTime = editingMessage.scheduledTime;
       } else {
         // Default to delayAfter if not using scheduled time
         updateData.delayAfter = {
           value: editingMessage.delayAfter?.value || 5,
           unit: editingMessage.delayAfter?.unit || "minutes",
-          is_instantaneous: editingMessage.delayAfter?.isInstantaneous || false,
+          isInstantaneous: editingMessage.delayAfter?.isInstantaneous || false,
         };
-        updateData.use_scheduled_time = false;
+        updateData.useScheduledTime = false;
       }
 
       // Add optional fields only if they exist
       if (editingMessage.specificNumbers?.enabled) {
-        updateData.specific_numbers = {
+        updateData.specificNumbers = {
           enabled: editingMessage.specificNumbers.enabled,
           numbers: editingMessage.specificNumbers.numbers || [],
         };
       }
 
       if (editingMessage.addTags && editingMessage.addTags.length > 0) {
-        updateData.add_tags = editingMessage.addTags;
+        updateData.addTags = editingMessage.addTags;
       }
 
       if (editingMessage.removeTags && editingMessage.removeTags.length > 0) {
-        updateData.remove_tags = editingMessage.removeTags;
+        updateData.removeTags = editingMessage.removeTags;
       }
 
       // Handle document upload if a new document is selected
@@ -794,19 +794,29 @@ const FollowUpsPage: React.FC = () => {
 
   // Add this helper function to check for duplicate messages
   const isDuplicateMessage = (dayNumber: number, sequence: number) => {
-    return messages.some(
+    console.log("Checking for duplicates:", { dayNumber, sequence });
+    console.log("Current messages:", messages.map(m => ({ dayNumber: m.dayNumber, sequence: m.sequence })));
+    const isDuplicate = messages.some(
       (message) =>
         message.dayNumber === dayNumber && message.sequence === sequence
     );
+    console.log("Is duplicate:", isDuplicate);
+    return isDuplicate;
   };
 
   // Add message to template
   const addMessage = async () => {
     if (!selectedTemplate2 || !newMessage.message.trim()) return;
 
+    console.log("Adding message with:", { 
+      dayNumber: newMessage.dayNumber, 
+      sequence: newMessage.sequence,
+      message: newMessage.message 
+    });
+
     // Double-check for duplicates before saving
     if (isDuplicateMessage(newMessage.dayNumber, newMessage.sequence)) {
-      toast.error("A message with this day and sequence number already exists");
+      toast.error(`A message with this day and sequence number already exists: day ${newMessage.dayNumber}, sequence ${newMessage.sequence}`);
       return;
     }
     try {
@@ -821,10 +831,10 @@ const FollowUpsPage: React.FC = () => {
       const messageData = {
         template_id: template.templateId, // Use snake_case to match backend
         message: newMessage.message,
-        day_number: newMessage.dayNumber,
+        dayNumber: newMessage.dayNumber, // Use camelCase to match backend destructuring
         sequence: newMessage.sequence,
         status: "active",
-        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
         document: selectedDocument
           ? await uploadDocument(selectedDocument)
           : null,
@@ -841,16 +851,16 @@ const FollowUpsPage: React.FC = () => {
               unit: newMessage.delayAfter.unit,
               is_instantaneous: newMessage.delayAfter.isInstantaneous,
             },
-        specific_numbers: {
+        specificNumbers: {
           enabled: newMessage.specificNumbers.enabled,
           numbers: newMessage.specificNumbers.numbers,
         },
-        use_scheduled_time: newMessage.useScheduledTime,
-        scheduled_time: newMessage.useScheduledTime
+        useScheduledTime: newMessage.useScheduledTime,
+        scheduledTime: newMessage.useScheduledTime
           ? newMessage.scheduledTime
           : "",
-        add_tags: newMessage.addTags || [],
-        remove_tags: newMessage.removeTags || [],
+        addTags: newMessage.addTags || [],
+        removeTags: newMessage.removeTags || [],
       };
 
       // Send to backend
@@ -1189,12 +1199,14 @@ const FollowUpsPage: React.FC = () => {
                       className="w-full px-3 py-2 border border-white/30 rounded-lg bg-white/50 backdrop-blur-sm text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all duration-200 text-xs"
                       placeholder="Day #"
                       value={newMessage.dayNumber}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const newDayNumber = parseInt(e.target.value) || 1;
+                        console.log("Day number changed from", newMessage.dayNumber, "to", newDayNumber);
                         setNewMessage({
                           ...newMessage,
-                          dayNumber: parseInt(e.target.value) || 1,
-                        })
-                      }
+                          dayNumber: newDayNumber,
+                        });
+                      }}
                     />
                   </div>
                   <div className="w-1/4">
