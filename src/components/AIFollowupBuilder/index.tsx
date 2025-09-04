@@ -727,7 +727,7 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
           return null;
         }
         
-        // Transform messages from objects to strings (your API expects strings)
+        // Transform messages from objects to message objects with delay data
         const transformedMessages = template.messages.map((msg: any, index: number) => {
           if (!msg || typeof msg !== 'object') {
             console.error(`Invalid message at index ${index}:`, msg);
@@ -746,7 +746,25 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
           cleanMessage = cleanMessage.replace(/\|\|\s*$/, ''); // Remove trailing "||"
           cleanMessage = cleanMessage.replace(/^\|\s*/, ''); // Remove leading "|"
           
-          return cleanMessage; // Return cleaned message text
+          // Return message object with delay data preserved
+          return {
+            message: cleanMessage,
+            dayNumber: msg.dayNumber || index + 1,
+            sequence: msg.sequence || index + 1,
+            delayAfter: msg.delayAfter || {
+              value: 30,
+              unit: "minutes",
+              isInstantaneous: false,
+            },
+            useScheduledTime: msg.useScheduledTime || false,
+            scheduledTime: msg.scheduledTime || "",
+            addTags: msg.addTags || [],
+            removeTags: msg.removeTags || [],
+            specificNumbers: msg.specificNumbers || {
+              enabled: false,
+              numbers: [],
+            },
+          };
         }).filter(Boolean); // Remove any null values
         
         return {
@@ -782,19 +800,19 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
       throw new Error("Some templates have no messages. Please check the data.");
     }
     
-    // Final validation: ensure each message is a string
+    // Final validation: ensure each message is a valid message object
     const finalValidation = templatesToSave.map((template: any, templateIndex: number) => {
       console.log(`Validating template ${templateIndex}: ${template.stageName}`);
       console.log(`Original messages count: ${template.messages.length}`);
       console.log(`Original messages:`, template.messages);
       
       const validMessages = template.messages.filter((msg: any, msgIndex: number) => {
-        if (typeof msg !== 'string') {
-          console.error(`Template ${templateIndex}, Message ${msgIndex} is not a string:`, msg);
+        if (!msg || typeof msg !== 'object') {
+          console.error(`Template ${templateIndex}, Message ${msgIndex} is not an object:`, msg);
           return false;
         }
-        if (!msg.trim()) {
-          console.error(`Template ${templateIndex}, Message ${msgIndex} is empty:`, msg);
+        if (typeof msg.message !== 'string' || !msg.message.trim()) {
+          console.error(`Template ${templateIndex}, Message ${msgIndex} has invalid message:`, msg.message);
           return false;
         }
         console.log(`Template ${templateIndex}, Message ${msgIndex} is valid:`, msg);
@@ -820,7 +838,7 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
       console.log(`Template ${index} (${template.stageName}):`);
       console.log(`  - Messages count: ${template.messages.length}`);
       console.log(`  - Messages:`, template.messages);
-      console.log(`  - Message type check:`, template.messages.map((msg: any, i: number) => ({ index: i, type: typeof msg, content: msg })));
+      console.log(`  - Message type check:`, template.messages.map((msg: any, i: number) => ({ index: i, type: typeof msg, message: msg.message, delayAfter: msg.delayAfter })));
     });
     
     console.log("=== END FINAL VALIDATION ===");

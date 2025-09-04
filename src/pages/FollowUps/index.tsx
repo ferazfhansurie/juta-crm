@@ -507,13 +507,13 @@ const FollowUpsPage: React.FC = () => {
         updated_at: new Date().toISOString(), // Add this field to match backend expectation
       };
 
-      // Always set delay_after or scheduled_time
+      // Always set delayAfter or scheduled_time
       if (editingMessage.useScheduledTime && editingMessage.scheduledTime) {
         updateData.use_scheduled_time = true;
         updateData.scheduled_time = editingMessage.scheduledTime;
       } else {
-        // Default to delay_after if not using scheduled time
-        updateData.delay_after = {
+        // Default to delayAfter if not using scheduled time
+        updateData.delayAfter = {
           value: editingMessage.delayAfter?.value || 5,
           unit: editingMessage.delayAfter?.unit || "minutes",
           is_instantaneous: editingMessage.delayAfter?.isInstantaneous || false,
@@ -735,6 +735,8 @@ const FollowUpsPage: React.FC = () => {
           // Transform snake_case fields to camelCase and handle date conversion
           const fetchedMessages = response.data.messages.map((msg: any) => {
             console.log("Raw message from API:", msg); // Debug log
+            console.log("delay_after field:", msg.delay_after); // Debug delay_after specifically
+            console.log("delayAfter field:", msg.delayAfter); // Debug delayAfter specifically
             
             const transformedMsg = {
               ...msg,
@@ -747,11 +749,15 @@ const FollowUpsPage: React.FC = () => {
               image: msg.image,
               video: msg.video,
               // Handle delay_after field - prioritize snake_case
-              delayAfter: msg.delay_after ? {
+              delayAfter: (msg.delay_after && msg.delay_after !== null) ? {
                 value: msg.delay_after.value || 5,
                 unit: msg.delay_after.unit || "minutes",
                 isInstantaneous: msg.delay_after.is_instantaneous || false,
-              } : msg.delayAfter || {
+              } : (msg.delayAfter && msg.delayAfter !== null) ? {
+                value: msg.delayAfter.value || 5,
+                unit: msg.delayAfter.unit || "minutes",
+                isInstantaneous: msg.delayAfter.isInstantaneous || false,
+              } : {
                 value: 5,
                 unit: "minutes",
                 isInstantaneous: false,
@@ -771,6 +777,7 @@ const FollowUpsPage: React.FC = () => {
             };
             
             console.log("Transformed message:", transformedMsg); // Debug log
+            console.log("Transformed delayAfter:", transformedMsg.delayAfter); // Debug transformed delayAfter
             return transformedMsg;
           });
           console.log("Setting messages:", fetchedMessages);
@@ -823,7 +830,7 @@ const FollowUpsPage: React.FC = () => {
           : null,
         image: selectedImage ? await uploadImage(selectedImage) : null,
         video: selectedVideo ? await uploadVideo(selectedVideo) : null,
-        delay_after: newMessage.useScheduledTime
+        delayAfter: newMessage.useScheduledTime
           ? {
               value: 0,
               unit: "minutes",
