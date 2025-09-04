@@ -990,6 +990,7 @@ function Main() {
     userConfig: false,
     contactsFetch: false,
     contactsProcess: false,
+    messageCaching: false,
     complete: false,
   });
 
@@ -2715,12 +2716,13 @@ function Main() {
       userConfig: false,
       contactsFetch: false,
       contactsProcess: false,
+      messageCaching: false,
       complete: false,
     });
 
     try {
-      // Step 1: Get user config to get companyId (25%)
-      setRealLoadingProgress(30);
+      // Step 1: Get user config to get companyId (20%)
+      setRealLoadingProgress(20);
       setLoadingSteps((prev) => ({ ...prev, userConfig: true }));
 
       const userResponse = await fetch(
@@ -2740,12 +2742,12 @@ function Main() {
         return;
       }
 
-      setRealLoadingProgress(60);
+      setRealLoadingProgress(30);
       const userData = await userResponse.json();
       const companyId = userData.company_id;
 
-      // Step 2: Fetch contacts from database (50%)
-      setRealLoadingProgress(80);
+      // Step 2: Fetch contacts from database (40%)
+      setRealLoadingProgress(50);
       setLoadingSteps((prev) => ({ ...prev, contactsFetch: true }));
 
       const contactsResponse = await fetch(
@@ -2765,11 +2767,11 @@ function Main() {
         return;
       }
 
-      setRealLoadingProgress(90);
+      setRealLoadingProgress(60);
       const data = await contactsResponse.json();
       console.log("contactsss", data);
-      // Step 3: Process contacts (75%)
-      setRealLoadingProgress(95);
+      // Step 3: Process contacts (50%)
+      setRealLoadingProgress(70);
       setLoadingSteps((prev) => ({ ...prev, contactsProcess: true }));
 
       // Process contacts with real-time progress - ultra fast processing
@@ -2798,13 +2800,6 @@ function Main() {
         )
       );
 
-      // Update progress to 100% immediately
-      setRealLoadingProgress(100);
-      setLoadingSteps((prev) => ({ ...prev, complete: true }));
-
-      // Minimal delay for UI update
-      await new Promise((resolve) => setTimeout(resolve, 5));
-
       // Set total contacts count
       setTotalContacts(allContacts.length);
 
@@ -2827,6 +2822,10 @@ function Main() {
         initialLoadedPages.add(page);
       }
       setLoadedPages(initialLoadedPages);
+
+      // Step 4: Start message caching (70% -> 90%)
+      setRealLoadingProgress(75);
+      setLoadingSteps((prev) => ({ ...prev, messageCaching: true }));
 
       // Fetch first page messages for only the first page of contacts (first 10 visible contacts)
       console.log(
@@ -2855,6 +2854,10 @@ function Main() {
           console.log(
             `✅ Successfully cached messages for ${contact.contactName}`
           );
+          
+          // Update progress as each contact is cached (75% -> 90%)
+          const progressIncrement = 15 / contactsToCache.length; // 15% total for message caching
+          setRealLoadingProgress(prev => Math.min(90, prev + progressIncrement));
         } catch (error) {
           console.error(
             `❌ Failed to cache messages for ${contact.contactName}:`,
@@ -2881,11 +2884,14 @@ function Main() {
         console.log(
           `📦 ${cachedContacts.length} contacts now have cached messages`
         );
+        
+        // Complete loading after message caching
+        setRealLoadingProgress(100);
+        setLoadingSteps((prev) => ({ ...prev, complete: true }));
       });
 
-      // Step 4: Complete loading (100%)
-      setRealLoadingProgress(100);
-      setLoadingSteps((prev) => ({ ...prev, complete: true }));
+      // Set initial completion state for UI (contacts are ready even if messages are still caching)
+      setRealLoadingProgress(85);
       await new Promise((resolve) => setTimeout(resolve, 200));
     } catch (error) {
       console.error("Error fetching contacts:", error);
@@ -2897,8 +2903,9 @@ function Main() {
         userConfig: false,
         contactsFetch: false,
         contactsProcess: false,
+        messageCaching: false,
         complete: false,
-      });
+        });
     }
   };
 
@@ -7260,7 +7267,7 @@ function Main() {
 
       if (newMessages.length > 0) {
         console.log(`Found ${newMessages.length} new messages`);
-        setIsFetchingMessages(false);
+      setIsFetchingMessages(false);
         // Format new messages using the same logic as fetchMessages
         const formattedNewMessages: any[] = [];
         const reactionsMap: Record<string, any[]> = {};
