@@ -5163,13 +5163,13 @@ function Main() {
 
     // If already starts with +
     if (cleaned.startsWith("+")) {
-      // Check if there's a country code after the +
-      if (cleaned.charAt(1) === "0") {
-        // If it starts with +0, add 6 after the + and before the 0
-        cleaned = `+6${cleaned.substring(1)}`;
-      } else if (!/^\+[1-9]/.test(cleaned)) {
-        // If there's no digit after +, add 6
-        cleaned = `+6${cleaned.substring(1)}`;
+      // Check if it's a valid international number
+      if (/^\+[1-9]/.test(cleaned)) {
+        // Already has a valid country code, return as is
+        return cleaned.length >= 10 ? cleaned : null;
+      } else {
+        // If there's no digit after + or starts with +0, add Malaysia country code (60)
+        cleaned = `+60${cleaned.substring(1)}`;
       }
       return cleaned.length >= 10 ? cleaned : null;
     }

@@ -723,6 +723,21 @@ const Main: React.FC = () => {
       description: "General utility tools for web search, date operations, and system functions",
       examples: [
         {
+          name: "sendWhatsAppMessage",
+          description: "Sends WhatsApp messages to any contact using their contact ID or phone number",
+          example: "use 'sendWhatsAppMessage' function with contactId '0128-60123456789' and message 'Hello! Your appointment is confirmed for tomorrow at 2 PM. Please reply to confirm.'"
+        },
+        {
+          name: "sendWhatsAppMessage",
+          description: "Sends WhatsApp messages to a group using the group contact ID",
+          example: "use 'sendWhatsAppMessage' function with contactId '0210-120363275496222216' and message 'Team meeting scheduled for Friday at 3 PM. Please confirm your attendance.'"
+        },
+        {
+          name: "scheduleMessage",
+          description: "Schedule WhatsApp messages to be sent at a specific time with AI-powered intelligent optimization",
+          example: "use 'scheduleMessage' function with contactIds ['0128-60123456789', '0128-60987654321'] and message 'Special promotion ending soon!' and scheduledTime '2024-01-15T09:00:00+08:00'"
+        },
+        {
           name: "searchWeb",
           description: "Performs web searches",
           example: "use 'searchWeb' function to search the web for 'latest CRM software trends 2024'"
@@ -766,7 +781,9 @@ const Main: React.FC = () => {
           name: "sendNotification",
           description: "Sends system notifications",
           example: "use 'sendNotification' function to send a notification to admin@company.com about system maintenance"
-        }
+        },
+      
+      
       ]
     }
   };

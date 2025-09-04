@@ -1,6 +1,7 @@
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import { parseColor } from "tailwindcss/lib/util/color";
+import LZString from "lz-string";
 
 dayjs.extend(duration);
 
@@ -199,6 +200,97 @@ const slideDown = (
   }, duration);
 };
 
+interface SendWhatsAppMessageParams {
+  contactId: string;
+  message: string;
+  quotedMessageId?: string;
+  phoneIndex?: number;
+}
+
+const sendWhatsAppMessage = async ({
+  contactId,
+  message,
+  quotedMessageId,
+  phoneIndex = 0
+}: SendWhatsAppMessageParams): Promise<boolean> => {
+  try {
+    // Get company ID from localStorage config
+    const cachedConfig = localStorage.getItem('config');
+    if (!cachedConfig) {
+      throw new Error('No company configuration found');
+    }
+
+    const config = JSON.parse(LZString.decompress(cachedConfig));
+    const companyId = config.company_id || config.id;
+    
+    if (!companyId) {
+      throw new Error('Company ID not found in configuration');
+    }
+
+    // Format contact ID for API
+    let formattedContactId = contactId;
+    
+    // Handle different contact ID formats
+    if (contactId.includes('-')) {
+      // Already in company format (e.g., "0128-60123456789")
+      formattedContactId = contactId;
+    } else if (contactId.startsWith('+')) {
+      // International format (e.g., "+60123456789") -> "0128-60123456789"
+      const phoneNumber = contactId.substring(1);
+      formattedContactId = `${companyId}-${phoneNumber}`;
+    } else {
+      // Plain number format (e.g., "60123456789") -> "0128-60123456789"
+      formattedContactId = `${companyId}-${contactId}`;
+    }
+
+    // Prepare request payload
+    const payload: any = {
+      message: message,
+      phoneIndex: phoneIndex
+    };
+
+    if (quotedMessageId) {
+      payload.quotedMessageId = quotedMessageId;
+    }
+
+    // Make API call to send WhatsApp message
+    const response = await fetch(
+      `https://juta-dev.ngrok.dev/api/v2/messages/text/${companyId}/${formattedContactId}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`Failed to send WhatsApp message: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`);
+    }
+
+    const result = await response.json();
+    console.log('WhatsApp message sent successfully:', {
+      contactId: formattedContactId,
+      message: message.substring(0, 50) + '...',
+      result
+    });
+
+    return true;
+
+  } catch (error) {
+    console.error('Error sending WhatsApp message:', {
+      contactId,
+      message: message.substring(0, 50) + '...',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+    return false;
+  }
+};
+
 export {
   cutText,
   formatDate,
@@ -214,4 +306,5 @@ export {
   stringToHTML,
   slideUp,
   slideDown,
+  sendWhatsAppMessage,
 };

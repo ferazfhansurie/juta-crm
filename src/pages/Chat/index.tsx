@@ -1310,6 +1310,9 @@ function Main() {
   const [scheduledMessages, setScheduledMessages] = useState<
     ScheduledMessage[]
   >([]);
+  const [selectedScheduledMessages, setSelectedScheduledMessages] = useState<
+    Set<string>
+  >(new Set());
   const [currentScheduledMessage, setCurrentScheduledMessage] =
     useState<ScheduledMessage | null>(null);
   const [editScheduledMessageModal, setEditScheduledMessageModal] =
@@ -2325,6 +2328,12 @@ function Main() {
         setScheduledMessages(
           scheduledMessages.filter((msg) => msg.id !== messageId)
         );
+        // Remove from selected messages if it was selected
+        setSelectedScheduledMessages((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(messageId);
+          return newSet;
+        });
         toast.success("Scheduled message deleted successfully!");
       } else {
         throw new Error("Failed to delete scheduled message.");
@@ -2332,6 +2341,61 @@ function Main() {
     } catch (error) {
       console.error("Error deleting scheduled message:", error);
       toast.error("Failed to delete scheduled message.");
+    }
+  };
+
+  const handleSelectAllScheduledMessages = () => {
+    if (selectedScheduledMessages.size === scheduledMessages.length) {
+      // If all are selected, deselect all
+      setSelectedScheduledMessages(new Set());
+    } else {
+      // Select all messages
+      const allIds = new Set(scheduledMessages.map((msg) => msg.id!));
+      setSelectedScheduledMessages(allIds);
+    }
+  };
+
+  const handleToggleScheduledMessage = (messageId: string) => {
+    setSelectedScheduledMessages((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(messageId)) {
+        newSet.delete(messageId);
+      } else {
+        newSet.add(messageId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleDeleteSelectedScheduledMessages = async () => {
+    if (selectedScheduledMessages.size === 0) {
+      toast.warning("No messages selected");
+      return;
+    }
+
+    try {
+      const email = getCurrentUserEmail();
+      if (!email || !companyId) return;
+
+      // Delete all selected messages
+      const deletePromises = Array.from(selectedScheduledMessages).map(
+        (messageId) =>
+          axios.delete(`${baseUrl}/api/schedule-message/${companyId}/${messageId}`)
+      );
+
+      await Promise.all(deletePromises);
+
+      // Update the state to remove deleted messages
+      setScheduledMessages((prev) =>
+        prev.filter((msg) => !selectedScheduledMessages.has(msg.id!))
+      );
+      setSelectedScheduledMessages(new Set());
+      toast.success(
+        `${selectedScheduledMessages.size} scheduled messages deleted successfully!`
+      );
+    } catch (error) {
+      console.error("Error deleting selected scheduled messages:", error);
+      toast.error("Failed to delete selected scheduled messages.");
     }
   };
 
@@ -16438,12 +16502,45 @@ function Main() {
                 <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent rounded-2xl"></div>
 
                 <div className="bg-gradient-to-r from-yellow-500/30 to-orange-500/30 dark:from-yellow-500/40 dark:to-orange-500/40 px-4 py-3 border-b border-white/40 dark:border-gray-500/60 backdrop-blur-2xl flex items-center justify-between relative z-10">
-                  <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 bg-gradient-to-r from-yellow-600 to-orange-600 dark:from-yellow-400 dark:to-orange-400 bg-clip-text text-transparent">
-                    Scheduled Messages
-                  </h3>
-                  <span className="text-xs text-gray-600 dark:text-gray-300 bg-white/30 dark:bg-gray-800/50 px-2 py-1 rounded-full backdrop-blur-sm border border-white/30 dark:border-gray-600/50">
-                    {scheduledMessages.length} scheduled
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 bg-gradient-to-r from-yellow-600 to-orange-600 dark:from-yellow-400 dark:to-orange-400 bg-clip-text text-transparent">
+                      Scheduled Messages
+                    </h3>
+                    {scheduledMessages.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={
+                            scheduledMessages.length > 0 &&
+                            selectedScheduledMessages.size === scheduledMessages.length
+                          }
+                          onChange={handleSelectAllScheduledMessages}
+                          className="w-4 h-4 text-yellow-600 bg-white/50 border-yellow-300 rounded focus:ring-yellow-500 focus:ring-2"
+                        />
+                        <label
+                          onClick={handleSelectAllScheduledMessages}
+                          className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer font-medium"
+                        >
+                          Select All
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {selectedScheduledMessages.size > 0 && (
+                      <button
+                        onClick={handleDeleteSelectedScheduledMessages}
+                        className="px-3 py-1 bg-red-500/80 text-white text-xs rounded-full hover:bg-red-600 transition-all duration-200 font-medium shadow-lg hover:shadow-xl flex items-center gap-1"
+                        title={`Delete ${selectedScheduledMessages.size} selected messages`}
+                      >
+                        <Lucide icon="Trash2" className="w-3 h-3" />
+                        Delete ({selectedScheduledMessages.size})
+                      </button>
+                    )}
+                    <span className="text-xs text-gray-600 dark:text-gray-300 bg-white/30 dark:bg-gray-800/50 px-2 py-1 rounded-full backdrop-blur-sm border border-white/30 dark:border-gray-600/50">
+                      {scheduledMessages.length} scheduled
+                    </span>
+                  </div>
                 </div>
                 <div className="p-4">
                   {scheduledMessages.length > 0 ? (
@@ -16455,15 +16552,27 @@ function Main() {
                         {scheduledMessages.map((message) => (
                           <div
                             key={message.id}
-                            className="flex-none w-[320px] bg-gradient-to-br from-yellow-500/20 to-orange-500/20 dark:from-yellow-500/30 dark:to-orange-500/30 backdrop-blur-md rounded-2xl p-4 border border-yellow-300/50 dark:border-yellow-600/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
+                            className={`flex-none w-[320px] bg-gradient-to-br from-yellow-500/20 to-orange-500/20 dark:from-yellow-500/30 dark:to-orange-500/30 backdrop-blur-md rounded-2xl p-4 border shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 ${
+                              selectedScheduledMessages.has(message.id!)
+                                ? "border-yellow-500 dark:border-yellow-400 ring-2 ring-yellow-500/50"
+                                : "border-yellow-300/50 dark:border-yellow-600/50"
+                            }`}
                           >
                             <div className="flex flex-col h-full">
                               <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                                  {new Date(
-                                    message.scheduledTime
-                                  ).toLocaleString()}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedScheduledMessages.has(message.id!)}
+                                    onChange={() => handleToggleScheduledMessage(message.id!)}
+                                    className="w-4 h-4 text-yellow-600 bg-white/50 border-yellow-300 rounded focus:ring-yellow-500 focus:ring-2"
+                                  />
+                                  <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                                    {new Date(
+                                      message.scheduledTime
+                                    ).toLocaleString()}
+                                  </span>
+                                </div>
                                 <span
                                   className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                                     message.status === "scheduled"
