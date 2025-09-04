@@ -1469,18 +1469,21 @@ function Main() {
   const planConfig = {
     free: {
       aiMessages: 100,
-      contacts: 100,
+      contacts: Infinity,
       title: "Free Plan",
+      isLifetime: true,
     },
     enterprise: {
       aiMessages: 5000,
-      contacts: 10000,
+      contacts: Infinity,
       title: "Enterprise Plan",
+      isLifetime: false,
     },
     pro: {
       aiMessages: 20000,
-      contacts: 50000,
+      contacts: Infinity,
       title: "Pro Plan",
+      isLifetime: false,
     },
   };
   const getCurrentPlanLimits = () => {
@@ -5821,7 +5824,7 @@ function Main() {
       } else if (data.companyData.plan === "pro") {
         quota = (data.usageQuota.aiMessages || 0) + 20000;
       } else {
-        quota = (data.usageQuota.aiMessages || 0) + 100;
+        quota = (data.usageQuota.aiMessages || 0);
       }
       setQuotaData({
         limit: quota,
@@ -12216,7 +12219,7 @@ function Main() {
                     <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
                       {aiMessageUsage || 0}
                       <span className="opacity-70 font-normal">
-                        /{quotaData?.limit || currentPlanLimits.aiMessages}
+                        /{currentPlanLimits.aiMessages || quotaData?.limit || 100}
                       </span>
                     </span>
                   )}
@@ -12236,7 +12239,7 @@ function Main() {
                 <div
                   className={`h-1.5 rounded-full transition-all duration-500 ease-in-out ${
                     (aiMessageUsage || 0) >
-                    (quotaData?.limit || currentPlanLimits.aiMessages || 0)
+                    (currentPlanLimits.aiMessages || quotaData?.limit || 100)
                       ? "bg-gradient-to-r from-red-600 to-red-800"
                       : (quotaData?.limit ||
                           currentPlanLimits.aiMessages ||
@@ -12263,7 +12266,7 @@ function Main() {
                       Math.max(
                         (((quotaData?.limit ||
                           currentPlanLimits.aiMessages ||
-                          1) -
+                          100) -
                           (aiMessageUsage || 0)) /
                           (quotaData?.limit ||
                             currentPlanLimits.aiMessages ||
@@ -12276,7 +12279,7 @@ function Main() {
                   }}
                 ></div>
                 {(aiMessageUsage || 0) >
-                  (quotaData?.limit || currentPlanLimits.aiMessages || 0) && (
+                  (currentPlanLimits.aiMessages || quotaData?.limit || 0) && (
                   <div className="text-xs text-red-600 dark:text-red-400 text-center mt-0.5 font-medium">
                     ⚠️ Limit exceeded by{" "}
                     {(aiMessageUsage || 0) -
@@ -12287,55 +12290,9 @@ function Main() {
                   </div>
                 )}
               </div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                  <Lucide icon="Contact" className="w-2.5 h-2.5 text-primary" />
-                  Contacts
-                </span>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-gray-900 dark:text-gray-100">
-                    {contacts.length}
-                    <span className="opacity-70 font-normal">
-                      /{currentPlanLimits.contacts || 0}
-                    </span>
-                  </span>
-                </div>
-              </div>
+          
 
-              <div className="w-full h-1.5 rounded-full bg-gradient-to-r from-emerald-400/10 to-gray-200 dark:from-emerald-400/20 dark:to-gray-700 overflow-hidden">
-                <div
-                  className={`h-1.5 rounded-full transition-all duration-500 ease-in-out ${
-                    contacts.length > (currentPlanLimits.contacts || 0)
-                      ? "bg-gradient-to-r from-red-600 to-red-800"
-                      : (currentPlanLimits.contacts || 0) - contacts.length <
-                        (currentPlanLimits.contacts || 0) * 0.1
-                      ? "bg-gradient-to-r from-red-500 to-red-700"
-                      : (currentPlanLimits.contacts || 0) - contacts.length <
-                        (currentPlanLimits.contacts || 0) * 0.3
-                      ? "bg-gradient-to-r from-yellow-400 to-yellow-600"
-                      : "bg-gradient-to-r from-emerald-500 to-emerald-700"
-                  }`}
-                  style={{
-                    width: `${Math.min(
-                      Math.max(
-                        (((currentPlanLimits.contacts || 1) - contacts.length) /
-                          (currentPlanLimits.contacts || 1)) *
-                          100,
-                        0
-                      ),
-                      100
-                    )}%`,
-                  }}
-                ></div>
-              </div>
               <div className="flex items-center justify-between mt-1"></div>
-              {contacts.length > (currentPlanLimits.contacts || 0) && (
-                <div className="mt-1 text-center">
-                  <span className="text-xs text-orange-600 dark:text-orange-400 font-medium bg-orange-100 dark:bg-orange-900/30 px-2 py-0.5 rounded-full">
-                    ⚠️ Contact limit exceeded - upgrade plan for more contacts
-                  </span>
-                </div>
-              )}
 
               {/* Analytics button */}
               <div className="flex items-center justify-center mt-1 pt-1 border-t border-gray-200 dark:border-gray-600">
@@ -17433,9 +17390,9 @@ function Main() {
                               <span className="text-lg font-semibold text-blue-600 dark:text-blue-400">
                                 /{" "}
                                 {(
-                                  quotaData?.limit ||
                                   currentPlanLimits.aiMessages ||
-                                  500
+                                  quotaData?.limit ||
+                                  100
                                 ).toLocaleString()}
                               </span>
                             </div>
@@ -17445,13 +17402,13 @@ function Main() {
                                 style={{
                                   width: `${Math.min(
                                     Math.max(
-                                      (((quotaData?.limit ||
-                                        currentPlanLimits.aiMessages ||
-                                        500) -
+                                      (((currentPlanLimits.aiMessages ||
+                                        quotaData?.limit ||
+                                        100) -
                                         (aiMessageUsage || 0)) /
-                                        (quotaData?.limit ||
-                                          currentPlanLimits.aiMessages ||
-                                          500)) *
+                                        (currentPlanLimits.aiMessages ||
+                                          quotaData?.limit ||
+                                          100)) *
                                         100,
                                       0
                                     ),
@@ -17464,17 +17421,17 @@ function Main() {
                             </div>
                             <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
                               {Math.max(
-                                (((quotaData?.limit ||
-                                  currentPlanLimits.aiMessages ||
-                                  500) -
+                                (((currentPlanLimits.aiMessages ||
+                                  quotaData?.limit ||
+                                  100) -
                                   (aiMessageUsage || 0)) /
-                                  (quotaData?.limit ||
-                                    currentPlanLimits.aiMessages ||
-                                    500)) *
+                                  (currentPlanLimits.aiMessages ||
+                                    quotaData?.limit ||
+                                    100)) *
                                   100,
                                 0
                               ).toFixed(1)}
-                              % quota remaining this month
+                              % quota remaining{currentPlanLimits.isLifetime ? '' : ' this month'}
                             </p>
                           </div>
                         </div>
@@ -17500,53 +17457,22 @@ function Main() {
                                 {contacts.length.toLocaleString()}
                               </span>
                               <span className="text-lg font-semibold text-emerald-600 dark:text-emerald-400">
-                                /{" "}
-                                {(
-                                  currentPlanLimits.contacts || 0
-                                ).toLocaleString()}
+                                contacts
                               </span>
                             </div>
                             <div className="relative w-full bg-emerald-200/50 dark:bg-emerald-800/50 rounded-full h-4 overflow-hidden">
                               <div
                                 className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-emerald-600 to-emerald-500 rounded-full transition-all duration-700 ease-out shadow-sm"
                                 style={{
-                                  width: `${Math.min(
-                                    Math.max(
-                                      (((currentPlanLimits.contacts || 1) -
-                                        contacts.length) /
-                                        (currentPlanLimits.contacts || 1)) *
-                                        100,
-                                      0
-                                    ),
-                                    100
-                                  )}%`,
+                                  width: "100%",
                                 }}
                               >
                                 <div className="w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
                               </div>
                             </div>
                             <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                              {Math.max(
-                                (((currentPlanLimits.contacts || 1) -
-                                  contacts.length) /
-                                  (currentPlanLimits.contacts || 1)) *
-                                  100,
-                                0
-                              ).toFixed(1)}
-                              % quota remaining for this account
+                              Unlimited contacts available
                             </p>
-                            {contacts.length > currentPlanLimits.contacts && (
-                              <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg border border-orange-200 dark:border-orange-700/50">
-                                <p className="text-xs text-orange-700 dark:text-orange-300 font-medium">
-                                  ⚠️ You have{" "}
-                                  {(
-                                    contacts.length - currentPlanLimits.contacts
-                                  ).toLocaleString()}{" "}
-                                  contacts over your plan limit. Consider
-                                  upgrading to manage all contacts effectively.
-                                </p>
-                              </div>
-                            )}
                           </div>
                         </div>
                       </div>
@@ -18178,26 +18104,30 @@ function Main() {
           {/* Modal Content */}
           <div className="relative flex flex-col w-full h-full bg-white dark:bg-gray-900 overflow-hidden">
             {/* Header */}
-            <div className="relative bg-gradient-to-r from-slate-600 via-gray-600 to-slate-700 p-6">
-              <div className="flex items-center justify-between">
+            <div className="relative bg-white/10 dark:bg-gray-800/10 backdrop-blur-2xl border-b border-white/20 dark:border-gray-600/30 p-6">
+              {/* Background gradient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/5 to-indigo-500/10 dark:from-blue-400/20 dark:via-purple-400/10 dark:to-indigo-400/20" />
+              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent" />
+              
+              <div className="relative flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-white/15 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/20">
-                    <Lucide icon="Sparkles" className="w-6 h-6 text-white" />
+                  <div className="w-12 h-12 bg-white/20 dark:bg-gray-700/30 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/30 dark:border-gray-600/30 shadow-lg">
+                    <Lucide icon="Sparkles" className="w-6 h-6 text-gray-800 dark:text-white" />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold text-white">
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
                       AI Response Top-up & Plans
                     </h2>
-                    <p className="text-gray-200 text-sm mt-1">
+                    <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">
                       Upgrade your plan or top up your AI responses
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={() => setIsTopUpModalOpen(false)}
-                  className="p-2 hover:bg-white/15 rounded-xl transition-all duration-200 border border-white/20"
+                  className="p-2 hover:bg-white/20 dark:hover:bg-gray-700/30 rounded-xl transition-all duration-200 border border-white/30 dark:border-gray-600/30 backdrop-blur-sm shadow-lg hover:shadow-xl"
                 >
-                  <Lucide icon="X" className="w-6 h-6 text-white" />
+                  <Lucide icon="X" className="w-6 h-6 text-gray-800 dark:text-white" />
                 </button>
               </div>
             </div>
@@ -18205,68 +18135,73 @@ function Main() {
             {/* Content */}
             <div className="flex-1 p-8 overflow-y-auto bg-gray-50 dark:bg-gray-800">
               <div className="max-w-7xl mx-auto">
-                {/* AI Response Calculator - Moved to Top */}
-                <div className="mb-10 p-6 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 rounded-2xl border border-green-200/50 dark:border-green-700/50">
-                  <div className="text-center mb-6">
-                    <h3 className="text-2xl font-bold text-green-900 dark:text-green-100">
-                      AI Response Calculator
-                    </h3>
-                    <p className="text-green-600 dark:text-green-400 text-sm mt-1">
-                      Calculate how many AI responses you need and get instant
-                      pricing
-                    </p>
+                {/* AI Response Calculator - Compact Design */}
+                <div className="mb-4 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+                  <div className="text-center mb-4">
+                    <div className="inline-flex items-center gap-2 mb-2">
+                      <Lucide icon="Calculator" className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+                        AI Response Calculator
+                      </h4>
+                    </div>
                   </div>
 
-                  <div className="max-w-md mx-auto">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-green-200 dark:border-green-700">
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          Amount in RM
+                  <div className="max-w-sm mx-auto">
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Amount (RM)
                         </label>
                         <input
                           type="number"
-                          min="1"
-                          step="1"
-                          value={topUpAmount}
-                          onChange={(e) =>
-                            setTopUpAmount(parseInt(e.target.value) || 0)
-                          }
-                          className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-center text-lg font-semibold"
-                          placeholder="Enter amount in RM"
+                          min="10"
+                          step="10"
+                          defaultValue="10"
+                          className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white font-semibold text-center text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                          onChange={(e) => {
+                            const amount = parseInt(e.target.value) || 0;
+                            const responses = amount * 10;
+                            const resultDiv = document.getElementById('calc-result');
+                            const buyButton = document.getElementById('buy-button') as HTMLAnchorElement;
+                            if (resultDiv) {
+                              resultDiv.innerHTML = 
+                                '<div class="text-center">' +
+                                  '<div class="text-lg font-bold text-emerald-600 dark:text-emerald-400">' +
+                                    responses.toLocaleString() + ' Responses' +
+                                  '</div>' +
+                                '</div>';
+                            }
+                            if (buyButton) {
+                              buyButton.href = `https://wa.me/601121677522?text=Hi%20i%20would%20like%20to%20purchase%20${responses}%20AI%20Responses%20for%20RM%20${amount}`;
+                              buyButton.innerHTML = `Buy RM ${amount}`;
+                            }
+                          }}
                         />
                       </div>
-
-                      <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                            RM {calculateTopUpPrice()}
-                          </div>
-                          <div className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                            for {calculateAIResponses()} AI Responses
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                            (RM 10 = 100 AI responses)
-                          </div>
-                          <div className="mt-2 text-xs text-green-600 dark:text-green-400 font-medium">
-                            💡 Great value for your AI needs!
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          You Get
+                        </label>
+                        <div id="calc-result" className="px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded border">
+                          <div className="text-center">
+                            <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                              100 Responses
+                            </div>
                           </div>
                         </div>
                       </div>
+                    </div>
 
-                      <button
-                        onClick={() => handleTopUpPurchase()}
-                        disabled={topUpAmount < 1 || isTopUpLoading}
-                        className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95"
+                    <div className="text-center">
+                      <a
+                        id="buy-button"
+                        href="https://wa.me/601121677522?text=Hi%20i%20would%20like%20to%20purchase%20100%20AI%20Responses%20for%20RM%2010"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded transition-colors duration-200 text-sm"
                       >
-                        {isTopUpLoading ? (
-                          <div className="flex items-center justify-center">
-                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                            Processing...
-                          </div>
-                        ) : (
-                          `Buy Now - RM ${calculateTopUpPrice()}`
-                        )}
-                      </button>
+                        Buy RM 10
+                      </a>
                     </div>
                   </div>
                 </div>
@@ -18290,7 +18225,7 @@ function Main() {
                         {currentPlanLimits.aiMessages}
                       </div>
                       <div className="text-sm text-blue-700 dark:text-blue-300">
-                        Monthly Limit ({currentPlanLimits.title})
+                        {currentPlanLimits.isLifetime ? 'Lifetime Limit' : 'Monthly Limit'} ({currentPlanLimits.title})
                       </div>
                     </div>
                     <div className="text-center">
@@ -18314,159 +18249,116 @@ function Main() {
                 </div>
 
                 {/* Pricing Plans */}
-                <div className="mb-10">
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-8">
-                    Choose Your Plan
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    {/* Free Plan */}
-                    <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-6 border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition-all duration-300 hover:shadow-xl hover:scale-105">
-                      <div className="text-center">
-                        <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
-                          Free Plan
-                        </h4>
-                        <div className="text-2xl font-black text-primary mb-3">
-                          RM 0
-                          <span className="text-sm font-normal text-gray-600 dark:text-gray-400">
-                            /month
-                          </span>
+                <div className="mb-6">
+                  <div className="text-center mb-8">
+                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 mb-3">
+                      <Lucide icon="Crown" className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                      Pricing Plans
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-300">
+                      Choose the perfect plan for your business needs
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Pay-as-you-go Plan */}
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-lg">
+                      <div className="text-center mb-6">
+                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 mb-3">
+                          <Lucide icon="Zap" className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                         </div>
-                        <p className="text-gray-600 dark:text-gray-400 mb-4 text-xs">
-                          Perfect for getting started. Get 100 AI responses
-                          monthly and 100 contacts with full access to all
-                          system features.
+                        <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                          Pay-as-you-go
+                        </h4>
+                        <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">
+                          RM 0.10
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                          / AI Response
+                        </div>
+                        <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
+                          100 free lifetime AI responses, then pay only for what you use with full access to all features.
                         </p>
-                        <div className="w-full bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-400 font-semibold py-2 px-4 rounded-xl text-sm text-center">
+                        <div className="w-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-semibold py-2 px-4 rounded-lg text-sm text-center">
                           Current Plan
                         </div>
                       </div>
-                      <div className="mt-4 space-y-2">
+                      <div className="space-y-3">
                         {[
-                          "100 AI Responses",
-                          "100 Contacts",
+                          "Pay per AI Response",
                           "AI Follow-Up System",
                           "AI Booking System",
                           "AI Tagging System",
-                          "AI Assign System",
-                          "Mobile App Access",
-                          "Desktop App Access",
+                          "Mobile & Desktop App",
                         ].map((benefit, index) => (
                           <div
                             key={index}
-                            className="flex items-center text-xs text-gray-700 dark:text-gray-300"
+                            className="flex items-center text-sm text-gray-700 dark:text-gray-300"
                           >
-                            <Lucide
-                              icon="Check"
-                              className="w-3 h-3 text-green-500 mr-2 flex-shrink-0"
-                            />
+                            <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center mr-3 flex-shrink-0">
+                              <Lucide
+                                icon="Check"
+                                className="w-3 h-3 text-white"
+                              />
+                            </div>
                             {benefit}
                           </div>
                         ))}
                       </div>
                     </div>
 
-                    {/* Standard Plan */}
-                    <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-6 border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition-all duration-300 hover:shadow-xl hover:scale-105">
-                      <div className="text-center">
-                        <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
-                          Standard Plan
-                        </h4>
-                        <div className="text-2xl font-black text-primary mb-3">
-                          RM 500
-                          <span className="text-sm font-normal text-gray-600 dark:text-gray-400">
-                            /month
-                          </span>
-                        </div>
-                        <p className="text-gray-600 dark:text-gray-400 mb-4 text-xs">
-                          Perfect for small businesses. Get 1000 AI responses
-                          monthly and 5000 contacts with full access to all
-                          system features.
-                        </p>
-                        <a
-                          href="https://api.payex.io/Payment/Details?key=78cd6WScl365InsA&amount=500&payment_type=fpx&description=Standard%20Plan&signature=8f619e38ff161beeb887286cc69b2aaf1bdf278df51249436c7ce0063179a617"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block w-full bg-primary hover:bg-primary/80 text-white font-semibold py-2 px-4 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95 text-sm text-center"
-                        >
-                          Upgrade Now
-                        </a>
-                      </div>
-                      <div className="mt-4 space-y-2">
-                        {[
-                          "1000 AI Responses Monthly",
-                          "5000 Contacts",
-                          "AI Follow-Up System",
-                          "AI Booking System",
-                          "AI Tagging System",
-                          "AI Assign System",
-                          "Mobile App Access",
-                          "Desktop App Access",
-                        ].map((benefit, index) => (
-                          <div
-                            key={index}
-                            className="flex items-center text-xs text-gray-700 dark:text-gray-300"
-                          >
-                            <Lucide
-                              icon="Check"
-                              className="w-3 h-3 text-green-500 mr-2 flex-shrink-0"
-                            />
-                            {benefit}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Pro Support Plan - Most Popular */}
-                    <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-6 border-2 border-primary shadow-xl scale-105">
+                    {/* Premium Support Plan - Most Popular */}
+                    <div className="relative bg-white dark:bg-gray-800 rounded-2xl border-2 border-orange-300 dark:border-orange-600 p-6 shadow-lg">
                       <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                        <span className="bg-primary text-white text-xs font-bold px-3 py-1 rounded-full">
+                        <div className="bg-gradient-to-r from-orange-500 to-pink-500 text-white text-xs font-bold px-3 py-1 rounded-full">
                           Most Popular
-                        </span>
-                      </div>
-                      <div className="text-center">
-                        <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
-                          Pro Support Plan
-                        </h4>
-                        <div className="text-2xl font-black text-primary mb-3">
-                          RM 950
-                          <span className="text-sm font-normal text-gray-600 dark:text-gray-400">
-                            /month
-                          </span>
                         </div>
-                        <p className="text-gray-600 dark:text-gray-400 mb-4 text-xs">
-                          Premium support with 5,000 AI responses monthly and
-                          10,000 contacts. We handle your prompting, follow-ups,
-                          and maintenance.
+                      </div>
+                      
+                      <div className="text-center mb-6 mt-2">
+                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-orange-100 dark:bg-orange-900/30 mb-3">
+                          <Lucide icon="Target" className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                        </div>
+                        <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                          Premium Support Plan
+                        </h4>
+                        <div className="text-3xl font-bold text-orange-600 dark:text-orange-400 mb-1">
+                          RM 950
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                          /month
+                        </div>
+                        <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
+                          Premium support with 5,000 AI responses monthly. Full setup and maintenance included.
                         </p>
                         <a
                           href="https://api.payex.io/Payment/Details?key=78cd6WScl365InsA&amount=950&payment_type=fpx&description=Pro%20Plan&signature=c33c1d57c6ddb0976c02f5dab08bc683b25e01d099e92e707b82a607268e28a7"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="block w-full bg-primary hover:bg-primary/80 text-white font-semibold py-2 px-4 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95 text-sm text-center"
+                          className="block w-full bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 text-sm text-center"
                         >
                           Upgrade Now
                         </a>
                       </div>
-                      <div className="mt-4 space-y-2">
+                      <div className="space-y-3">
                         {[
                           "5,000 AI Responses Monthly",
-                          "10,000 Contacts",
+                          "AI Setup & Maintenance",
                           "AI Follow-Up System",
                           "AI Booking System",
-                          "AI Tagging System",
-                          "AI Assign System",
-                          "Mobile App Access",
-                          "Desktop App Access",
-                          "Full Maintenance & Support",
+                          "Mobile & Desktop App",
                         ].map((benefit, index) => (
                           <div
                             key={index}
-                            className="flex items-center text-xs text-gray-700 dark:text-gray-300"
+                            className="flex items-center text-sm text-gray-700 dark:text-gray-300"
                           >
-                            <Lucide
-                              icon="Check"
-                              className="w-3 h-3 text-green-500 mr-2 flex-shrink-0"
-                            />
+                            <div className="w-4 h-4 rounded-full bg-orange-500 flex items-center justify-center mr-3 flex-shrink-0">
+                              <Lucide
+                                icon="Check"
+                                className="w-3 h-3 text-white"
+                              />
+                            </div>
                             {benefit}
                           </div>
                         ))}
@@ -18474,52 +18366,50 @@ function Main() {
                     </div>
 
                     {/* Enterprise Plan */}
-                    <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-6 border-2 border-gray-200 dark:border-gray-700 hover:border-primary dark:hover:border-primary transition-all duration-300 hover:shadow-xl hover:scale-105">
-                      <div className="text-center">
-                        <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-lg">
+                      <div className="text-center mb-6">
+                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/30 mb-3">
+                          <Lucide icon="Building" className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                        </div>
+                        <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
                           Enterprise Plan
                         </h4>
-                        <div className="text-2xl font-black text-primary mb-3">
-                          RM XXXX+
-                          <span className="text-sm font-normal text-gray-600 dark:text-gray-400">
-                            /month
-                          </span>
+                        <div className="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-1">
+                          RM 3,088+
                         </div>
-                        <p className="text-gray-600 dark:text-gray-400 mb-4 text-xs">
-                          Complete solution with 20,000 AI responses, 50,000
-                          contacts, custom integrations, full setup and
-                          maintenance included.
+                        <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                          /month
+                        </div>
+                        <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
+                          Complete solution with 20,000 AI responses, custom automations, and full maintenance.
                         </p>
                         <a
                           href="https://wa.me/601121677522?text=Hi%20i%20would%20like%20to%20know%20more%20about%20your%20enterprise%20plan"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="block w-full bg-primary hover:bg-primary/80 text-white font-semibold py-2 px-4 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95 text-sm"
+                          className="block w-full bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 text-sm"
                         >
                           Learn More
                         </a>
                       </div>
-                      <div className="mt-4 space-y-2">
+                      <div className="space-y-3">
                         {[
                           "20,000 AI Responses Monthly",
-                          "50,000 Contacts",
+                          "Custom Automations",
+                          "AI Setup & Maintenance",
                           "AI Follow-Up System",
-                          "AI Booking System",
-                          "AI Tagging System",
-                          "AI Assign System",
-                          "Mobile App Access",
-                          "Desktop App Access",
-                          "Full Maintenance & Support",
-                          "Full AI Setup & Custom Automations",
+                          "Mobile & Desktop App",
                         ].map((benefit, index) => (
                           <div
                             key={index}
-                            className="flex items-center text-xs text-gray-700 dark:text-gray-300"
+                            className="flex items-center text-sm text-gray-700 dark:text-gray-300"
                           >
-                            <Lucide
-                              icon="Check"
-                              className="w-3 h-3 text-green-500 mr-2 flex-shrink-0"
-                            />
+                            <div className="w-4 h-4 rounded-full bg-purple-500 flex items-center justify-center mr-3 flex-shrink-0">
+                              <Lucide
+                                icon="Check"
+                                className="w-3 h-3 text-white"
+                              />
+                            </div>
                             {benefit}
                           </div>
                         ))}
