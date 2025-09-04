@@ -856,6 +856,7 @@ function Main() {
 
   // Add state variables for message polling
   const [isPolling, setIsPolling] = useState(false);
+  const [isFetchingMessages, setIsFetchingMessages] = useState(false);
   const [lastMessageTimestamp, setLastMessageTimestamp] = useState<number>(0);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -1496,7 +1497,7 @@ function Main() {
   const [messagePage, setMessagePage] = useState(0);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
-  const MESSAGES_PER_PAGE = 10;
+  const MESSAGES_PER_PAGE = 20;
   // Add these functions after the fetchMessages function (around line 6171)
 
   // Replace the existing loadMoreMessages function (around line 1298) with this corrected version:
@@ -1544,41 +1545,28 @@ function Main() {
   }, [messagePage, allMessages.length, isLoadingMoreMessages, hasMoreMessages]);
 
   // Replace the handleMessageListScroll function (around line 1315) with this button approach:
-  const handleLoadMoreMessages = useCallback(async () => {
+  const handleLoadAllMessages = useCallback(async () => {
     if (isLoadingMoreMessages || !hasMoreMessages) return;
 
     setIsLoadingMoreMessages(true);
 
-    // Simulate loading delay for better UX
+    console.log(
+      `🔍 Loading all messages: ${allMessages.length - displayedMessages.length} remaining of ${allMessages.length} total`
+    );
+
+    // Simple timeout for UX - just display all messages at once
     setTimeout(() => {
-      const nextPage = messagePage + 1;
-      const startIndex = nextPage * MESSAGES_PER_PAGE;
-      const endIndex = startIndex + MESSAGES_PER_PAGE;
-
-      console.log(
-        `�� Debug: page ${nextPage}, start: ${startIndex}, end: ${endIndex}, total: ${allMessages.length}`
-      );
-
-      if (startIndex < allMessages.length) {
-        const newMessages = allMessages.slice(startIndex, endIndex);
-        setDisplayedMessages((prev) => [...newMessages, ...prev]);
-        console.log(displayedMessages);
-        setMessagePage(nextPage);
-        setHasMoreMessages(endIndex < allMessages.length);
-        console.log(`✅ Loaded ${newMessages.length} more messages`);
-      } else {
-        console.log(`🔍 No more messages to load - reached end`);
-        setHasMoreMessages(false);
-      }
-
+      // Just display all messages - no caching needed for this action
+      setDisplayedMessages(allMessages);
+      setHasMoreMessages(false);
+      console.log(`✅ Displayed all ${allMessages.length} messages (no caching)`);
       setIsLoadingMoreMessages(false);
-    }, 500);
+    }, 300);
   }, [
-    messagePage,
     isLoadingMoreMessages,
     hasMoreMessages,
-    selectedChatId,
-    whapiToken,
+    allMessages,
+    displayedMessages.length,
   ]);
 
   // Remove the handleMessageListScroll function entirely
@@ -5970,6 +5958,7 @@ function Main() {
     async (chatId: string, contactId?: string, contactSelect?: Contact) => {
       setMessages([]);
       setAllMessages([]); // Clear all messages as well
+      setIsFetchingMessages(true);
       console.log("selecting chat");
 
       try {
@@ -6357,20 +6346,27 @@ function Main() {
           localStorage.setItem(storageKey, compressedMessages);
         }
       } catch (quotaError) {
+        console.warn("LocalStorage quota exceeded, attempting to clear space...");
+        
         // If still getting quota error, clear old caches
-
         clearOldCaches();
 
-        // Try one more time with very limited messages
-        const minimalMessages = messages.slice(-25);
-        const minimalCompressed = LZString.compress(
-          JSON.stringify({
-            messages: minimalMessages,
-            timestamp: Date.now(),
-            expiry: Date.now() + 30 * 60 * 1000,
-          })
-        );
-        localStorage.setItem(storageKey, minimalCompressed);
+        try {
+          // Try one more time with very limited messages
+          const minimalMessages = messages.slice(-25);
+          const minimalCompressed = LZString.compress(
+            JSON.stringify({
+              messages: minimalMessages,
+              timestamp: Date.now(),
+              expiry: Date.now() + 30 * 60 * 1000,
+            })
+          );
+          localStorage.setItem(storageKey, minimalCompressed);
+          console.log(`💾 Cached ${minimalMessages.length} messages for ${chatId} (reduced due to quota)`);
+        } catch (finalError) {
+          console.warn("Unable to cache messages due to storage constraints:", finalError);
+          // Silently fail - the app should still work without caching
+        }
       }
     } catch (error) {
       console.error("Error storing messages in localStorage:", error);
@@ -6775,6 +6771,8 @@ function Main() {
     if (selectedChatId) {
       console.log(selectedContact);
       console.log(selectedChatId);
+      setMessages([]);
+      setAllMessages([]); // Clear all messages as well
       fetchMessages(selectedChatId, whapiToken!);
 
       // Immediately check for new messages to ensure real-time updates
@@ -7224,7 +7222,7 @@ function Main() {
   // Add polling function to check for new messages every 5 seconds for better real-time updates
   const pollForNewMessages = useCallback(async () => {
     if (!selectedChatId || !userData) return;
-
+   
     try {
       const userEmail = localStorage.getItem("userEmail");
       if (!userEmail) return;
@@ -7262,7 +7260,7 @@ function Main() {
 
       if (newMessages.length > 0) {
         console.log(`Found ${newMessages.length} new messages`);
-
+        setIsFetchingMessages(false);
         // Format new messages using the same logic as fetchMessages
         const formattedNewMessages: any[] = [];
         const reactionsMap: Record<string, any[]> = {};
@@ -7550,13 +7548,11 @@ function Main() {
             });
 
             // Store updated messages in localStorage
-            storeMessagesInLocalStorage(selectedChatId, mergedMessages);
+            //storeMessagesInLocalStorage(selectedChatId, mergedMessages);
 
             // Cache the updated messages for faster loading
-            setCachedMessages(selectedChatId, mergedMessages);
-            console.log(
-              `💾 Cached ${mergedMessages.length} messages for chat ${selectedChatId} (polling update)`
-            );
+          //  setCachedMessages(selectedChatId, mergedMessages);
+         
 
             // Update last message timestamp only for unique new messages
             const latestMessage =
@@ -7904,7 +7900,7 @@ function Main() {
         return aTime - bTime; // Oldest first
       });
 
-      storeMessagesInLocalStorage(selectedChatId, mergedMessages);
+
       setAllMessages(mergedMessages); // Store all messages for filtering
       setMessages(mergedMessages); // Update the main messages state
       console.log(messages);
@@ -13576,30 +13572,53 @@ function Main() {
               {selectedChatId && (
                 <>
                   {/* Lazy loading indicator */}
-                  {hasMoreMessages && (
+                  {isFetchingMessages && (
                     <div className="flex justify-center py-4">
-                      <button
-                        onClick={handleLoadMoreMessages}
-                        disabled={isLoadingMoreMessages}
-                        className="relative overflow-hidden px-6 py-3 rounded-xl bg-white/10 dark:bg-gray-800/20 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 text-gray-700 dark:text-gray-200 font-medium text-sm transition-all duration-300 hover:bg-white/20 dark:hover:bg-gray-800/30 hover:border-white/30 dark:hover:border-gray-600/40 hover:shadow-lg hover:shadow-black/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white/10 disabled:hover:border-white/20"
-                      >
-                        {isLoadingMoreMessages ? (
-                          <>
-                            <LoadingIcon
-                              icon="rings"
-                              className="w-4 h-4 mr-2 inline-block"
-                            />
-                            Loading...
-                          </>
-                        ) : (
-                          <>
-                            <span className="relative z-10">
-                              Load More Messages
-                            </span>
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent transform -skew-x-12 -translate-x-full animate-shimmer"></div>
-                          </>
-                        )}
-                      </button>
+                      <div className="flex items-center space-x-2 px-6 py-3 rounded-xl bg-blue-500/20 dark:bg-blue-600/20 border border-blue-400/30 dark:border-blue-500/30 text-blue-700 dark:text-blue-300 font-medium text-sm">
+                        <LoadingIcon
+                          icon="rings"
+                          className="w-4 h-4 animate-spin"
+                        />
+                        <span>Loading messages...</span>
+                      </div>
+                    </div>
+                  )}
+                  {(hasMoreMessages || (allMessages.length === 0 && displayedMessages.length === 0 && selectedChatId && !isFetchingMessages)) && (
+                    <div className="flex justify-center py-4">
+                      {allMessages.length === 0 && displayedMessages.length === 0 ? (
+                        // Show loading animation when initially fetching messages
+                        <div className="flex items-center space-x-2 px-6 py-3 rounded-xl bg-blue-500/20 dark:bg-blue-600/20 border border-blue-400/30 dark:border-blue-500/30 text-blue-700 dark:text-blue-300 font-medium text-sm">
+                          <LoadingIcon
+                            icon="rings"
+                            className="w-4 h-4 animate-spin"
+                          />
+                          <span>Loading messages...</span>
+                        </div>
+                      ) : hasMoreMessages ? (
+                        // Show load all messages button when there are more messages
+                        <button
+                          onClick={handleLoadAllMessages}
+                          disabled={isLoadingMoreMessages}
+                          className="relative overflow-hidden px-6 py-3 rounded-xl bg-blue-500/90 dark:bg-blue-600/90 backdrop-blur-xl border border-blue-400/50 dark:border-blue-500/50 text-white font-medium text-sm transition-all duration-300 hover:bg-blue-600 dark:hover:bg-blue-700 hover:border-blue-500 dark:hover:border-blue-600 hover:shadow-lg hover:shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-500/90 disabled:hover:border-blue-400/50"
+                        >
+                          {isFetchingMessages  ? (
+                            <>
+                              <LoadingIcon
+                                icon="rings"
+                                className="w-4 h-4 mr-2 inline-block"
+                              />
+                              Loading...
+                            </>
+                          ) : (
+                            <>
+                              <span className="relative z-10">
+                                Load All Messages
+                              </span>
+                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent transform -skew-x-12 -translate-x-full animate-shimmer"></div>
+                            </>
+                          )}
+                        </button>
+                      ) : null}
                     </div>
                   )}
                   {displayedMessages
