@@ -2070,7 +2070,7 @@ function Main() {
         console.log("🏷️ [EMPLOYEE ASSIGNMENT] Updated tags:", updatedTags);
         console.log("🏷️ [EMPLOYEE ASSIGNMENT] Previous tags:", currentTags);
 
-        const updateContactsList = (prevContacts: Contact[]) =>
+        const updateContactsList: (prevContacts: Contact[]) => Contact[] = (prevContacts) =>
           prevContacts.map((c) =>
             c.id === contact.id || c.contact_id === contact.contact_id
               ? { ...c, tags: updatedTags, assignedTo: tagName }
@@ -11378,42 +11378,57 @@ function Main() {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  handleSendSelectedNow();
+                                  const allIds = applyAdvancedFilters(
+                                  combineScheduledMessages(
+                                    getFilteredScheduledMessages()
+                                  )
+                                  ).map((msg) => msg.id!);
+                                  setSelectedScheduledMessages(allIds);
                                 }}
-                                className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-teal-500/30 border border-emerald-400/30 hover:border-emerald-400/50 text-emerald-300 hover:text-emerald-200 rounded-2xl transition-all duration-200 backdrop-blur-sm text-sm font-medium shadow-lg shadow-emerald-500/10"
-                              >
-                                <Lucide icon="Send" className="w-4 h-4" />
-                                <span>Send Selected</span>
+                                className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-blue-500/20 to-indigo-500/20 hover:from-blue-500/30 hover:to-indigo-500/30 border border-blue-400/30 hover:border-blue-400/50 text-blue-300 hover:text-blue-200 rounded-2xl transition-all duration-200 backdrop-blur-sm text-sm font-medium shadow-lg shadow-blue-500/10"
+                                >
+                                <Lucide icon="CheckSquare" className="w-4 h-4" />
+                                <span>Select All</span>
                               </button>
                               <button
-                                type="button"
-                                onClick={() => {
-                                  if (
-                                    window.confirm(
-                                      `Are you sure you want to delete ${
-                                        selectedScheduledMessages.length
-                                      } selected message${
-                                        selectedScheduledMessages.length > 1
-                                          ? "s"
-                                          : ""
-                                      }?`
-                                    )
-                                  ) {
-                                    handleDeleteSelected();
-                                  }
-                                }}
-                                className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-red-500/20 to-pink-500/20 hover:from-red-500/30 hover:to-pink-500/30 border border-red-400/30 hover:border-red-400/50 text-red-300 hover:text-red-200 rounded-2xl transition-all duration-200 backdrop-blur-sm text-sm font-medium shadow-lg shadow-red-500/10"
+                              type="button"
+                              onClick={() => {
+                                handleSendSelectedNow();
+                              }}
+                              className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-teal-500/30 border border-emerald-400/30 hover:border-emerald-400/50 text-emerald-300 hover:text-emerald-200 rounded-2xl transition-all duration-200 backdrop-blur-sm text-sm font-medium shadow-lg shadow-emerald-500/10"
                               >
-                                <Lucide icon="Trash2" className="w-4 h-4" />
-                                <span>Delete Selected</span>
+                              <Lucide icon="Send" className="w-4 h-4" />
+                              <span>Send Selected</span>
                               </button>
                               <button
-                                type="button"
-                                onClick={() => setSelectedScheduledMessages([])}
-                                className="flex items-center space-x-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white/80 hover:text-white rounded-2xl transition-all duration-200 backdrop-blur-sm text-sm font-medium"
+                              type="button"
+                              onClick={() => {
+                                if (
+                                window.confirm(
+                                  `Are you sure you want to delete ${
+                                  selectedScheduledMessages.length
+                                  } selected message${
+                                  selectedScheduledMessages.length > 1
+                                    ? "s"
+                                    : ""
+                                  }?`
+                                )
+                                ) {
+                                handleDeleteSelected();
+                                }
+                              }}
+                              className="flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-red-500/20 to-pink-500/20 hover:from-red-500/30 hover:to-pink-500/30 border border-red-400/30 hover:border-red-400/50 text-red-300 hover:text-red-200 rounded-2xl transition-all duration-200 backdrop-blur-sm text-sm font-medium shadow-lg shadow-red-500/10"
                               >
-                                <Lucide icon="X" className="w-4 h-4" />
-                                <span>Cancel</span>
+                              <Lucide icon="Trash2" className="w-4 h-4" />
+                              <span>Delete Selected</span>
+                              </button>
+                              <button
+                              type="button"
+                              onClick={() => setSelectedScheduledMessages([])}
+                              className="flex items-center space-x-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white/80 hover:text-white rounded-2xl transition-all duration-200 backdrop-blur-sm text-sm font-medium"
+                              >
+                              <Lucide icon="X" className="w-4 h-4" />
+                              <span>Cancel</span>
                               </button>
                             </div>
                           </div>
