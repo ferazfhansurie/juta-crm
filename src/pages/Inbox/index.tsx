@@ -176,9 +176,9 @@ const MessageList: React.FC<MessageListProps> = ({
   const [newMessage, setNewMessage] = useState("");
 
   const myMessageClass =
-    "flex flex-col w-full max-w-[320px] leading-1.5 p-1 bg-gray-700 text-white dark:bg-gray-600 rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto mr-2 text-left";
+    "flex flex-col max-w-xs lg:max-w-md px-4 py-2 mx-2 mb-3 bg-blue-500 text-white rounded-2xl rounded-br-md shadow-sm self-end ml-auto text-left";
   const otherMessageClass =
-    "bg-[#dcf8c6] dark:bg-green-700 text-black dark:text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left";
+    "flex flex-col max-w-xs lg:max-w-md px-4 py-2 mx-2 mb-3 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-2xl rounded-bl-md shadow-sm border border-gray-200 dark:border-gray-700 self-start text-left";
 
   const handleSendMessage = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -239,19 +239,11 @@ const MessageList: React.FC<MessageListProps> = ({
                 .map((splitText, splitIndex) => (
                 <div
                   key={`${index}-${splitIndex}`}
-                  className={`p-1.5 mb-1.5 rounded ${
-                    message.from_me ? myMessageClass : otherMessageClass
-                  }`}
-                  style={{
-                    maxWidth: "70%",
-                    width: `${
-                      message.type === "image" || message.type === "document"
-                        ? "350"
-                        : Math.min((splitText.trim().length || 0) * 10, 350)
-                    }px`,
-                    minWidth: "75px",
-                  }}
+                  className={`flex ${message.from_me ? 'justify-end' : 'justify-start'} animate-fadeIn`}
                 >
+                  <div
+                    className={message.from_me ? myMessageClass : otherMessageClass}
+                  >
                   {message.type === "text" && (
                     <div className="whitespace-pre-wrap break-words">
                       {splitText.trim()}
@@ -343,13 +335,21 @@ const MessageList: React.FC<MessageListProps> = ({
                     </div>
                   )}
                   {splitIndex === message.text.split("||").filter(splitText => splitText.trim() !== "").length - 1 && (
-                    <div className="message-timestamp text-xs text-gray-400 dark:text-gray-500 mt-2 whitespace-nowrap">
-                      {new Date(message.createdAt).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                    <div className={`text-xs text-gray-400 dark:text-gray-500 mt-1 ${message.from_me ? 'text-right' : 'text-left'} flex items-center gap-1 ${message.from_me ? 'justify-end' : 'justify-start'}`}>
+                      <span>
+                        {new Date(message.createdAt).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                      {message.from_me && (
+                        <svg className="w-3 h-3 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      )}
                     </div>
                   )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -357,16 +357,17 @@ const MessageList: React.FC<MessageListProps> = ({
           </>
         )}
           
-        {/* AI Thinking Indicator - Positioned at bottom */}
+        {/* AI Thinking Indicator - ChatGPT Style */}
         {isAiThinking && (
-          <div className="p-1.5 mb-1.5 rounded bg-[#dcf8c6] dark:bg-green-700 text-black dark:text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm self-start text-left max-w-[70%]">
-            <div className="flex items-center space-x-1.5">
-              <div className="flex items-center space-x-1">
-                <div className="w-1.5 h-1.5 bg-gray-600 dark:bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                <div className="w-1.5 h-1.5 bg-gray-600 dark:bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                <div className="w-1.5 h-1.5 bg-gray-600 dark:bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+          <div className="flex justify-start mb-4 animate-fadeIn">
+            <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl rounded-bl-md px-4 py-3 max-w-xs shadow-sm border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center space-x-2">
+                <div className="flex space-x-1">
+                  <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-pulse" style={{ animationDelay: '0ms', animationDuration: '1.4s' }}></div>
+                  <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-pulse" style={{ animationDelay: '0.2s', animationDuration: '1.4s' }}></div>
+                  <div className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-pulse" style={{ animationDelay: '0.4s', animationDuration: '1.4s' }}></div>
+                </div>
               </div>
-              <span className="text-xs text-gray-600 dark:text-gray-300 font-medium">AI is thinking...</span>
             </div>
           </div>
         )}
@@ -740,9 +741,9 @@ const Main: React.FC = () => {
 
   // Message classes for fullscreen mode
   const myMessageClass =
-    "flex flex-col w-full max-w-[320px] leading-1.5 p-1 bg-gray-700 text-white dark:bg-gray-600 rounded-tr-xl rounded-tl-xl rounded-br-sm rounded-bl-xl self-end ml-auto mr-2 text-left";
+    "flex flex-col max-w-xs lg:max-w-md px-4 py-2 mx-2 mb-3 bg-blue-500 text-white rounded-2xl rounded-br-md shadow-sm self-end ml-auto text-left";
   const otherMessageClass =
-    "bg-[#dcf8c6] dark:bg-green-700 text-black dark:text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm p-1 self-start text-left";
+    "flex flex-col max-w-xs lg:max-w-md px-4 py-2 mx-2 mb-3 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-2xl rounded-bl-md shadow-sm border border-gray-200 dark:border-gray-700 self-start text-left";
 
   // Fullscreen message handling
   const [fullscreenNewMessage, setFullscreenNewMessage] = useState("");
@@ -2155,19 +2156,11 @@ const Main: React.FC = () => {
                     .map((splitText, splitIndex) => (
                     <div
                       key={`${index}-${splitIndex}`}
-                      className={`p-2 mb-2 rounded-lg ${
-                        message.from_me ? myMessageClass : otherMessageClass
-                      }`}
-                      style={{
-                        maxWidth: "70%",
-                        width: `${
-                          message.type === "image" || message.type === "document"
-                            ? "350"
-                            : Math.min((splitText.trim().length || 0) * 10, 350)
-                        }px`,
-                        minWidth: "75px",
-                      }}
+                      className={`flex ${message.from_me ? 'justify-end' : 'justify-start'} animate-fadeIn mb-4`}
                     >
+                      <div
+                        className={message.from_me ? myMessageClass : otherMessageClass}
+                      >
                       {message.type === "text" && (
                         <div className="whitespace-pre-wrap break-words">
                           {splitText.trim()}
@@ -2258,22 +2251,24 @@ const Main: React.FC = () => {
                         </div>
                       )}
 
+                      </div>
                     </div>
                   ))}
                 </div>
               ))
           )}
           
-          {/* AI Thinking Indicator for Fullscreen - Positioned at bottom */}
+          {/* AI Thinking Indicator for Fullscreen - ChatGPT Style */}
           {isAiThinking && (
-            <div className="p-3 mb-3 rounded-lg bg-[#dcf8c6] dark:bg-green-700 text-black dark:text-white rounded-tr-xl rounded-tl-xl rounded-br-xl rounded-bl-sm self-start text-left max-w-[70%]">
-              <div className="flex items-center space-x-2">
-                <div className="flex items-center space-x-1">
-                  <div className="w-1.5 h-1.5 bg-gray-600 dark:bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                  <div className="w-1.5 h-1.5 bg-gray-600 dark:bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                  <div className="w-1.5 h-1.5 bg-gray-600 dark:bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            <div className="flex justify-start mb-6 animate-fadeIn">
+              <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl rounded-bl-md px-5 py-4 max-w-md shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center space-x-3">
+                  <div className="flex space-x-1.5">
+                    <div className="w-2.5 h-2.5 bg-gray-400 dark:bg-gray-500 rounded-full animate-pulse" style={{ animationDelay: '0ms', animationDuration: '1.4s' }}></div>
+                    <div className="w-2.5 h-2.5 bg-gray-400 dark:bg-gray-500 rounded-full animate-pulse" style={{ animationDelay: '0.2s', animationDuration: '1.4s' }}></div>
+                    <div className="w-2.5 h-2.5 bg-gray-400 dark:bg-gray-500 rounded-full animate-pulse" style={{ animationDelay: '0.4s', animationDuration: '1.4s' }}></div>
+                  </div>
                 </div>
-                <span className="text-xs text-gray-600 dark:text-gray-300 font-medium">AI is thinking...</span>
               </div>
             </div>
           )}

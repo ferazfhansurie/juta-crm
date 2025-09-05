@@ -2554,6 +2554,8 @@ function Main() {
                 qrCodesData
               );
               setQrCodes(qrCodesData);
+              // Mark phone data as loaded
+              setIsPhoneDataLoaded(true);
             } else if (data.phoneCount === 1 && data.phoneInfo) {
               const singlePhoneData = [
                 {
@@ -2567,6 +2569,8 @@ function Main() {
                 singlePhoneData
               );
               setQrCodes(singlePhoneData);
+              // Mark phone data as loaded
+              setIsPhoneDataLoaded(true);
             } else {
               // Fallback: if we have status and phoneInfo but don't match the conditions above
               console.log("Using fallback single phone data setup");
@@ -2582,6 +2586,8 @@ function Main() {
                 fallbackPhoneData
               );
               setQrCodes(fallbackPhoneData);
+              // Mark phone data as loaded
+              setIsPhoneDataLoaded(true);
             }
           }
         } catch (error) {
@@ -5041,8 +5047,9 @@ function Main() {
   }, [selectedChatId]);
 
   useEffect(() => {
+    console.log("🔍 DEBUGGING: useEffect for fetchConfigFromDatabase running");
     fetchConfigFromDatabase().catch((error) => {
-      console.error("Error in fetchConfigFromDatabase:", error);
+      console.error("🔍 DEBUGGING: Error in fetchConfigFromDatabase:", error);
       // Handle the error appropriately (e.g., show an error message to the user)
     });
   }, []);
@@ -5552,6 +5559,8 @@ function Main() {
                 console.log("📱 [WEBSOCKET] Updating qrCodes from WebSocket (phones array):", qrCodesData);
                 setQrCodes(qrCodesData);
                 setPhoneStatusLoading(false);
+                // Mark phone data as loaded
+                setIsPhoneDataLoaded(true);
               } else if (data.phoneCount === 1 && data.phoneInfo) {
                 // Single phone format
                 const singlePhoneData = [
@@ -5564,6 +5573,8 @@ function Main() {
                 console.log("📱 [WEBSOCKET] Updating qrCodes for single phone from WebSocket:", singlePhoneData);
                 setQrCodes(singlePhoneData);
                 setPhoneStatusLoading(false);
+                // Mark phone data as loaded
+                setIsPhoneDataLoaded(true);
               } else {
                 // Fallback: if we have status and phoneInfo but don't match the conditions above
                 console.log("📱 [WEBSOCKET] Using fallback single phone data setup");
@@ -5577,6 +5588,8 @@ function Main() {
                 console.log("📱 [WEBSOCKET] Setting qrCodes fallback:", fallbackPhoneData);
                 setQrCodes(fallbackPhoneData);
                 setPhoneStatusLoading(false);
+                // Mark phone data as loaded
+                setIsPhoneDataLoaded(true);
               }
             } else if (data.type === "error") {
               console.error("WebSocket error message:", data.message);
@@ -5714,7 +5727,9 @@ function Main() {
   }, [location.search]);
   */
   async function fetchConfigFromDatabase() {
+    console.log("🔍 DEBUGGING: fetchConfigFromDatabase called");
     const userEmail = localStorage.getItem("userEmail");
+    console.log("🔍 DEBUGGING: userEmail from localStorage:", userEmail);
     if (!userEmail) {
       throw new Error("No user email found");
     }
@@ -5732,7 +5747,9 @@ function Main() {
       );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch config data");
+        const errorText = await response.text();
+        console.error("🔍 DEBUGGING: API error response:", response.status, errorText);
+        throw new Error(`Failed to fetch config data: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
@@ -5754,9 +5771,11 @@ function Main() {
         setMessageMode("phone1");
       }
       // Set phone index data
-      console.log("Full API response data:", data);
-      console.log("companyData:", data.companyData);
-      console.log("Raw phoneNames from API:", data.companyData.phoneNames);
+      console.log("🔍 DEBUGGING: Full API response data:", JSON.stringify(data, null, 2));
+      console.log("🔍 DEBUGGING: companyData keys:", Object.keys(data.companyData || {}));
+      console.log("🔍 DEBUGGING: phoneNames property exists?", 'phoneNames' in (data.companyData || {}));
+      console.log("🔍 DEBUGGING: phoneNames type:", typeof data.companyData?.phoneNames);
+      console.log("🔍 DEBUGGING: Raw phoneNames from API:", data.companyData.phoneNames);
       if (data.companyData.phoneNames) {
         let phoneNamesObject: Record<number, string> = {};
         if (Array.isArray(data.companyData.phoneNames)) {
@@ -5783,6 +5802,9 @@ function Main() {
         if (userPhone === null && Object.keys(phoneNamesObject).length > 0) {
           setUserPhone(0);
         }
+        
+        // Mark phone data as loaded
+        setIsPhoneDataLoaded(true);
       } else {
         console.log(
           "phoneNames is not an array or is undefined:",
@@ -5794,14 +5816,17 @@ function Main() {
           for (let i = 0; i < data.companyData.phoneCount; i++) {
             defaultPhoneNames[i] = `Phone ${i + 1}`;
           }
-          console.log("Created default phone names:", defaultPhoneNames);
-          setPhoneNames(defaultPhoneNames);
-        }
-        // Set default userPhone if no phoneNames available
-        if (userPhone === null) {
-          setUserPhone(0);
-        }
+                  console.log("Created default phone names:", defaultPhoneNames);
+        setPhoneNames(defaultPhoneNames);
       }
+      // Set default userPhone if no phoneNames available
+      if (userPhone === null) {
+        setUserPhone(0);
+      }
+      
+      // Mark phone data as loaded
+      setIsPhoneDataLoaded(true);
+    }
       setToken(data.companyData.whapiToken);
 
       // Set message usage for all plans (including free plan)
@@ -5891,6 +5916,49 @@ function Main() {
       setUserPhone(0);
     }
   }, [phoneNames, userPhone]);
+
+  // Fallback: Create default phone names if phoneNames is empty but phoneCount > 0
+  useEffect(() => {
+    if (Object.keys(phoneNames).length === 0 && phoneCount > 0) {
+      console.log("🔍 DEBUGGING: Creating default phone names because phoneNames is empty but phoneCount is", phoneCount);
+      const defaultPhoneNames: Record<number, string> = {};
+      for (let i = 0; i < phoneCount; i++) {
+        defaultPhoneNames[i] = `Phone ${i + 1}`;
+      }
+      console.log("🔍 DEBUGGING: Setting default phone names:", defaultPhoneNames);
+      setPhoneNames(defaultPhoneNames);
+      
+      // Initialize userPhone with first phone if not set
+      if (userPhone === null) {
+        setUserPhone(0);
+      }
+    }
+  }, [phoneNames, phoneCount, userPhone]);
+
+  // Phone detection logic - check if no phones are available or connected after data is loaded
+  const [isPhoneDataLoaded, setIsPhoneDataLoaded] = useState(false);
+  const [hasNoPhones, setHasNoPhones] = useState(false);
+
+  useEffect(() => {
+    // Check if phone data has been loaded from API
+    if (isPhoneDataLoaded) {
+      // Check if there are any phones configured
+      const hasPhoneNames = Object.keys(phoneNames).length > 0;
+      const hasPhoneCount = phoneCount > 0;
+      
+      // Check if any phones are actually connected
+      const hasConnectedPhones = Object.entries(phoneNames).some(([index]) => {
+        const phoneStatus = qrCodes[parseInt(index)]?.status || "unknown";
+        const isConnected = phoneStatus === "ready" || phoneStatus === "authenticated";
+        return isConnected;
+      });
+      
+      // Set hasNoPhones to true if no phones are configured OR no phones are connected
+      setHasNoPhones(!hasPhoneNames || !hasPhoneCount || !hasConnectedPhones);
+      
+      console.log("🔍 Phone data loaded - hasPhoneNames:", hasPhoneNames, "hasPhoneCount:", hasPhoneCount, "hasConnectedPhones:", hasConnectedPhones, "phoneNames:", phoneNames, "phoneCount:", phoneCount, "qrCodes:", qrCodes);
+    }
+  }, [phoneNames, phoneCount, qrCodes, isPhoneDataLoaded]);
 
   // Add the fetchTags function
   const fetchTags = async (employeeList: string[]) => {
@@ -15145,19 +15213,37 @@ function Main() {
                 />
               </div>
               <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 text-center mb-6 bg-gradient-to-r from-gray-800 to-gray-600 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
-                {isAssistantInfoLoaded && (!assistantInfo.instructions || assistantInfo.instructions.trim() === "") 
-                  ? "Welcome to Chat" 
-                  : "Welcome to Chat"
+                {hasNoPhones
+                  ? "No Phones Connected"
+                  : isAssistantInfoLoaded && (!assistantInfo.instructions || assistantInfo.instructions.trim() === "") 
+                    ? "Welcome to Chat" 
+                    : "Welcome to Chat"
                 }
               </h2>
               <p className="text-gray-700 dark:text-gray-300 text-lg text-center mb-10 max-w-lg leading-relaxed font-medium px-4">
-                {isAssistantInfoLoaded && (!assistantInfo.instructions || assistantInfo.instructions.trim() === "") 
-                  ? "Before you can start chatting, you need to configure your AI assistant."
-                  : "Select a contact from the list to start messaging, or create a new conversation to get started."
+                {hasNoPhones
+                  ? "You need to connect your WhatsApp phones before you can start chatting. Please set up your phone connections first."
+                  : isAssistantInfoLoaded && (!assistantInfo.instructions || assistantInfo.instructions.trim() === "") 
+                    ? "Before you can start chatting, you need to configure your AI assistant."
+                    : "Select a contact from the list to start messaging, or create a new conversation to get started."
                 }
               </p>
-              {/* Only show buttons when instructions are set */}
-              {!(isAssistantInfoLoaded && (!assistantInfo.instructions || assistantInfo.instructions.trim() === "")) && (
+              {/* Show appropriate buttons based on state */}
+              {hasNoPhones ? (
+                // Show Connect Phones button when no phones are available
+                <div className="flex flex-col sm:flex-row gap-6 mb-8">
+                  <button
+                    onClick={() => navigate('/loading')}
+                    className="bg-gradient-to-r from-green-500/80 to-emerald-600/80 hover:from-green-600/90 hover:to-emerald-700/90 text-white font-bold py-5 px-10 rounded-2xl transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:scale-105 backdrop-blur-md border border-green-400/50 dark:border-green-300/50"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Lucide icon="Wifi" className="w-5 h-5" />
+                      <span>Connect Phones</span>
+                    </div>
+                  </button>
+                </div>
+              ) : !(isAssistantInfoLoaded && (!assistantInfo.instructions || assistantInfo.instructions.trim() === "")) ? (
+                // Show normal chat buttons when phones are available and instructions are set
                 <div className="flex flex-col sm:flex-row gap-6 mb-8">
                   <button
                     onClick={openNewChatModal}
@@ -15192,7 +15278,7 @@ function Main() {
                     </div>
                   </button>
                 </div>
-              )}
+              ) : null}
               
               {/* Onboarding Call-to-Action for empty instructions */}
               {isAssistantInfoLoaded && (!assistantInfo.instructions || assistantInfo.instructions.trim() === "") && (
@@ -15223,13 +15309,37 @@ function Main() {
               )}
               <div className="text-center">
                 <p className="text-sm text-gray-600 dark:text-gray-300 mb-6 font-semibold">
-                  {isAssistantInfoLoaded && (!assistantInfo.instructions || assistantInfo.instructions.trim() === "") 
-                    ? "Why Setup is Important:" 
-                    : "Quick Tips:"
+                  {hasNoPhones
+                    ? "Why Connect Phones:"
+                    : isAssistantInfoLoaded && (!assistantInfo.instructions || assistantInfo.instructions.trim() === "") 
+                      ? "Why Setup is Important:" 
+                      : "Quick Tips:"
                   }
                 </p>
                 <div className="flex flex-col sm:flex-row gap-6 text-sm text-gray-600 dark:text-gray-300">
-                  {isAssistantInfoLoaded && (!assistantInfo.instructions || assistantInfo.instructions.trim() === "") ? (
+                  {hasNoPhones ? (
+                    // Show phone connection tips when no phones are available
+                    <>
+                      <div className="flex items-center space-x-3 p-4 bg-white/40 dark:bg-gray-700/40 rounded-2xl backdrop-blur-xl border border-white/50 dark:border-gray-600/60 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                        <div className="w-3 h-3 bg-gradient-to-r from-green-400 to-green-600 rounded-full shadow-lg"></div>
+                        <span className="font-medium">
+                          Connect WhatsApp to start messaging
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-3 p-4 bg-white/40 dark:bg-gray-700/40 rounded-2xl backdrop-blur-xl border border-white/50 dark:border-gray-600/60 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                        <div className="w-3 h-3 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full shadow-lg"></div>
+                        <span className="font-medium">
+                          Multiple phones for different purposes
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-3 p-4 bg-white/40 dark:bg-gray-700/40 rounded-2xl backdrop-blur-xl border border-white/50 dark:border-gray-600/60 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                        <div className="w-3 h-3 bg-gradient-to-r from-purple-400 to-purple-600 rounded-full shadow-lg"></div>
+                        <span className="font-medium">
+                          Secure and reliable connection
+                        </span>
+                      </div>
+                    </>
+                  ) : isAssistantInfoLoaded && (!assistantInfo.instructions || assistantInfo.instructions.trim() === "") ? (
                     // Show setup-focused tips when instructions are empty
                     <>
                       <div className="flex items-center space-x-3 p-4 bg-white/40 dark:bg-gray-700/40 rounded-2xl backdrop-blur-xl border border-white/50 dark:border-gray-600/60 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
