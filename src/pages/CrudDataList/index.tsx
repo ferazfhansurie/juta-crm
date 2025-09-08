@@ -543,6 +543,7 @@ function Main() {
   const [phoneOptions, setPhoneOptions] = useState<number[]>([]);
   const [phoneNames, setPhoneNames] = useState<{ [key: number]: string }>({});
   const [employeeSearch, setEmployeeSearch] = useState("");
+  const [tagSearchQuery, setTagSearchQuery] = useState('');
 
   const [sortField, setSortField] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
@@ -8964,8 +8965,28 @@ function Main() {
                         </h4>
                       </div>
                     </div>
+                    {/* Search Input for Tags */}
+                    <div className="relative group">
+                      <div className="absolute left-4 top-1/2 transform -translate-y-1/2 p-1.5 rounded-lg bg-gradient-to-br from-emerald-500/20 to-teal-500/20 dark:from-emerald-400/20 dark:to-teal-400/20 backdrop-blur-sm border border-emerald-200/40 dark:border-emerald-700/40 group-focus-within:scale-110 transition-transform duration-300">
+                        <Lucide
+                          icon="Search"
+                          className="w-4 h-4 text-emerald-600 dark:text-emerald-400"
+                        />
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Search tags..."
+                        value={tagSearchQuery}
+                        onChange={(e) => setTagSearchQuery(e.target.value)}
+                        className="w-full pl-16 pr-4 py-4 bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-400/60 transition-all duration-300 shadow-lg hover:shadow-xl text-white dark:text-slate-200 font-medium placeholder:text-white/50 dark:placeholder:text-slate-400"
+                      />
+                    </div>
                     <div className="space-y-3 max-h-60 overflow-y-auto bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 dark:border-slate-600/20 shadow-inner">
-                      {tagList.map((tag) => (
+                      {tagList
+                      .filter((tag) =>
+                        tag.name.toLowerCase().includes(tagSearchQuery.toLowerCase())
+                      )
+                      .map((tag) => (
                         <label
                           key={tag.id}
                           className="group flex items-center p-3 rounded-xl hover:bg-white/10 dark:hover:bg-slate-600/20 transition-all duration-200 cursor-pointer border border-transparent hover:border-white/10"
@@ -8993,6 +9014,19 @@ function Main() {
                           </div>
                         </label>
                       ))}
+                      {tagList.filter((tag) =>
+                        tag.name.toLowerCase().includes(tagSearchQuery.toLowerCase())
+                      ).length === 0 && tagSearchQuery && (
+                        <div className="text-center py-8">
+                          <Lucide
+                            icon="Search"
+                            className="w-12 h-12 mx-auto mb-4 text-white/30"
+                          />
+                          <p className="text-sm text-white/60">
+                            No tags found matching "{tagSearchQuery}"
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
 
