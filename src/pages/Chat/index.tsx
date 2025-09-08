@@ -49,6 +49,7 @@ import VirtualContactList from "../../components/VirtualContactList";
 import SearchModal from "@/components/SearchModal";
 import QuickRepliesModal from "@/components/QuickRepliesModal";
 import { time } from "console";
+import { toInteger } from "lodash";
 declare global {
   interface Window {
     OneSignal: any;
@@ -390,6 +391,7 @@ interface QRCodeData {
   phoneIndex: number;
   status: string;
   qrCode: string | null;
+  phoneInfo?: string | null;
 }
 interface Phone {
   phoneIndex: number;
@@ -2547,6 +2549,7 @@ function Main() {
                   phoneIndex: phone.phoneIndex,
                   status: phone.status,
                   qrCode: phone.qrCode,
+                  phoneInfo: phone.phoneInfo || null,
                 })
               );
               console.log(
@@ -2579,6 +2582,7 @@ function Main() {
                   phoneIndex: 0,
                   status: data.status || "unknown",
                   qrCode: data.qrCode || null,
+                  phoneInfo: typeof data.phoneInfo === 'string' ? data.phoneInfo : null,
                 },
               ];
               console.log(
@@ -2625,6 +2629,7 @@ function Main() {
                       phoneIndex: phone.phoneIndex,
                       status: phone.status,
                       qrCode: phone.qrCode,
+                      phoneInfo: phone.phoneInfo || null,
                     })
                   );
                   setQrCodes(qrCodesData);
@@ -2634,6 +2639,7 @@ function Main() {
                       phoneIndex: 0,
                       status: data.status,
                       qrCode: data.qrCode,
+                      phoneInfo: typeof data.phoneInfo === 'string' ? data.phoneInfo : null,
                     },
                   ]);
                 }
@@ -2680,6 +2686,7 @@ function Main() {
                   phoneIndex: phone.phoneIndex,
                   status: phone.status,
                   qrCode: phone.qrCode,
+                  phoneInfo: phone.phoneInfo || null,
                 })
               );
               console.log("🔄 Setting qrCodes from force fetch:", qrCodesData);
@@ -2690,6 +2697,7 @@ function Main() {
                   phoneIndex: 0,
                   status: data.status,
                   qrCode: data.qrCode,
+                  phoneInfo: typeof data.phoneInfo === 'string' ? data.phoneInfo : null,
                 },
               ];
               console.log(
@@ -5555,6 +5563,7 @@ function Main() {
                   phoneIndex: phone.phoneIndex,
                   status: phone.status,
                   qrCode: phone.qrCode,
+                  phoneInfo: typeof phone.phoneInfo === 'string' ? phone.phoneInfo : null,
                 }));
                 console.log("📱 [WEBSOCKET] Updating qrCodes from WebSocket (phones array):", qrCodesData);
                 setQrCodes(qrCodesData);
@@ -5568,6 +5577,7 @@ function Main() {
                     phoneIndex: 0,
                     status: data.status,
                     qrCode: data.qrCode,
+                    phoneInfo: typeof data.phoneInfo === 'string' ? data.phoneInfo : null,
                   },
                 ];
                 console.log("📱 [WEBSOCKET] Updating qrCodes for single phone from WebSocket:", singlePhoneData);
@@ -5583,6 +5593,7 @@ function Main() {
                     phoneIndex: 0,
                     status: data.status || "unknown",
                     qrCode: data.qrCode || null,
+                    phoneInfo: typeof data.phoneInfo === 'string' ? data.phoneInfo : null,
                   },
                 ];
                 console.log("📱 [WEBSOCKET] Setting qrCodes fallback:", fallbackPhoneData);
@@ -5946,17 +5957,17 @@ function Main() {
       const hasPhoneNames = Object.keys(phoneNames).length > 0;
       const hasPhoneCount = phoneCount > 0;
       
-      // Check if any phones are actually connected
+      // Check if any phones are actually connected (ready/authenticated)
       const hasConnectedPhones = Object.entries(phoneNames).some(([index]) => {
         const phoneStatus = qrCodes[parseInt(index)]?.status || "unknown";
         const isConnected = phoneStatus === "ready" || phoneStatus === "authenticated";
         return isConnected;
       });
       
-      // Set hasNoPhones to true if no phones are configured OR no phones are connected
-      setHasNoPhones(!hasPhoneNames || !hasPhoneCount || !hasConnectedPhones);
+      const shouldShowNoPhones = !hasPhoneNames || !hasConnectedPhones;
+      setHasNoPhones(shouldShowNoPhones);
       
-      console.log("🔍 Phone data loaded - hasPhoneNames:", hasPhoneNames, "hasPhoneCount:", hasPhoneCount, "hasConnectedPhones:", hasConnectedPhones, "phoneNames:", phoneNames, "phoneCount:", phoneCount, "qrCodes:", qrCodes);
+      console.log("🔍 Phone data loaded - hasPhoneNames:", hasPhoneNames, "hasPhoneCount:", hasPhoneCount, "hasConnectedPhones:", hasConnectedPhones, "phoneNames:", phoneNames, "phoneCount:", phoneCount, "qrCodes:", qrCodes, "shouldShowNoPhones:", shouldShowNoPhones);
     }
   }, [phoneNames, phoneCount, qrCodes, isPhoneDataLoaded]);
 
@@ -12186,13 +12197,16 @@ function Main() {
                 className="w-3 h-3 text-gray-800 dark:text-white"
               />
               <span className="text-gray-800 font-bold dark:text-white">
-                {userData?.phone !== undefined && phoneNames[userData.phone]
-                  ? phoneNames[userData.phone]
-                  : Object.keys(phoneNames).length === 1
-                  ? Object.values(phoneNames)[0]
-                  : Object.keys(phoneNames).length > 1
+                {userData?.phone !== undefined
+                  ? (() => {
+                      const phoneIndex = parseInt(userData.phone);
+                      return phoneNames[phoneIndex] || `Phone ${phoneIndex + 1}`;
+                    })()
+                  : qrCodes && qrCodes.length === 1
+                  ? phoneNames[qrCodes[0].phoneIndex] || `Phone ${qrCodes[0].phoneIndex + 1}`
+                  : qrCodes && qrCodes.length > 1
                   ? "Select phone"
-                  : ``}
+                  : "Phone 1"}
               </span>
               <Lucide
                 icon="ChevronDown"
@@ -15660,21 +15674,60 @@ function Main() {
 
                 {/* Phone List */}
                 <div className="space-y-3 max-h-80 overflow-y-auto custom-scrollbar mb-6">
-                  {Object.entries(phoneNames).map(
-                    ([index, phoneName], itemIndex) => {
-                      const phoneStatus =
-                        qrCodes[parseInt(index)]?.status || "unknown";
+                  {qrCodes && qrCodes.length > 0 ? (
+                    qrCodes.map((qrCode, itemIndex) => {
+                      const phoneIndexOption = qrCode.phoneIndex;
+                      // Use phoneNames if available, otherwise generate a default name
+                      const phoneName = phoneNames[phoneIndexOption] || `Phone ${phoneIndexOption + 1}`;
+                      const phoneStatus = qrCode?.status || "unknown";
                       const isConnected =
                         phoneStatus === "ready" ||
                         phoneStatus === "authenticated";
                       const isCurrentPhone =
-                        userData?.phone === parseInt(index);
+                        userData?.phone === phoneIndexOption;
+
+                      // Get status display info
+                      const getStatusInfo = (status: string | undefined) => {
+                        switch (status?.toLowerCase()) {
+                          case "ready":
+                          case "authenticated":
+                            return {
+                              text: "Connected",
+                              color: "bg-green-100 text-green-700 dark:bg-green-800/50 dark:text-green-300",
+                              dotColor: "bg-green-500",
+                              icon: "✅"
+                            };
+                          case "qr":
+                            return {
+                              text: "QR Required",
+                              color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-800/50 dark:text-yellow-300",
+                              dotColor: "bg-yellow-500",
+                              icon: "⏳"
+                            };
+                          case "loading":
+                            return {
+                              text: "Loading...",
+                              color: "bg-blue-100 text-blue-700 dark:bg-blue-800/50 dark:text-blue-300",
+                              dotColor: "bg-blue-500",
+                              icon: "⏳"
+                            };
+                          default:
+                            return {
+                              text: "Not Connected",
+                              color: "bg-red-100 text-red-700 dark:bg-red-800/50 dark:text-red-300",
+                              dotColor: "bg-red-500",
+                              icon: "❌"
+                            };
+                        }
+                      };
+
+                      const statusInfo = getStatusInfo(phoneStatus);
 
                       return (
                         <button
-                          key={index}
+                          key={phoneIndexOption}
                           onClick={() => {
-                            handlePhoneChange(parseInt(index));
+                            handlePhoneChange(phoneIndexOption);
                             setShowPhoneModal(false);
                           }}
                           className={`group w-full p-4 rounded-xl border-2 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] ${
@@ -15714,7 +15767,7 @@ function Main() {
                                       : "text-gray-900 dark:text-white group-hover:text-blue-900 dark:group-hover:text-blue-100"
                                   }`}
                                 >
-                                  {phoneName}
+                                  {phoneName} {statusInfo.icon}
                                 </div>
                                 <div className="flex items-center space-x-2 mt-1">
                                   {isCurrentPhone && (
@@ -15723,7 +15776,7 @@ function Main() {
                                     </span>
                                   )}
                                   <span className="text-xs text-gray-500 dark:text-gray-400">
-                                    Phone {parseInt(index) + 1}
+                                    {qrCode.phoneInfo || `Phone ${phoneIndexOption + 1}`}
                                   </span>
                                 </div>
                               </div>
@@ -15731,35 +15784,36 @@ function Main() {
 
                             <div className="flex flex-col items-end space-y-2">
                               <div
-                                className={`flex items-center space-x-2 px-3 py-1.5 rounded-full font-medium text-sm ${
-                                  isConnected
-                                    ? "bg-green-100 text-green-700 dark:bg-green-800/50 dark:text-green-300"
-                                    : "bg-red-100 text-red-700 dark:bg-red-800/50 dark:text-red-300"
-                                }`}
+                                className={`flex items-center space-x-2 px-3 py-1.5 rounded-full font-medium text-sm ${statusInfo.color}`}
                               >
                                 <div
-                                  className={`w-2 h-2 rounded-full ${
-                                    isConnected ? "bg-green-500" : "bg-red-500"
-                                  }`}
+                                  className={`w-2 h-2 rounded-full ${statusInfo.dotColor}`}
                                 />
                                 <span>
-                                  {isConnected ? "Connected" : "Not Connected"}
+                                  {statusInfo.text}
                                 </span>
                               </div>
                             </div>
                           </div>
                         </button>
                       );
-                    }
+                    })
+                  ) : (
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                      <Lucide icon="Smartphone" className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p className="text-lg font-medium mb-2">No phones available</p>
+                      <p className="text-sm">Please check your configuration</p>
+                    </div>
                   )}
                 </div>
 
                 {/* Connect Phones Button - Show when no phones are connected */}
-                {Object.entries(phoneNames).some(([index]) => {
-                  const phoneStatus = qrCodes[parseInt(index)]?.status || "unknown";
-                  const isConnected = phoneStatus === "ready" || phoneStatus === "authenticated";
-                  return !isConnected;
-                }) && (
+                {qrCodes && qrCodes.length > 0 &&
+                  !qrCodes.some((qrCode) => {
+                    const phoneStatus = qrCode?.status || "unknown";
+                    const isConnected = phoneStatus === "ready" || phoneStatus === "authenticated";
+                    return isConnected;
+                  }) && (
                   <div className="mb-6">
                     <button
                       onClick={() => {
@@ -15797,8 +15851,8 @@ function Main() {
                 <div className="pt-4 border-t border-gray-200/50 dark:border-gray-600/50">
                   <div className="text-center">
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {Object.keys(phoneNames).length} phone
-                      {Object.keys(phoneNames).length !== 1 ? "s" : ""} available
+                      {qrCodes ? qrCodes.length : 0} phone
+                      {qrCodes && qrCodes.length !== 1 ? "s" : ""} available
                     </p>
                   </div>
                 </div>
@@ -16557,6 +16611,7 @@ function Main() {
                                       phoneIndex: phone.phoneIndex,
                                       status: phone.status,
                                       qrCode: phone.qrCode,
+                                      phoneInfo: phone.phoneInfo || null,
                                     }));
                                   setQrCodes(qrCodesData);
                                   toast.success("Phone status refreshed!");
@@ -16569,6 +16624,7 @@ function Main() {
                                       phoneIndex: 0,
                                       status: data.status,
                                       qrCode: data.qrCode,
+                                      phoneInfo: typeof data.phoneInfo === 'string' ? data.phoneInfo : null,
                                     },
                                   ]);
                                   toast.success("Phone status refreshed!");
