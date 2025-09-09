@@ -580,10 +580,10 @@ function Main() {
     contact: true,
     phone: true,
     tags: true,
-    ic: true,
-    expiryDate: true,
-    vehicleNumber: true,
-    branch: true,
+    ic: false,
+    expiryDate: false,
+    vehicleNumber: false,
+    branch: false,
     notes: true,
     createdAt: true,
     actions: true,
@@ -594,10 +594,8 @@ function Main() {
     "contact",
     "phone",
     "tags",
-    "ic",
-    "expiryDate",
-    "vehicleNumber",
-    "branch",
+    // These will be conditionally added based on companyId
+    ...(companyId === "079" ? ["ic", "expiryDate", "vehicleNumber", "branch"] : []),
     "notes",
     "createdAt",
     "actions",
@@ -615,13 +613,21 @@ function Main() {
         checkbox: true,
         contact: true,
         phone: true,
-        vehicleNumber: true, // Ensure vehicle number column is always visible
-        branch: true, // Ensure branch column is always visible
         actions: true,
+        // These will be updated based on companyId in useEffect
+        vehicleNumber: false, 
+        branch: false,
+        ic: false,
+        expiryDate: false,
       };
     }
     return {
       ...defaultVisibleColumns,
+      // These will be updated based on companyId in useEffect
+      vehicleNumber: false,
+      branch: false,
+      ic: false,
+      expiryDate: false,
       ...(contacts[0]?.customFields
         ? Object.keys(contacts[0].customFields).reduce(
             (acc, field) => ({
@@ -667,10 +673,12 @@ function Main() {
     setVisibleColumns((prev) => ({
       ...defaultVisibleColumns,
       ...prev,
-      vehicleNumber: true, // Ensure vehicle number column is always visible
-      branch: true, // Ensure branch column is always visible
+      vehicleNumber: companyId === "079",
+      branch: companyId === "079",
+      ic: companyId === "079",
+      expiryDate: companyId === "079",
     }));
-  }, []);
+  }, [companyId]);
 
   // Close tooltip when clicking outside
   useEffect(() => {
@@ -8296,23 +8304,25 @@ function Main() {
                         />
                       </div>
 
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-white/80">
-                          Branch
-                        </label>
-                        <FormInput
-                          type="text"
-                          value={newContact.branch}
-                          onChange={(e) =>
-                            setNewContact({
-                              ...newContact,
-                              branch: e.target.value,
-                            })
-                          }
-                          placeholder="Enter branch"
-                          className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder-white/40 focus:border-blue-400/50 focus:ring-2 focus:ring-blue-400/20 transition-all duration-200 backdrop-blur-sm"
-                        />
-                      </div>
+                      {companyId === "079" && (
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-white/80">
+                            Branch
+                          </label>
+                          <FormInput
+                            type="text"
+                            value={newContact.branch}
+                            onChange={(e) =>
+                              setNewContact({
+                                ...newContact,
+                                branch: e.target.value,
+                              })
+                            }
+                            placeholder="Enter branch"
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder-white/40 focus:border-blue-400/50 focus:ring-2 focus:ring-blue-400/20 transition-all duration-200 backdrop-blur-sm"
+                          />
+                        </div>
+                      )}
 
                       <div className="space-y-2 md:col-span-2">
                         <label className="block text-sm font-medium text-white/80">
@@ -8335,71 +8345,73 @@ function Main() {
                   </div>
 
                   {/* Additional Details Section */}
-                  <div className="space-y-6">
-                    <div className="flex items-center space-x-3 pb-4 border-b border-white/10">
-                      <div className="p-2 rounded-xl bg-purple-500/10 backdrop-blur-sm border border-purple-400/20">
-                        <Lucide
-                          icon="FileText"
-                          className="w-5 h-5 text-purple-400"
-                        />
+                  {companyId === "079" && (
+                    <div className="space-y-6">
+                      <div className="flex items-center space-x-3 pb-4 border-b border-white/10">
+                        <div className="p-2 rounded-xl bg-purple-500/10 backdrop-blur-sm border border-purple-400/20">
+                          <Lucide
+                            icon="FileText"
+                            className="w-5 h-5 text-purple-400"
+                          />
+                        </div>
+                        <h4 className="text-lg font-semibold bg-gradient-to-r from-purple-300 to-purple-100 bg-clip-text text-transparent">
+                          Additional Details
+                        </h4>
                       </div>
-                      <h4 className="text-lg font-semibold bg-gradient-to-r from-purple-300 to-purple-100 bg-clip-text text-transparent">
-                        Additional Details
-                      </h4>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-white/80">
+                            Vehicle Number
+                          </label>
+                          <FormInput
+                            type="text"
+                            value={newContact.vehicleNumber}
+                            onChange={(e) =>
+                              setNewContact({
+                                ...newContact,
+                                vehicleNumber: e.target.value,
+                              })
+                            }
+                            placeholder="Enter vehicle number"
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder-white/40 focus:border-purple-400/50 focus:ring-2 focus:ring-purple-400/20 transition-all duration-200 backdrop-blur-sm"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-white/80">
+                            IC Number
+                          </label>
+                          <FormInput
+                            type="text"
+                            value={newContact.ic}
+                            onChange={(e) =>
+                              setNewContact({ ...newContact, ic: e.target.value })
+                            }
+                            placeholder="Enter IC number"
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder-white/40 focus:border-purple-400/50 focus:ring-2 focus:ring-purple-400/20 transition-all duration-200 backdrop-blur-sm"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-white/80">
+                            Expiry Date
+                          </label>
+                          <FormInput
+                            type="date"
+                            value={newContact.expiryDate}
+                            onChange={(e) =>
+                              setNewContact({
+                                ...newContact,
+                                expiryDate: e.target.value,
+                              })
+                            }
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder-white/40 focus:border-purple-400/50 focus:ring-2 focus:ring-purple-400/20 transition-all duration-200 backdrop-blur-sm"
+                          />
+                        </div>
+                      </div>
                     </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-white/80">
-                          Vehicle Number
-                        </label>
-                        <FormInput
-                          type="text"
-                          value={newContact.vehicleNumber}
-                          onChange={(e) =>
-                            setNewContact({
-                              ...newContact,
-                              vehicleNumber: e.target.value,
-                            })
-                          }
-                          placeholder="Enter vehicle number"
-                          className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder-white/40 focus:border-purple-400/50 focus:ring-2 focus:ring-purple-400/20 transition-all duration-200 backdrop-blur-sm"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-white/80">
-                          IC Number
-                        </label>
-                        <FormInput
-                          type="text"
-                          value={newContact.ic}
-                          onChange={(e) =>
-                            setNewContact({ ...newContact, ic: e.target.value })
-                          }
-                          placeholder="Enter IC number"
-                          className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder-white/40 focus:border-purple-400/50 focus:ring-2 focus:ring-purple-400/20 transition-all duration-200 backdrop-blur-sm"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-white/80">
-                          Expiry Date
-                        </label>
-                        <FormInput
-                          type="date"
-                          value={newContact.expiryDate}
-                          onChange={(e) =>
-                            setNewContact({
-                              ...newContact,
-                              expiryDate: e.target.value,
-                            })
-                          }
-                          className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white placeholder-white/40 focus:border-purple-400/50 focus:ring-2 focus:ring-purple-400/20 transition-all duration-200 backdrop-blur-sm"
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  )}
 
                   {/* Notes Section */}
                   <div className="space-y-6">
@@ -8574,6 +8586,35 @@ function Main() {
                           </p>
                         </div>
 
+                        {companyId === "079" && (
+                          <div className="p-6 rounded-2xl bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 hover:bg-white/10 dark:hover:bg-slate-700/20 transition-all duration-300 shadow-inner">
+                            <div className="flex items-center space-x-3 mb-3">
+                              <label className="text-sm font-bold text-white/70 dark:text-slate-400 uppercase tracking-wider">
+                                Branch
+                              </label>
+                            </div>
+                            <p className="text-xl font-semibold text-white dark:text-slate-100">
+                              {currentContact.branch || "No branch"}
+                            </p>
+                          </div>
+                        )}
+
+                        {companyId === "079" && (
+                          <div className="p-6 rounded-2xl bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 hover:bg-white/10 dark:hover:bg-slate-700/20 transition-all duration-300 shadow-inner">
+                            <div className="flex items-center space-x-3 mb-3">
+                              <label className="text-sm font-bold text-white/70 dark:text-slate-400 uppercase tracking-wider">
+                                Vehicle Number
+                              </label>
+                            </div>
+                            <p className="text-xl font-semibold text-white dark:text-slate-100">
+                              {currentContact.vehicleNumber ||
+                                "No vehicle number"}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-6">
                         <div className="p-6 rounded-2xl bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 hover:bg-white/10 dark:hover:bg-slate-700/20 transition-all duration-300 shadow-inner">
                           <div className="flex items-center space-x-3 mb-3">
                             <label className="text-sm font-bold text-white/70 dark:text-slate-400 uppercase tracking-wider">
@@ -8582,57 +8623,6 @@ function Main() {
                           </div>
                           <p className="text-xl font-semibold text-white dark:text-slate-100">
                             {currentContact.address1 || "No address"}
-                          </p>
-                        </div>
-
-                        <div className="p-6 rounded-2xl bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 hover:bg-white/10 dark:hover:bg-slate-700/20 transition-all duration-300 shadow-inner">
-                          <div className="flex items-center space-x-3 mb-3">
-                            <label className="text-sm font-bold text-white/70 dark:text-slate-400 uppercase tracking-wider">
-                              Branch
-                            </label>
-                          </div>
-                          <p className="text-xl font-semibold text-white dark:text-slate-100">
-                            {currentContact.branch || "No branch"}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-6">
-                        <div className="p-6 rounded-2xl bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 hover:bg-white/10 dark:hover:bg-slate-700/20 transition-all duration-300 shadow-inner">
-                          <div className="flex items-center space-x-3 mb-3">
-                            <label className="text-sm font-bold text-white/70 dark:text-slate-400 uppercase tracking-wider">
-                              Vehicle Number
-                            </label>
-                          </div>
-                          <p className="text-xl font-semibold text-white dark:text-slate-100">
-                            {currentContact.vehicleNumber ||
-                              "No vehicle number"}
-                          </p>
-                        </div>
-
-                        <div className="p-6 rounded-2xl bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 hover:bg-white/10 dark:hover:bg-slate-700/20 transition-all duration-300 shadow-inner">
-                          <div className="flex items-center space-x-3 mb-3">
-                            <label className="text-sm font-bold text-white/70 dark:text-slate-400 uppercase tracking-wider">
-                              IC Number
-                            </label>
-                          </div>
-                          <p className="text-xl font-semibold text-white dark:text-slate-100">
-                            {currentContact.ic || "No IC number"}
-                          </p>
-                        </div>
-
-                        <div className="p-6 rounded-2xl bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 hover:bg-white/10 dark:hover:bg-slate-700/20 transition-all duration-300 shadow-inner">
-                          <div className="flex items-center space-x-3 mb-3">
-                            <label className="text-sm font-bold text-white/70 dark:text-slate-400 uppercase tracking-wider">
-                              Expiry Date
-                            </label>
-                          </div>
-                          <p className="text-xl font-semibold text-white dark:text-slate-100">
-                            {currentContact.expiryDate
-                              ? new Date(
-                                  currentContact.expiryDate
-                                ).toLocaleDateString()
-                              : "No expiry date"}
                           </p>
                         </div>
 
@@ -8654,8 +8644,70 @@ function Main() {
                               : "Unknown"}
                           </p>
                         </div>
+
+                        {companyId === "079" && (
+                          <div className="p-6 rounded-2xl bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 hover:bg-white/10 dark:hover:bg-slate-700/20 transition-all duration-300 shadow-inner">
+                            <div className="flex items-center space-x-3 mb-3">
+                              <label className="text-sm font-bold text-white/70 dark:text-slate-400 uppercase tracking-wider">
+                                IC Number
+                              </label>
+                            </div>
+                            <p className="text-xl font-semibold text-white dark:text-slate-100">
+                              {currentContact.ic || "No IC number"}
+                            </p>
+                          </div>
+                        )}
+
+                        {companyId === "079" && (
+                          <div className="p-6 rounded-2xl bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 hover:bg-white/10 dark:hover:bg-slate-700/20 transition-all duration-300 shadow-inner">
+                            <div className="flex items-center space-x-3 mb-3">
+                              <label className="text-sm font-bold text-white/70 dark:text-slate-400 uppercase tracking-wider">
+                                Expiry Date
+                              </label>
+                            </div>
+                            <p className="text-xl font-semibold text-white dark:text-slate-100">
+                              {currentContact.expiryDate
+                                ? new Date(
+                                    currentContact.expiryDate
+                                  ).toLocaleDateString()
+                                : "No expiry date"}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
+
+                    {/* Custom Fields Section */}
+                    {currentContact.customFields && Object.keys(currentContact.customFields).length > 0 && (
+                      <div className="p-6 rounded-2xl bg-white/5 dark:bg-slate-700/10 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 shadow-inner">
+                        <div className="flex items-center space-x-3 mb-4">
+                          <Lucide
+                            icon="Settings"
+                            className="w-5 h-5 text-indigo-400"
+                          />
+                          <label className="text-lg font-bold text-white/90 dark:text-slate-200">
+                            Custom Fields
+                          </label>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {Object.entries(currentContact.customFields).map(([key, value]) => (
+                            <div
+                              key={key}
+                              className="p-4 rounded-xl bg-white/5 dark:bg-slate-600/10 backdrop-blur-sm border border-white/10 dark:border-slate-500/20 hover:bg-white/10 dark:hover:bg-slate-600/20 transition-all duration-200"
+                            >
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold text-indigo-300/80 dark:text-indigo-400/80 uppercase tracking-wider">
+                                  {key.replace(/_/g, ' ')}
+                                </label>
+                                <p className="text-sm font-medium text-white/90 dark:text-slate-200 break-words">
+                                  {value || "Not specified"}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Notes Section */}
                     {currentContact.notes && (
@@ -9285,7 +9337,15 @@ function Main() {
                 </div>
 
                 <div className="space-y-3 max-h-60 overflow-y-auto mt-8">
-                  {Object.entries(visibleColumns).map(([column, isVisible]) => {
+                  {Object.entries(visibleColumns)
+                    .filter(([column]) => {
+                      // Filter out company-specific fields if not companyId 079
+                      if (companyId !== "079" && ["branch", "vehicleNumber", "ic", "expiryDate"].includes(column)) {
+                        return false;
+                      }
+                      return true;
+                    })
+                    .map(([column, isVisible]) => {
                     // Check if this is a custom field
                     const isCustomField = column.startsWith("customField_");
                     const displayName = isCustomField
@@ -10084,29 +10144,126 @@ function Main() {
                           <Lucide icon="Code" className="w-4 h-4" />
                           Available Placeholders:
                         </p>
-                        <div className="grid grid-cols-2 gap-3 text-xs">
-                          {[
-                            "contactName",
-                            "firstName",
-                            "lastName",
-                            "phone",
-                            "email",
-                            "company",
-                            "branch",
-                            "vehicleNumber",
-                            "ic",
-                            "expiryDate",
-                          ].map((placeholder) => (
-                            <button
-                              key={placeholder}
-                              onClick={() => insertPlaceholder(placeholder)}
-                              className="text-left p-3 rounded-xl bg-white/10 dark:bg-blue-800/30 text-blue-200 dark:text-blue-200 hover:bg-white/20 dark:hover:bg-blue-700/50 transition-all duration-200 border border-blue-400/20 backdrop-blur-sm font-mono"
-                            >
-                              @{"{"}${placeholder}
-                              {"}"}
-                            </button>
-                          ))}
+                        
+                        {/* Standard Placeholders */}
+                        <div className="mb-6">
+                          <h4 className="text-xs font-semibold text-blue-200 mb-3 uppercase tracking-wider">Standard Fields</h4>
+                          <div className="grid grid-cols-2 gap-3 text-xs">
+                            {[
+                              "contactName",
+                              "firstName",
+                              "lastName",
+                              "phone",
+                              "email",
+                              "company",
+                              "branch",
+                              "vehicleNumber",
+                              "ic",
+                              "expiryDate",
+                            ].map((placeholder) => (
+                              <button
+                                key={placeholder}
+                                onClick={() => insertPlaceholder(placeholder)}
+                                className="text-left p-3 rounded-xl bg-white/10 dark:bg-blue-800/30 text-blue-200 dark:text-blue-200 hover:bg-white/20 dark:hover:bg-blue-700/50 transition-all duration-200 border border-blue-400/20 backdrop-blur-sm font-mono"
+                              >
+                                @{"{"}${placeholder}
+                                {"}"}
+                              </button>
+                            ))}
+                          </div>
                         </div>
+
+                        {/* Custom Fields Placeholders */}
+                        {(() => {
+                          // Get all unique custom field keys from selected contacts
+                          const allCustomFields = new Set<string>();
+                          const customFieldAvailability = new Map<string, number>();
+
+                          selectedContacts.forEach(contact => {
+                            if (contact.customFields) {
+                              Object.keys(contact.customFields).forEach(key => {
+                                allCustomFields.add(key);
+                                customFieldAvailability.set(key, (customFieldAvailability.get(key) || 0) + 1);
+                              });
+                            }
+                          });
+
+                          const customFieldsArray = Array.from(allCustomFields);
+                          const totalSelectedContacts = selectedContacts.length;
+
+                          if (customFieldsArray.length > 0) {
+                            return (
+                              <div>
+                                <h4 className="text-xs font-semibold text-blue-200 mb-3 uppercase tracking-wider">Custom Fields</h4>
+                                <div className="grid grid-cols-2 gap-3 text-xs">
+                                  {customFieldsArray.map((fieldKey) => {
+                                    const availableCount = customFieldAvailability.get(fieldKey) || 0;
+                                    const isAvailableForAll = availableCount === totalSelectedContacts;
+                                    const availabilityPercentage = Math.round((availableCount / totalSelectedContacts) * 100);
+                                    
+                                    return (
+                                      <div key={fieldKey} className="relative group">
+                                        <button
+                                          onClick={() => isAvailableForAll ? insertPlaceholder(fieldKey) : null}
+                                          disabled={!isAvailableForAll}
+                                          className={`text-left p-3 rounded-xl transition-all duration-200 border backdrop-blur-sm font-mono w-full ${
+                                            isAvailableForAll
+                                              ? 'bg-white/10 dark:bg-blue-800/30 text-blue-200 dark:text-blue-200 hover:bg-white/20 dark:hover:bg-blue-700/50 border-blue-400/20 cursor-pointer'
+                                              : 'bg-gray-500/10 dark:bg-gray-800/20 text-gray-400 dark:text-gray-500 border-gray-500/20 cursor-not-allowed opacity-60'
+                                          }`}
+                                        >
+                                          @{"{"}{fieldKey.toLowerCase().replace(/\s+/g, '_')}
+                                          {"}"}
+                                          {!isAvailableForAll && (
+                                            <div className="flex items-center mt-1">
+                                              <Lucide icon="AlertTriangle" className="w-3 h-3 mr-1" />
+                                              <span className="text-xs">{availabilityPercentage}%</span>
+                                            </div>
+                                          )}
+                                        </button>
+                                        
+                                        {/* Tooltip */}
+                                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 pointer-events-none">
+                                          <div className="bg-slate-800 text-white text-xs rounded-lg px-3 py-2 shadow-lg border border-slate-600 max-w-48">
+                                            <div className="font-medium">{fieldKey}</div>
+                                            <div className="mt-1 text-slate-300">
+                                              {isAvailableForAll ? (
+                                                "Available in all selected contacts"
+                                              ) : (
+                                                `Available in ${availableCount} of ${totalSelectedContacts} contacts (${availabilityPercentage}%)`
+                                              )}
+                                            </div>
+                                            {!isAvailableForAll && (
+                                              <div className="mt-1 text-amber-300 text-xs">
+                                                ⚠️ Not available for all contacts
+                                              </div>
+                                            )}
+                                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800"></div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                                
+                                {/* Legend */}
+                                <div className="mt-4 p-3 bg-blue-900/20 rounded-lg border border-blue-400/20">
+                                  <div className="flex items-center justify-between text-xs">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-3 h-3 bg-blue-400 rounded-full"></div>
+                                      <span className="text-blue-200">Available for all</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
+                                      <span className="text-gray-400">Partially available</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                     )}
                   </div>
@@ -10837,76 +10994,84 @@ function Main() {
                           />
                         </div>
 
-                        <div className="space-y-3">
-                          <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
-                            <span>Branch</span>
-                          </label>
-                          <FormInput
-                            type="text"
-                            value={currentContact.branch || ""}
-                            onChange={(e) =>
-                              setCurrentContact({
-                                ...currentContact,
-                                branch: e.target.value,
-                              })
-                            }
-                            placeholder="Enter branch"
-                            className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-teal-400/50 focus:ring-2 focus:ring-teal-400/20 transition-all duration-200"
-                          />
-                        </div>
+                        {companyId === "079" && (
+                          <div className="space-y-3">
+                            <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                              <span>Branch</span>
+                            </label>
+                            <FormInput
+                              type="text"
+                              value={currentContact.branch || ""}
+                              onChange={(e) =>
+                                setCurrentContact({
+                                  ...currentContact,
+                                  branch: e.target.value,
+                                })
+                              }
+                              placeholder="Enter branch"
+                              className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-teal-400/50 focus:ring-2 focus:ring-teal-400/20 transition-all duration-200"
+                            />
+                          </div>
+                        )}
 
-                        <div className="space-y-3">
-                          <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
-                            <span>Vehicle Number</span>
-                          </label>
-                          <FormInput
-                            type="text"
-                            value={currentContact.vehicleNumber || ""}
-                            onChange={(e) =>
-                              setCurrentContact({
-                                ...currentContact,
-                                vehicleNumber: e.target.value,
-                              })
-                            }
-                            placeholder="Enter vehicle number"
-                            className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/20 transition-all duration-200"
-                          />
-                        </div>
+                        {companyId === "079" && (
+                          <div className="space-y-3">
+                            <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                              <span>Vehicle Number</span>
+                            </label>
+                            <FormInput
+                              type="text"
+                              value={currentContact.vehicleNumber || ""}
+                              onChange={(e) =>
+                                setCurrentContact({
+                                  ...currentContact,
+                                  vehicleNumber: e.target.value,
+                                })
+                              }
+                              placeholder="Enter vehicle number"
+                              className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-indigo-400/50 focus:ring-2 focus:ring-indigo-400/20 transition-all duration-200"
+                            />
+                          </div>
+                        )}
 
-                        <div className="space-y-3">
-                          <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
-                            <span>IC Number</span>
-                          </label>
-                          <FormInput
-                            type="text"
-                            value={currentContact.ic || ""}
-                            onChange={(e) =>
-                              setCurrentContact({
-                                ...currentContact,
-                                ic: e.target.value,
-                              })
-                            }
-                            placeholder="Enter IC number"
-                            className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-amber-400/50 focus:ring-2 focus:ring-amber-400/20 transition-all duration-200"
-                          />
-                        </div>
+                        {companyId === "079" && (
+                          <div className="space-y-3">
+                            <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                              <span>IC Number</span>
+                            </label>
+                            <FormInput
+                              type="text"
+                              value={currentContact.ic || ""}
+                              onChange={(e) =>
+                                setCurrentContact({
+                                  ...currentContact,
+                                  ic: e.target.value,
+                                })
+                              }
+                              placeholder="Enter IC number"
+                              className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-amber-400/50 focus:ring-2 focus:ring-amber-400/20 transition-all duration-200"
+                            />
+                          </div>
+                        )}
 
-                        <div className="space-y-3">
-                          <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
-                            <span>Expiry Date</span>
-                          </label>
-                          <FormInput
-                            type="date"
-                            value={currentContact.expiryDate || ""}
-                            onChange={(e) =>
-                              setCurrentContact({
-                                ...currentContact,
-                                expiryDate: e.target.value,
-                              })
-                            }
-                            className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-rose-400/50 focus:ring-2 focus:ring-rose-400/20 transition-all duration-200"
-                          />
-                        </div>
+                        {companyId === "079" && (
+                          <div className="space-y-3">
+                            <label className="flex items-center space-x-2 text-sm font-medium text-white/80 dark:text-slate-300">
+                              <span>Expiry Date</span>
+                            </label>
+                            <FormInput
+                              type="date"
+                              value={currentContact.expiryDate || ""}
+                              onChange={(e) =>
+                                setCurrentContact({
+                                  ...currentContact,
+                                  expiryDate: e.target.value,
+                                })
+                              }
+                              className="w-full bg-white/5 dark:bg-slate-700/20 backdrop-blur-xl border border-white/20 dark:border-slate-600/20 rounded-2xl text-white dark:text-slate-200 placeholder-white/50 dark:placeholder-slate-400 focus:border-rose-400/50 focus:ring-2 focus:ring-rose-400/20 transition-all duration-200"
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
 
