@@ -1032,6 +1032,7 @@ function Main() {
         return [];
     }
   };
+  
   const handleRemoveTagsFromContact = async (
     contact: Contact,
     tagsToRemove: string[]
@@ -1073,27 +1074,75 @@ function Main() {
         return;
       }
 
-      // Remove tags from contact via SQL backend
-      const response = await axios.post(`${baseUrl}/api/contacts/remove-tags`, {
-        companyId,
-        contact_id: contact.contact_id,
-        tagsToRemove,
-      });
-
-      if (response.data.success) {
-        // Update local state
-        setContacts((prevContacts) =>
-          prevContacts.map((c) =>
-            c.contact_id === contact.contact_id
-              ? { ...c, tags: response.data.updatedTags }
-              : c
-          )
-        );
-        toast.success("Tags removed successfully!");
-        await fetchContacts();
-      } else {
-        toast.error(response.data.message || "Failed to remove tags.");
+      // Remove tags from contact via API
+      const contactId = contact.contact_id || contact.id;
+      if (!contactId) {
+        toast.error("Contact ID not found");
+        return;
       }
+
+      const response = await fetch(
+        `${baseUrl}/api/contacts/${companyId}/${contactId}/tags`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tags: tagsToRemove }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Failed to remove tags from contact:", errorText);
+        toast.error("Failed to remove tags from contact");
+        return;
+      }
+
+      const data = await response.json();
+
+      // Calculate the updated tags by removing the specified tags from existing tags
+      const currentContact = contacts.find(
+        (c) => c.id === contactId || c.contact_id === contactId
+      );
+      const currentTags = currentContact?.tags || [];
+      const updatedTags = currentTags.filter((tag) => !tagsToRemove.includes(tag));
+
+      // Update both contacts and filteredContacts states immediately
+      const updateContactsList = (prevContacts: Contact[]) =>
+        prevContacts.map((contact) =>
+          contact.id === contactId || contact.contact_id === contactId
+        ? { ...contact, tags: updatedTags }
+        : contact
+        );
+
+      setContacts(updateContactsList);
+      setFilteredContacts((prevFilteredContacts) =>
+        updateContactsList(prevFilteredContacts)
+      );
+
+      // Update selectedContact if it's the same contact
+      if (
+        selectedContact &&
+        (selectedContact.id === contactId ||
+          selectedContact.contact_id === contactId)
+      ) {
+        setSelectedContact((prevContact: Contact) => ({
+          ...prevContact,
+          tags: updatedTags,
+        }));
+      }
+
+      // Update currentContact if it's the same contact
+      if (
+        currentContact &&
+        (currentContact.id === contactId ||
+          currentContact.contact_id === contactId)
+      ) {
+        setCurrentContact((prevContact) =>
+          prevContact ? { ...prevContact, tags: updatedTags } : prevContact
+        );
+      }
+
+      toast.success("Tags removed successfully!");
     } catch (error) {
       console.error("Error removing tags:", error);
       toast.error("Failed to remove tags.");
@@ -1521,19 +1570,35 @@ function Main() {
   };
 
   const formatPhoneNumber = (phone: string): string => {
-    // Remove all non-digit characters
-    const digits = phone.replace(/\D/g, "");
-
-    // If the number starts with '0', replace it with '60'
-    // Otherwise, ensure it starts with '60'
-    const formattedNumber = digits.startsWith("0")
-      ? `60${digits.slice(1)}`
-      : digits.startsWith("60")
-      ? digits
-      : `60${digits}`;
-
-    // Add the '+' at the beginning
-    return `+${formattedNumber}`;
+    if (!phone || phone.trim() === "") return "";
+    
+    let cleanPhone = phone.replace(/[^\d+]/g, "");
+    
+    if (cleanPhone.startsWith("+")) {
+      return cleanPhone;
+    }
+    
+    cleanPhone = cleanPhone.replace(/\+/g, "");
+    
+    if (cleanPhone.startsWith("0")) {
+      return `+60${cleanPhone.slice(1)}`;
+    }
+    
+    const commonCountryCodes = [
+      "60", "65", "66", "84", "86", "82", "81", "91", "61", "1", "44", "49", "33", "39", "34", "31", "46", "47", "45", "41", "43", "32", "30", "351", "353", "358", "372", "371", "370", "386", "385", "381", "385", "380", "375", "373"
+    ];
+    
+    for (const countryCode of commonCountryCodes.sort((a, b) => b.length - a.length)) {
+      if (cleanPhone.startsWith(countryCode)) {
+        return `+${cleanPhone}`;
+      }
+    }
+    
+    if (cleanPhone.length >= 8) {
+      return `+60${cleanPhone}`;
+    }
+    
+    return `+${cleanPhone}`;
   };
 
   const handleSaveNewContact = async () => {
@@ -1646,6 +1711,8 @@ function Main() {
         "An error occurred while adding the contact: " +
           (error.response?.data?.message || error.message)
       );
+    } finally {
+      setLoading(false);
     }
   };
   const handleSaveNewTag = async () => {
@@ -3082,179 +3149,164 @@ function Main() {
       toast.error("You don't have permission to perform this action.");
       return;
     }
-    if (currentContact) {
-      try {
-        // Get user/company info from localStorage or your app state
-        const userEmail = localStorage.getItem("userEmail");
-        if (!userEmail) {
-          toast.error("No user email found");
-          return;
-        }
+    if (!currentContact) {
+      toast.error("No contact selected for deletion.");
+      return;
+    }
 
-        // Fetch user config to get companyId
-        const userResponse = await fetch(
-          `${baseUrl}/api/user/config?email=${encodeURIComponent(userEmail)}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            credentials: "include",
-          }
-        );
+    // Set loading state and show initial notification
+    setLoading(true);
+    toast.info("Starting to delete contact. This may take some time...");
 
-        if (!userResponse.ok) {
-          toast.error("Failed to fetch user config");
-          return;
-        }
+    // Optimistic UI update - remove contact immediately for better UX
+    setContacts((prevContacts) =>
+      prevContacts.filter((contact) => contact.contact_id !== currentContact.contact_id)
+    );
 
-        const userData = await userResponse.json();
-        const companyId = userData?.company_id;
-        if (!companyId) {
-          toast.error("Company ID not found!");
-          return;
-        }
-
-        // Get the contact_id
-        const contact_id = currentContact.contact_id;
-
-        toast.info("Preparing to delete contact...");
-
-        // Step 1: Remove assignments first using the dedicated endpoint
-        try {
-          const assignmentsResponse = await fetch(
-            `${baseUrl}/api/assignments/contact/${contact_id}?companyId=${companyId}`,
-            {
-              method: "DELETE",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              credentials: "include",
-            }
-          );
-
-          if (assignmentsResponse.ok) {
-            console.log("Assignments removed successfully");
-          } else if (assignmentsResponse.status === 404) {
-            console.log("No assignments found for this contact");
-          } else {
-            console.warn(
-              "Failed to remove assignments:",
-              assignmentsResponse.status
-            );
-          }
-        } catch (error) {
-          console.warn("Error removing assignments:", error);
-        }
-
-        // Step 2: Delete the contact
-        toast.info("Deleting contact...");
-
-        const response = await fetch(
-          `${baseUrl}/api/contacts/${contact_id}?companyId=${companyId}`,
-          {
-            method: "DELETE",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            credentials: "include",
-          }
-        );
-
-        if (response.ok) {
-          toast.success("Contact deleted successfully!");
-
-          // Update local state
-          setContacts((prevContacts) =>
-            prevContacts.filter((contact) => contact.contact_id !== contact_id)
-          );
-          setScheduledMessages((prev) =>
-            prev.filter((msg) => !msg.chatIds.includes(contact_id))
-          );
-          setDeleteConfirmationModal(false);
-          setCurrentContact(null);
-
-          await fetchContacts();
-          await fetchScheduledMessages();
-        } else {
-          const errorData = await response.json().catch(() => ({}));
-          console.error("Delete failed:", errorData);
-
-          // Check if this is a constraint error that can be resolved with force delete
-          const canForceDelete =
-            errorData.message &&
-            (errorData.message.includes("active assignments") ||
-              errorData.message.includes("associated messages") ||
-              errorData.message.includes(
-                "Use /api/contacts/{contactId}/force"
-              ));
-
-          if (canForceDelete) {
-            // Offer to force delete with cascade
-            if (
-              window.confirm(
-                "This contact has database dependencies. Would you like to force delete it and remove all related data? This is irreversible."
-              )
-            ) {
-              try {
-                const forceDeleteResponse = await fetch(
-                  `${baseUrl}/api/contacts/${contact_id}/force?companyId=${companyId}`,
-                  {
-                    method: "DELETE",
-                    headers: {
-                      "Content-Type": "application/json",
-                    },
-                    credentials: "include",
-                  }
-                );
-
-                if (forceDeleteResponse.ok) {
-                  toast.success("Contact force deleted successfully!");
-
-                  // Update local state
-                  setContacts((prevContacts) =>
-                    prevContacts.filter(
-                      (contact) => contact.contact_id !== contact_id
-                    )
-                  );
-                  setScheduledMessages((prev) =>
-                    prev.filter((msg) => !msg.chatIds.includes(contact_id))
-                  );
-                  setDeleteConfirmationModal(false);
-                  setCurrentContact(null);
-
-                  await fetchContacts();
-                  await fetchScheduledMessages();
-                  return;
-                } else {
-                  const forceErrorData = await forceDeleteResponse.json();
-                  toast.error(
-                    `Force delete failed: ${
-                      forceErrorData.message || "Unknown error"
-                    }`
-                  );
-                }
-              } catch (forceError) {
-                console.error("Force delete error:", forceError);
-                toast.error("Force delete failed");
-              }
-            }
-          } else if (response.status === 409) {
-            // Handle conflict status - contact has dependencies
-            toast.error(
-              "Cannot delete contact: Contact has associated data. Please remove dependencies first."
-            );
-          } else {
-            toast.error("Failed to delete contact");
-          }
-        }
-      } catch (error) {
-        console.error("Error deleting contact:", error);
-        toast.error("An error occurred while deleting the contact.");
+    try {
+      // Get user data and company info from your NeonDB backend
+      const userEmail = localStorage.getItem("userEmail");
+      if (!userEmail) {
+        console.error("No user email found");
+        setLoading(false);
+        return;
       }
+
+      // Get user and company data from NeonDB backend
+      const userCompanyResponse = await fetch(
+        `${baseUrl}/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        }
+      );
+
+      if (!userCompanyResponse.ok) {
+        console.error("Failed to get user company data");
+        setLoading(false);
+        return;
+      }
+
+      const { userData, companyData } = await userCompanyResponse.json();
+      const companyId = userData.companyId;
+
+      // Prepare contact ID for deletion
+      const contact_id = currentContact.contact_id;
+
+      if (!contact_id) {
+        toast.error("No valid contact ID found for deletion.");
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch(
+        `${baseUrl}/api/contacts/${contact_id}?companyId=${companyId}`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        }
+      );
+
+      if (response.ok) {
+        // Update local state
+        setContacts((prevContacts) =>
+          prevContacts.filter((contact) => contact.contact_id !== contact_id)
+        );
+        setDeleteConfirmationModal(false);
+        setCurrentContact(null);
+
+        // Refresh lists
+        await fetchScheduledMessages();
+
+        toast.success("Contact deleted successfully from the database!");
+
+        await fetchContacts();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Delete failed:", errorData);
+
+        // Check if this is a constraint error that can be resolved with force delete
+        const canForceDelete =
+          errorData.message &&
+          (errorData.message.includes("active assignments") ||
+            errorData.message.includes("associated messages") ||
+            errorData.message.includes("Use /api/contacts/{contactId}/force"));
+
+        if (canForceDelete) {
+          // Offer to force delete with cascade
+          if (
+            window.confirm(
+              "This contact has database dependencies. Would you like to force delete it and remove all related data? This is irreversible."
+            )
+          ) {
+            try {
+              const forceDeleteResponse = await fetch(
+                `${baseUrl}/api/contacts/${contact_id}/force?companyId=${companyId}`,
+                {
+                  method: "DELETE",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  credentials: "include",
+                }
+              );
+
+              if (forceDeleteResponse.ok) {
+                toast.success("Contact force deleted successfully!");
+
+                // Update local state
+                setContacts((prevContacts) =>
+                  prevContacts.filter((contact) => contact.contact_id !== contact_id)
+                );
+                setScheduledMessages((prev) =>
+                  prev.filter((msg) => !msg.chatIds.includes(contact_id))
+                );
+                setDeleteConfirmationModal(false);
+                setCurrentContact(null);
+
+                await fetchContacts();
+                await fetchScheduledMessages();
+                return;
+              } else {
+                const forceErrorData = await forceDeleteResponse.json();
+                toast.error(
+                  `Force delete failed: ${forceErrorData.message || "Unknown error"}`
+                );
+              }
+            } catch (forceError) {
+              console.error("Force delete error:", forceError);
+              toast.error("Force delete failed");
+            }
+          }
+        } else if (response.status === 409) {
+          // Handle conflict status - contact has dependencies
+          toast.error(
+            "Cannot delete contact: Contact has associated data. Please remove dependencies first."
+          );
+        } else {
+          toast.error("Failed to delete contact from database.");
+        }
+        console.error("Delete failed:", errorData);
+        // Refresh to get accurate data
+        fetchContacts();
+      }
+    } catch (error) {
+      console.error("Error deleting contact:", error);
+      toast.error("An error occurred while deleting the contact and associated data.");
+      // Refresh to get accurate data
+      fetchContacts();
+    } finally {
+      // Always reset loading state
+      setLoading(false);
     }
   };
+
   const handleMassDelete = async () => {
     if (userRole === "3") {
       toast.error("You don't have permission to perform this action.");
@@ -3280,288 +3332,110 @@ function Main() {
     );
 
     try {
-      const user = auth.currentUser;
-      if (!user) {
-        console.error("No authenticated user");
+      // Get user data and company info from your NeonDB backend
+      const userEmail = localStorage.getItem("userEmail"); // Assuming you store user email in localStorage
+      if (!userEmail) {
+        console.error("No user email found");
         setIsMassDeleting(false);
         return;
       }
 
-      const docUserRef = doc(firestore, "user", user.email!);
-      const docUserSnapshot = await getDoc(docUserRef);
-      if (!docUserSnapshot.exists()) {
-        console.error("No such document for user!");
+      // Get user and company data from NeonDB backend
+      const userCompanyResponse = await fetch(
+        `${baseUrl}/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        }
+      );
+
+      if (!userCompanyResponse.ok) {
+        console.error("Failed to get user company data");
         setIsMassDeleting(false);
         return;
       }
 
-      const userData = docUserSnapshot.data();
+      const { userData, companyData } = await userCompanyResponse.json();
       const companyId = userData.companyId;
-      const docRef = doc(firestore, "companies", companyId);
-      const docSnapshot = await getDoc(docRef);
-      if (!docSnapshot.exists()) {
-        console.error("No such document for company!");
+
+      // Prepare contact IDs for mass deletion
+      const contactIds = selectedContacts.map(contact => contact.contact_id).filter(Boolean);
+
+      if (contactIds.length === 0) {
+        toast.error("No valid contact IDs found for deletion.");
         setIsMassDeleting(false);
         return;
       }
 
-      // Get all active templates once
-      const templatesRef = collection(
-        firestore,
-        `companies/${companyId}/followUpTemplates`
+      // Perform mass deletion using the new backend endpoint
+      const massDeleteResponse = await fetch(
+        `${baseUrl}/api/contacts/mass-delete`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            contactIds: contactIds,
+            companyId: companyId,
+          }),
+        }
       );
-      const templatesSnapshot = await getDocs(templatesRef);
-      const activeTemplates = templatesSnapshot.docs
-        .filter((doc) => doc.data().status === "active")
-        .map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
 
-      // Create batch for contact deletion
-      const batch = writeBatch(firestore);
+      const deleteResult = await massDeleteResponse.json();
 
-      const companyData = docSnapshot.data();
-      const baseUrl = companyData.apiUrl || "https://juta-dev.ngrok.dev";
-
-      // Process each contact
-      let contactsProcessed = 0;
-      const totalToProcess = selectedContacts.length;
-
-      for (const contact of selectedContacts) {
-        // Show progress to user
-        contactsProcessed++;
-        if (
-          contactsProcessed % 50 === 0 ||
-          contactsProcessed === totalToProcess
-        ) {
-          toast.info(
-            `Processing ${contactsProcessed} of ${totalToProcess} contacts...`,
-            { autoClose: 2000, updateId: "mass-delete-progress" }
-          );
-        }
-        // Remove follow-up templates
-        for (const template of activeTemplates) {
-          try {
-            const phoneNumber = contact.phone?.replace(/\D/g, "");
-            const followUpResponse = await fetch(
-              `${baseUrl}/api/tag/followup`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  requestType: "removeTemplate",
-                  phone: phoneNumber,
-                  first_name:
-                    contact.contactName || contact.firstName || phoneNumber,
-                  phoneIndex: userData.phone || 0,
-                  templateId: template.id,
-                  idSubstring: companyId,
-                }),
-              }
-            );
-
-            if (!followUpResponse.ok) {
-              const errorText = await followUpResponse.text();
-              console.error("Failed to remove template messages:", errorText);
-            } else {
-            }
-          } catch (error) {
-            console.error("Error removing template messages:", error);
-          }
-        }
-
-        // Format contact's phone number for scheduled messages
-        const contactChatId =
-          contact.phone?.replace(/\D/g, "") + "@s.whatsapp.net";
-
-        // Get and handle scheduled messages
-        const scheduledMessagesRef = collection(
-          firestore,
-          `companies/${companyId}/scheduledMessages`
+      if (massDeleteResponse.ok) {
+        // Update local state
+        setContacts((prevContacts) =>
+          prevContacts.filter(
+            (contact) =>
+              !selectedContacts.some((selected) => selected.id === contact.id)
+          )
         );
-        const scheduledSnapshot = await getDocs(scheduledMessagesRef);
+        setSelectedContacts([]);
+        setShowMassDeleteModal(false);
 
-        const messagePromises = scheduledSnapshot.docs.map(async (doc) => {
-          const messageData = doc.data();
-          if (messageData.chatIds?.includes(contactChatId)) {
-            if (messageData.chatIds.length === 1) {
-              try {
-                await axios.delete(
-                  `${baseUrl}/api/schedule-message/${companyId}/${doc.id}`
-                );
-              } catch (error) {
-                console.error(
-                  `Error deleting scheduled message ${doc.id}:`,
-                  error
-                );
-              }
-            } else {
-              try {
-                await axios.put(
-                  `${baseUrl}/api/schedule-message/${companyId}/${doc.id}`,
-                  {
-                    ...messageData,
-                    chatIds: messageData.chatIds.filter(
-                      (id: string) => id !== contactChatId
-                    ),
-                    messages:
-                      messageData.messages?.filter(
-                        (msg: any) => msg.chatId !== contactChatId
-                      ) || [],
-                  }
-                );
-              } catch (error) {
-                console.error(
-                  `Error updating scheduled message ${doc.id}:`,
-                  error
-                );
-              }
-            }
-          }
-        });
+        // Refresh lists
+        await fetchScheduledMessages();
 
-        await Promise.all(messagePromises);
-
-        // Step 1: Remove assignments from SQL backend
-        try {
-          const assignmentsResponse = await fetch(
-            `${baseUrl}/api/assignments/contact/${contact.contact_id}?companyId=${companyId}`,
-            {
-              method: "DELETE",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              credentials: "include",
-            }
-          );
-
-          if (assignmentsResponse.ok) {
-            console.log(
-              `Assignments removed for contact ${contact.contact_id}`
-            );
-          } else if (assignmentsResponse.status === 404) {
-            console.log(
-              `No assignments found for contact ${contact.contact_id}`
-            );
-          } else {
-            console.warn(
-              `Failed to remove assignments for contact ${contact.contact_id}:`,
-              assignmentsResponse.status
-            );
-          }
-        } catch (error) {
-          console.warn(
-            `Error removing assignments for contact ${contact.contact_id}:`,
-            error
-          );
-        }
-
-        // Step 2: Delete contact from SQL backend
-        try {
-          const response = await fetch(
-            `${baseUrl}/api/contacts/${contact.contact_id}?companyId=${companyId}`,
-            {
-              method: "DELETE",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              credentials: "include",
-            }
-          );
-
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            console.warn(
-              `Failed to delete contact ${contact.contact_id} from SQL backend:`,
-              errorData
-            );
-
-            // Try force delete if regular delete fails
-            if (response.status === 409) {
-              try {
-                const forceDeleteResponse = await fetch(
-                  `${baseUrl}/api/contacts/${contact.contact_id}/force?companyId=${companyId}`,
-                  {
-                    method: "DELETE",
-                    headers: {
-                      "Content-Type": "application/json",
-                    },
-                    credentials: "include",
-                  }
-                );
-
-                if (forceDeleteResponse.ok) {
-                  console.log(
-                    `Contact ${contact.contact_id} force deleted from SQL backend`
-                  );
-                } else {
-                  console.warn(
-                    `Force delete failed for contact ${contact.contact_id}`
-                  );
-                }
-              } catch (forceError) {
-                console.warn(
-                  `Force delete error for contact ${contact.contact_id}:`,
-                  forceError
-                );
-              }
-            }
-          } else {
-            console.log(
-              `Contact ${contact.contact_id} deleted from SQL backend`
-            );
-          }
-        } catch (error) {
-          console.warn(
-            `Error deleting contact ${contact.contact_id} from SQL backend:`,
-            error
-          );
-        }
-
-        // Add contact deletion to Firestore batch
-        const contactRef = doc(
-          firestore,
-          `companies/${companyId}/contacts`,
-          contact.id!
+        toast.success(
+          `${deleteResult.deletedCount} contacts deleted successfully from the database!`
         );
-        batch.delete(contactRef);
+
+        if (deleteResult.failures && deleteResult.failures.length > 0) {
+          toast.warn(
+            `${deleteResult.failures.length} contacts could not be deleted. Check console for details.`
+          );
+          console.warn("Failed deletions:", deleteResult.failures);
+        }
+
+        await fetchContacts();
+      } else {
+        toast.error(
+          deleteResult.message || "Failed to delete contacts from database."
+        );
+        console.error("Mass delete failed:", deleteResult);
+        // Refresh to get accurate data
+        fetchContacts();
       }
-
-      // Execute the batch delete for contacts
-      await batch.commit();
-
-      // Update local state
-      setContacts((prevContacts) =>
-        prevContacts.filter(
-          (contact) =>
-            !selectedContacts.some((selected) => selected.id === contact.id)
-        )
-      );
-      setSelectedContacts([]);
-      setShowMassDeleteModal(false);
-
-      // Refresh lists
-      await fetchScheduledMessages();
-
-      toast.success(
-        `${selectedContacts.length} contacts deleted successfully from both Firestore and SQL backend!`
-      );
-      await fetchContacts();
     } catch (error) {
       console.error("Error deleting contacts:", error);
       toast.error(
-        "An error occurred while deleting the contacts and associated messages."
+        "An error occurred while deleting the contacts and associated data."
       );
       // Refresh to get accurate data
       fetchContacts();
     } finally {
       // Always reset loading state
       setIsMassDeleting(false);
+      setLoading(false);
     }
   };
+
   const handleSaveContact = async () => {
     if (currentContact) {
       try {
@@ -3669,6 +3543,7 @@ function Main() {
 
           setEditContactModal(false);
           setCurrentContact(null);
+          setLoading(false);
           await fetchContacts();
           toast.success("Contact updated successfully!");
         } else {
