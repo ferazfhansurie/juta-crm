@@ -9,7 +9,7 @@ import LoadingPageOnboarding from "../../components/LoadingPageOnboarding";
 import { BookOpen, X } from "lucide-react";
 import { Dialog } from "@/components/Base/Headless";
 import Lucide from "@/components/Base/Lucide";
-import { toast } from 'react-toastify';
+import { toast } from "react-toastify";
 interface Contact {
   chat_id: string;
   chat_pic?: string | null;
@@ -98,21 +98,32 @@ function LoadingPage() {
   const [webSocket, setWebSocket] = useState(null);
   const isMountedRef = useRef(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isPolling, setIsPolling] = useState(false);
   const [isReinitializing, setIsReinitializing] = useState(false);
   const [reinitializeCooldown, setReinitializeCooldown] = useState(0);
-  const [reinitializeTimer, setReinitializeTimer] = useState<NodeJS.Timeout | null>(null);
+  const [reinitializeTimer, setReinitializeTimer] =
+    useState<NodeJS.Timeout | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showOnboardingHint, setShowOnboardingHint] = useState(false);
-  
+
   // Bot disconnect functionality state
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
-  const [disconnectBotName, setDisconnectBotName] = useState<string>('');
-  const [disconnectPhoneIndex, setDisconnectPhoneIndex] = useState<number | undefined>(undefined);
-  
+  const [disconnectBotName, setDisconnectBotName] = useState<string>("");
+  const [disconnectPhoneIndex, setDisconnectPhoneIndex] = useState<
+    number | undefined
+  >(undefined);
+
   // Debug useEffect to monitor state changes
   useEffect(() => {
-    console.log("State changed - isQRLoading:", isQRLoading, "qrCodeImage:", !!qrCodeImage, "isLoading:", isLoading);
+    console.log(
+      "State changed - isQRLoading:",
+      isQRLoading,
+      "qrCodeImage:",
+      !!qrCodeImage,
+      "isLoading:",
+      isLoading
+    );
   }, [isQRLoading, qrCodeImage, isLoading]);
 
   // Debug useEffect to monitor companyId changes
@@ -120,12 +131,14 @@ function LoadingPage() {
     console.log("=== Company ID State Changed ===");
     console.log("New companyId value:", companyId);
     console.log("companyId type:", typeof companyId);
-    console.log("companyId length:", companyId ? companyId.length : 'null');
+    console.log("companyId length:", companyId ? companyId.length : "null");
   }, [companyId]);
 
   // Check if user should see onboarding
   useEffect(() => {
-    const hasSeenOnboarding = localStorage.getItem('loadingPageOnboardingCompleted');
+    const hasSeenOnboarding = localStorage.getItem(
+      "loadingPageOnboardingCompleted"
+    );
     if (!hasSeenOnboarding && !isLoading) {
       // Show onboarding after a longer delay for new users (more subtle)
       const timer = setTimeout(() => {
@@ -137,23 +150,23 @@ function LoadingPage() {
 
   useEffect(() => {
     // Show onboarding hint for new users
-    const hasSeenHint = localStorage.getItem('loadingPageHintShown');
+    const hasSeenHint = localStorage.getItem("loadingPageHintShown");
     if (!hasSeenHint) {
       setShowOnboardingHint(true);
-      localStorage.setItem('loadingPageHintShown', 'true');
-      
+      localStorage.setItem("loadingPageHintShown", "true");
+
       // Hide hint after 8 seconds
       const hintTimer = setTimeout(() => {
         setShowOnboardingHint(false);
       }, 8000);
-      
+
       return () => clearTimeout(hintTimer);
     }
   }, []);
 
   const fetchQRCode = async () => {
     if (!isMountedRef.current) return;
-    
+
     console.log("=== fetchQRCode: Starting ===");
     setIsLoading(true);
     setIsQRLoading(true);
@@ -183,7 +196,7 @@ function LoadingPage() {
       );
       console.log("User config response status:", userResponse.status);
       console.log("User config response ok:", userResponse.ok);
-      
+
       if (!userResponse.ok) {
         throw new Error("Failed to fetch user config");
       }
@@ -194,25 +207,28 @@ function LoadingPage() {
       console.log("userData.company_id:", userData.company_id);
       console.log("userData.companyId:", userData.companyId);
       console.log("userData.role:", userData.role);
-      
+
       const companyId = userData.company_id;
       console.log("=== Extracted companyId ===");
       console.log("Final companyId value:", companyId);
       console.log("companyId type:", typeof companyId);
-      console.log("companyId length:", companyId ? companyId.length : 'null');
-      
+      console.log("companyId length:", companyId ? companyId.length : "null");
+
       // Validate companyId before proceeding
-      if (!companyId || companyId === 'undefined' || companyId === 'null') {
+      if (!companyId || companyId === "undefined" || companyId === "null") {
         throw new Error("Invalid company ID received from server");
       }
-      
+
       console.log("Company ID validation passed, proceeding with API calls");
       setCompanyId(companyId);
 
       // Get all bot status and company data in one call
       console.log("=== Calling /api/bot-status/${companyId} ===");
-      console.log("API URL:", `https://juta-dev.ngrok.dev/api/bot-status/${companyId}`);
-      
+      console.log(
+        "API URL:",
+        `https://juta-dev.ngrok.dev/api/bot-status/${companyId}`
+      );
+
       const statusResponse = await fetch(
         `https://juta-dev.ngrok.dev/api/bot-status/${companyId}`,
         {
@@ -226,7 +242,7 @@ function LoadingPage() {
       );
       console.log("Bot status response status:", statusResponse.status);
       console.log("Bot status response ok:", statusResponse.ok);
-      
+
       if (!statusResponse.ok) {
         throw new Error("Failed to fetch bot status");
       }
@@ -241,27 +257,31 @@ function LoadingPage() {
       console.log("Data qrCode:", data.qrCode);
       console.log("Data companyId from response:", data.companyId);
       console.log("Data v2:", data.v2);
-      
+
       // Validate that the response is for the correct company
       if (data.companyId && data.companyId !== companyId) {
         console.error("=== COMPANY ID MISMATCH DETECTED ===");
         console.error("Requested company ID:", companyId);
         console.error("Response company ID:", data.companyId);
-        console.error("This indicates the backend is returning data for the wrong company!");
-        throw new Error(`Company ID mismatch: requested ${companyId}, received ${data.companyId}`);
+        console.error(
+          "This indicates the backend is returning data for the wrong company!"
+        );
+        throw new Error(
+          `Company ID mismatch: requested ${companyId}, received ${data.companyId}`
+        );
       }
-      
+
       console.log("Company ID validation passed in bot status response");
-      
+
       // Validate the response data
       if (!data) {
         throw new Error("Invalid response data received");
       }
-      
+
       // Set all the necessary state
       if (!isMountedRef.current) return;
       setV2(data.v2 || false);
-      
+
       // Handle both old and new API response formats
       if (data.phones && Array.isArray(data.phones)) {
         // New format with phones array
@@ -280,18 +300,25 @@ function LoadingPage() {
         }
 
         // Check if any phone needs QR code
-        const phoneNeedingQR = data.phones.find(phone => phone.status === "qr");
+        const phoneNeedingQR = data.phones.find(
+          (phone) => phone.status === "qr"
+        );
         if (phoneNeedingQR && phoneNeedingQR.qrCode) {
           console.log("Setting QR code image:", phoneNeedingQR.qrCode);
           setQrCodeImage(phoneNeedingQR.qrCode);
           setSelectedPhoneIndex(phoneNeedingQR.phoneIndex);
           setBotStatus("qr");
           console.log("QR Code image set successfully");
-        } else if (data.phones.every(phone => phone.status === "ready" || phone.status === "authenticated")) {
+        } else if (
+          data.phones.every(
+            (phone) =>
+              phone.status === "ready" || phone.status === "authenticated"
+          )
+        ) {
           setBotStatus("ready");
           setShouldFetchContacts(true);
-       
-
+          console.log("All phones ready, navigating to /chat");
+          navigate("/chat");
         } else {
           setBotStatus(data.phones[0]?.status || "initializing");
         }
@@ -302,9 +329,9 @@ function LoadingPage() {
           phoneIndex: 0,
           status: data.status || "initializing",
           qrCode: data.qrCode || null,
-          phoneInfo: data.phoneInfo || ""
+          phoneInfo: data.phoneInfo || "",
         };
-        
+
         setPhones([phone]);
         setCompanyId(data.companyId);
         setSelectedPhoneIndex(0);
@@ -329,7 +356,7 @@ function LoadingPage() {
           console.log("Setting shouldFetchContacts to true");
           setShouldFetchContacts(true);
           console.log("Old format: Status ready, navigating to /chat");
-
+          navigate("/chat");
         } else {
           setBotStatus(data.status || "initializing");
         }
@@ -358,59 +385,73 @@ function LoadingPage() {
       console.log("Refresh already in progress, ignoring click");
       return;
     }
-    
+
     console.log("Refresh button clicked - starting refresh process...");
-    console.log("Current states before refresh - isLoading:", isLoading, "isQRLoading:", isQRLoading, "qrCodeImage:", !!qrCodeImage, "phones:", phones.length);
-    
+    console.log(
+      "Current states before refresh - isLoading:",
+      isLoading,
+      "isQRLoading:",
+      isQRLoading,
+      "qrCodeImage:",
+      !!qrCodeImage,
+      "phones:",
+      phones.length
+    );
+
     setIsRefreshing(true);
     setError(""); // Clear any existing errors
-    
+
     // Don't clear phones array immediately - let fetchQRCode handle it
     setQrCodeImage(null);
     setBotStatus(null);
     setPairingCode(null);
     setPhoneNumber("");
-    
+
     // Close existing WebSocket connection
     if (ws.current) {
       ws.current.close();
       ws.current = null;
       setWsConnected(false);
     }
-    
+
     try {
       console.log("Calling fetchQRCode...");
       // Simply call the API again - like refreshing the page
       await fetchQRCode();
       console.log("Refresh completed successfully");
-      
+
       // Wait a bit for state updates to complete
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
       // Use a callback to get the current state values and update QR code if needed
-      setPhones(prevPhones => {
+      setPhones((prevPhones) => {
         console.log("=== REFRESH STATE CHECK ===");
         console.log("Current phones in state:", prevPhones);
         console.log("Current phones count:", prevPhones.length);
-        
+
         // Check if any phone needs QR code
-        const phoneNeedingQR = prevPhones.find(phone => phone.status === "qr");
+        const phoneNeedingQR = prevPhones.find(
+          (phone) => phone.status === "qr"
+        );
         if (phoneNeedingQR) {
           console.log("Found phone needing QR:", phoneNeedingQR);
           console.log("Phone has QR code:", !!phoneNeedingQR.qrCode);
-          
+
           // Update QR code image if phone has QR code
           if (phoneNeedingQR.qrCode) {
-            console.log("Setting QR code image from refresh:", phoneNeedingQR.qrCode);
+            console.log(
+              "Setting QR code image from refresh:",
+              phoneNeedingQR.qrCode
+            );
             setQrCodeImage(phoneNeedingQR.qrCode);
             setBotStatus("qr");
             setSelectedPhoneIndex(phoneNeedingQR.phoneIndex);
           }
         }
-        
+
         return prevPhones;
       });
-      
+
       // Also check other states
       console.log("Other states after refresh:");
       console.log("- isLoading:", isLoading);
@@ -418,7 +459,6 @@ function LoadingPage() {
       console.log("- qrCodeImage:", !!qrCodeImage);
       console.log("- botStatus:", botStatus);
       console.log("- selectedPhoneIndex:", selectedPhoneIndex);
-      
     } catch (error) {
       console.error("Refresh failed:", error);
       setError("Refresh failed. Please try again.");
@@ -431,14 +471,17 @@ function LoadingPage() {
 
   const reinitializeBot = async (phoneIndex?: number) => {
     if (isReinitializing || reinitializeCooldown > 0) {
-      console.log("Reinitialize already in progress or cooldown active, ignoring click");
+      console.log(
+        "Reinitialize already in progress or cooldown active, ignoring click"
+      );
       return;
     }
 
-    const confirmMessage = phoneIndex !== undefined 
-      ? `Are you sure you want to reinitialize Phone ${phoneIndex + 1}?`
-      : `Are you sure you want to reinitialize all phones?`;
-      
+    const confirmMessage =
+      phoneIndex !== undefined
+        ? `Are you sure you want to reinitialize Phone ${phoneIndex + 1}?`
+        : `Are you sure you want to reinitialize all phones?`;
+
     if (!confirm(confirmMessage)) {
       return;
     }
@@ -446,9 +489,13 @@ function LoadingPage() {
     try {
       setIsReinitializing(true);
       setError(null);
-      
+
       // Show processing notification
-      console.log(`Reinitializing ${phoneIndex !== undefined ? `Phone ${phoneIndex + 1}` : 'all phones'}...`);
+      console.log(
+        `Reinitializing ${
+          phoneIndex !== undefined ? `Phone ${phoneIndex + 1}` : "all phones"
+        }...`
+      );
 
       const userEmail = localStorage.getItem("userEmail");
       if (!userEmail) {
@@ -457,7 +504,9 @@ function LoadingPage() {
 
       // Get user config to get companyId
       const userResponse = await fetch(
-        `https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`,
+        `https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(
+          userEmail
+        )}`,
         {
           method: "GET",
           headers: {
@@ -467,7 +516,7 @@ function LoadingPage() {
           credentials: "include",
         }
       );
-      
+
       if (!userResponse.ok) {
         throw new Error("Failed to fetch user config");
       }
@@ -475,48 +524,55 @@ function LoadingPage() {
       const userData = await userResponse.json();
       const companyId = userData.company_id;
 
-      const response = await fetch('https://juta-dev.ngrok.dev/api/bots/reinitialize', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          botName: companyId, 
-          phoneIndex 
-        })
-      });
-      
+      const response = await fetch(
+        "https://juta-dev.ngrok.dev/api/bots/reinitialize",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            botName: companyId,
+            phoneIndex,
+          }),
+        }
+      );
+
       if (!response.ok) {
-        throw new Error('Failed to reinitialize bot');
+        throw new Error("Failed to reinitialize bot");
       }
-      
+
       // Update phone statuses to "initializing"
       if (phoneIndex !== undefined) {
-        setPhones(prevPhones => 
-          prevPhones.map(phone => 
-            phone.phoneIndex === phoneIndex 
-              ? { ...phone, status: 'initializing' }
+        setPhones((prevPhones) =>
+          prevPhones.map((phone) =>
+            phone.phoneIndex === phoneIndex
+              ? { ...phone, status: "initializing" }
               : phone
           )
         );
       } else {
-        setPhones(prevPhones => 
-          prevPhones.map(phone => ({ ...phone, status: 'initializing' }))
+        setPhones((prevPhones) =>
+          prevPhones.map((phone) => ({ ...phone, status: "initializing" }))
         );
       }
 
       // Set bot status to initializing
-      setBotStatus('initializing');
-      
+      setBotStatus("initializing");
+
       // Show success notification
-      console.log(`${phoneIndex !== undefined ? `Phone ${phoneIndex + 1}` : 'All phones'} is being reinitialized`);
-      
+      console.log(
+        `${
+          phoneIndex !== undefined ? `Phone ${phoneIndex + 1}` : "All phones"
+        } is being reinitialized`
+      );
+
       // Start cooldown timer (30-45 seconds)
       const cooldownDuration = Math.floor(Math.random() * 16) + 30; // Random between 30-45 seconds
       setReinitializeCooldown(cooldownDuration);
-      
+
       const timer = setInterval(() => {
-        setReinitializeCooldown(prev => {
+        setReinitializeCooldown((prev) => {
           if (prev <= 1) {
             clearInterval(timer);
             return 0;
@@ -524,21 +580,20 @@ function LoadingPage() {
           return prev - 1;
         });
       }, 1000);
-      
+
       setReinitializeTimer(timer);
-      
+
       // Clear QR code and other states
       setQrCodeImage(null);
       setPairingCode(null);
       setPhoneNumber("");
       setShouldFetchContacts(false);
-      
     } catch (error) {
-      console.error('Error reinitializing bot:', error);
+      console.error("Error reinitializing bot:", error);
       if (error instanceof Error) {
         setError(error.message);
       } else {
-        setError('Failed to reinitialize bot. Please try again.');
+        setError("Failed to reinitialize bot. Please try again.");
       }
     } finally {
       setIsReinitializing(false);
@@ -566,21 +621,26 @@ function LoadingPage() {
     try {
       setIsDisconnecting(true);
       setShowDisconnectModal(false);
-      
+
       // Show processing notification
       showNotification(
         `Disconnecting ${disconnectBotName}${
-          disconnectPhoneIndex !== undefined ? ` Phone ${disconnectPhoneIndex + 1}` : ""
+          disconnectPhoneIndex !== undefined
+            ? ` Phone ${disconnectPhoneIndex + 1}`
+            : ""
         }...`
       );
 
-      const response = await fetch(`/api/bots/${disconnectBotName}/disconnect`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ phoneIndex: disconnectPhoneIndex }),
-      });
+      const response = await fetch(
+        `/api/bots/${disconnectBotName}/disconnect`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ phoneIndex: disconnectPhoneIndex }),
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -591,33 +651,35 @@ function LoadingPage() {
 
       // Update phone statuses to "disconnected"
       if (disconnectPhoneIndex !== undefined) {
-        setPhones(prevPhones => 
-          prevPhones.map(phone => 
-            phone.phoneIndex === disconnectPhoneIndex 
-              ? { ...phone, status: 'disconnected' }
+        setPhones((prevPhones) =>
+          prevPhones.map((phone) =>
+            phone.phoneIndex === disconnectPhoneIndex
+              ? { ...phone, status: "disconnected" }
               : phone
           )
         );
       } else {
-        setPhones(prevPhones => 
-          prevPhones.map(phone => ({ ...phone, status: 'disconnected' }))
+        setPhones((prevPhones) =>
+          prevPhones.map((phone) => ({ ...phone, status: "disconnected" }))
         );
       }
 
       // Set bot status to disconnected
-      setBotStatus('disconnected');
-      
+      setBotStatus("disconnected");
+
       // Clear QR code and other states
       setQrCodeImage(null);
       setPairingCode(null);
       setPhoneNumber("");
       setShouldFetchContacts(false);
-      
+
       // Show success notification
       showNotification(
         data.message ||
           `${disconnectBotName}${
-            disconnectPhoneIndex !== undefined ? ` Phone ${disconnectPhoneIndex + 1}` : ""
+            disconnectPhoneIndex !== undefined
+              ? ` Phone ${disconnectPhoneIndex + 1}`
+              : ""
           } disconnected successfully`
       );
     } catch (error) {
@@ -625,18 +687,22 @@ function LoadingPage() {
       showNotification("Failed to disconnect bot. Please try again.", true);
     } finally {
       setIsDisconnecting(false);
-      setDisconnectBotName('');
+      setDisconnectBotName("");
       setDisconnectPhoneIndex(undefined);
     }
   };
 
   const handlePhoneSelection = (phoneIndex: number) => {
     setSelectedPhoneIndex(phoneIndex);
-    const selectedPhone = phones && phones.find(p => p.phoneIndex === phoneIndex);
+    const selectedPhone =
+      phones && phones.find((p) => p.phoneIndex === phoneIndex);
     if (selectedPhone?.status === "qr" && selectedPhone.qrCode) {
       setQrCodeImage(selectedPhone.qrCode);
       setBotStatus("qr");
-    } else if (selectedPhone?.status === "ready" || selectedPhone?.status === "authenticated") {
+    } else if (
+      selectedPhone?.status === "ready" ||
+      selectedPhone?.status === "authenticated"
+    ) {
       setQrCodeImage(null);
       setBotStatus(selectedPhone.status);
     }
@@ -651,7 +717,7 @@ function LoadingPage() {
   // Auto-select first phone that needs QR code
   useEffect(() => {
     if (phones && phones.length > 0) {
-      const phoneNeedingQR = phones.find(phone => phone.status === "qr");
+      const phoneNeedingQR = phones.find((phone) => phone.status === "qr");
       if (phoneNeedingQR) {
         setSelectedPhoneIndex(phoneNeedingQR.phoneIndex);
         if (phoneNeedingQR.qrCode) {
@@ -661,6 +727,125 @@ function LoadingPage() {
       }
     }
   }, [phones]);
+
+  // Continuous polling useEffect for bot status
+  useEffect(() => {
+    let pollInterval: NodeJS.Timeout | null = null;
+
+    const pollBotStatus = async () => {
+      if (!companyId || isLoading || isRefreshing || !isAuthReady) {
+        return;
+      }
+
+      try {
+        console.log("Polling bot status...");
+        setIsPolling(true);
+
+        const statusResponse = await fetch(
+          `https://juta-dev.ngrok.dev/api/bot-status/${companyId}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            credentials: "include",
+          }
+        );
+
+        if (!statusResponse.ok) {
+          console.warn("Bot status polling failed:", statusResponse.status);
+          return;
+        }
+
+        const statusData = await statusResponse.json();
+        console.log("Polling status data:", statusData);
+
+        if (statusData.phones && Array.isArray(statusData.phones)) {
+          setPhones(statusData.phones);
+
+          const phoneNeedingQR = statusData.phones.find(
+            (phone: any) => phone.status === "qr"
+          );
+          if (phoneNeedingQR && phoneNeedingQR.qrCode) {
+            if (phoneNeedingQR.qrCode !== qrCodeImage) {
+              console.log("Polling: New QR code detected, updating...");
+              setQrCodeImage(phoneNeedingQR.qrCode);
+              setSelectedPhoneIndex(phoneNeedingQR.phoneIndex);
+              setBotStatus("qr");
+            }
+          } else if (
+            statusData.phones.every(
+              (phone: any) =>
+                phone.status === "ready" || phone.status === "authenticated"
+            )
+          ) {
+            console.log("Polling: All phones ready, navigating to /chat");
+            setBotStatus("ready");
+            setShouldFetchContacts(true);
+            navigate("/chat");
+            return;
+          } else {
+            setBotStatus(statusData.phones[0]?.status || "initializing");
+          }
+        } else {
+          // Old format handling
+          const phone = {
+            phoneIndex: 0,
+            status: statusData.status || "initializing",
+            qrCode: statusData.qrCode || null,
+            phoneInfo: statusData.phoneInfo || "",
+          };
+
+          setPhones([phone]);
+          setSelectedPhoneIndex(0);
+
+          if (statusData.status === "qr" && statusData.qrCode) {
+            if (statusData.qrCode !== qrCodeImage) {
+              console.log(
+                "Polling: New QR code detected (old format), updating..."
+              );
+              setQrCodeImage(statusData.qrCode);
+              setBotStatus("qr");
+            }
+          } else if (
+            statusData.status === "authenticated" ||
+            statusData.status === "ready"
+          ) {
+            console.log(
+              "Polling: Status ready (old format), navigating to /chat"
+            );
+            setBotStatus("ready");
+            setShouldFetchContacts(true);
+            navigate("/chat");
+            return;
+          } else {
+            setBotStatus(statusData.status || "initializing");
+          }
+        }
+      } catch (error) {
+        console.error("Error polling bot status:", error);
+      } finally {
+        setIsPolling(false);
+      }
+    };
+
+    if (companyId && isAuthReady && !isLoading && !isRefreshing) {
+      console.log("Starting bot status polling...");
+
+      pollBotStatus();
+
+      pollInterval = setInterval(pollBotStatus, 5000);
+    }
+
+    return () => {
+      if (pollInterval) {
+        console.log("Stopping bot status polling...");
+        clearInterval(pollInterval);
+      }
+    };
+  }, [companyId, isAuthReady, isLoading, isRefreshing, qrCodeImage, navigate]);
+
   useEffect(() => {
     const initWebSocket = async (retries = 3) => {
       if (!isAuthReady || !isMountedRef.current) {
@@ -686,9 +871,12 @@ function LoadingPage() {
               userEmail
             )}`
           );
-          console.log("WebSocket - User config response status:", response.status);
+          console.log(
+            "WebSocket - User config response status:",
+            response.status
+          );
           console.log("WebSocket - User config response ok:", response.ok);
-          
+
           if (!response.ok) {
             throw new Error("Failed to fetch user config");
           }
@@ -698,28 +886,42 @@ function LoadingPage() {
           console.log("WebSocket - Full userData:", userData);
           console.log("WebSocket - userData.company_id:", userData.company_id);
           console.log("WebSocket - userData.companyId:", userData.companyId);
-          
+
           const companyId = userData.company_id;
           console.log("=== WebSocket: Extracted companyId ===");
           console.log("WebSocket - Final companyId value:", companyId);
           console.log("WebSocket - companyId type:", typeof companyId);
-          console.log("WebSocket - companyId length:", companyId ? companyId.length : 'null');
+          console.log(
+            "WebSocket - companyId length:",
+            companyId ? companyId.length : "null"
+          );
 
           // Validate companyId before proceeding with WebSocket connection
-          if (!companyId || companyId === 'undefined' || companyId === 'null') {
-            throw new Error("Invalid company ID received for WebSocket connection");
+          if (!companyId || companyId === "undefined" || companyId === "null") {
+            throw new Error(
+              "Invalid company ID received for WebSocket connection"
+            );
           }
-          
-          console.log("WebSocket: Company ID validation passed, proceeding with connection");
+
+          console.log(
+            "WebSocket: Company ID validation passed, proceeding with connection"
+          );
 
           // Test if WebSocket endpoint is accessible
           console.log("=== WebSocket: Testing endpoint accessibility ===");
           try {
-            const testResponse = await fetch(`https://juta-dev.ngrok.dev/api/health`, { 
-              method: 'GET',
-              mode: 'cors'
-            });
-            console.log("Backend health check response:", testResponse.status, testResponse.statusText);
+            const testResponse = await fetch(
+              `https://juta-dev.ngrok.dev/api/health`,
+              {
+                method: "GET",
+                mode: "cors",
+              }
+            );
+            console.log(
+              "Backend health check response:",
+              testResponse.status,
+              testResponse.statusText
+            );
           } catch (testError) {
             console.warn("Backend health check failed:", testError);
             console.log("This might indicate WebSocket connectivity issues");
@@ -728,9 +930,11 @@ function LoadingPage() {
           // Test basic WebSocket connectivity
           console.log("=== WebSocket: Testing basic connectivity ===");
           try {
-            const testWs = new WebSocket('wss://echo.websocket.org');
+            const testWs = new WebSocket("wss://echo.websocket.org");
             testWs.onopen = () => {
-              console.log("Basic WebSocket test successful - WebSocket is supported");
+              console.log(
+                "Basic WebSocket test successful - WebSocket is supported"
+              );
               testWs.close();
             };
             testWs.onerror = (error) => {
@@ -743,10 +947,11 @@ function LoadingPage() {
 
           // Connect to WebSocket with proper protocol handling
           console.log("=== WebSocket: Constructing connection URL ===");
-          let wsUrl = window.location.protocol === 'https:' 
-            ? `wss://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`
-            : `ws://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`;
-          
+          let wsUrl =
+            window.location.protocol === "https:"
+              ? `wss://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`
+              : `ws://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`;
+
           console.log("=== WebSocket: Connection details ===");
           console.log("Attempting WebSocket connection to:", wsUrl);
           console.log("User email:", userEmail);
@@ -754,15 +959,17 @@ function LoadingPage() {
           console.log("Current protocol:", window.location.protocol);
           console.log("Current location:", window.location.href);
           console.log("WebSocket URL constructed:", wsUrl);
-          
+
           // Validate WebSocket URL construction
           if (!wsUrl.includes(companyId)) {
             console.error("=== WEBSOCKET URL VALIDATION FAILED ===");
             console.error("WebSocket URL does not contain company ID:", wsUrl);
             console.error("Expected company ID:", companyId);
-            throw new Error("WebSocket URL construction failed - company ID missing");
+            throw new Error(
+              "WebSocket URL construction failed - company ID missing"
+            );
           }
-          
+
           console.log("WebSocket URL validation passed");
 
           // Try to establish WebSocket connection
@@ -771,19 +978,23 @@ function LoadingPage() {
             console.log("WebSocket object created successfully");
           } catch (wsError) {
             console.error("Error creating WebSocket:", wsError);
-            
+
             // Try alternative WebSocket URL if first fails
-            const alternativeUrl = wsUrl.includes('wss://') 
+            const alternativeUrl = wsUrl.includes("wss://")
               ? `ws://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`
               : `wss://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`;
-            
+
             console.log("Trying alternative WebSocket URL:", alternativeUrl);
             try {
               ws.current = new WebSocket(alternativeUrl);
-              console.log("Alternative WebSocket connection created successfully");
+              console.log(
+                "Alternative WebSocket connection created successfully"
+              );
             } catch (altError) {
               console.error("Alternative WebSocket also failed:", altError);
-              throw new Error(`Failed to create WebSocket with both protocols: ${wsError}`);
+              throw new Error(
+                `Failed to create WebSocket with both protocols: ${wsError}`
+              );
             }
           }
 
@@ -815,25 +1026,30 @@ function LoadingPage() {
               console.log("Message type:", data.type);
               console.log("Current company ID:", companyId);
               console.log("Message data:", data);
-              
+
               // Validate the message data
-              if (!data || typeof data !== 'object') {
+              if (!data || typeof data !== "object") {
                 console.warn("Invalid WebSocket message received:", event.data);
                 return;
               }
-              
+
               console.log("WebSocket data phones:", data.phones);
               console.log("WebSocket data phones type:", typeof data.phones);
-              console.log("WebSocket data phones is array:", Array.isArray(data.phones));
+              console.log(
+                "WebSocket data phones is array:",
+                Array.isArray(data.phones)
+              );
               if (data.type === "auth_status") {
                 // Handle phone status updates
                 if (data.phones && Array.isArray(data.phones)) {
                   // New format with phones array
                   if (!isMountedRef.current) return;
                   setPhones(data.phones);
-                  
+
                   // Check if any phone needs QR code
-                  const phoneNeedingQR = data.phones.find((phone: Phone) => phone.status === "qr");
+                  const phoneNeedingQR = data.phones.find(
+                    (phone: Phone) => phone.status === "qr"
+                  );
                   if (phoneNeedingQR && phoneNeedingQR.qrCode) {
                     if (!isMountedRef.current) return;
                     setQrCodeImage(phoneNeedingQR.qrCode);
@@ -843,13 +1059,21 @@ function LoadingPage() {
                     setBotStatus("qr");
                   }
                   // Check if all phones are ready/authenticated
-                  else if (data.phones.every((phone: Phone) => phone.status === "ready" || phone.status === "authenticated")) {
+                  else if (
+                    data.phones.every(
+                      (phone: Phone) =>
+                        phone.status === "ready" ||
+                        phone.status === "authenticated"
+                    )
+                  ) {
                     if (!isMountedRef.current) return;
                     setBotStatus("ready");
                     if (!isMountedRef.current) return;
                     setShouldFetchContacts(true);
-                    console.log("WebSocket: All phones ready, navigating to /chat");
-
+                    console.log(
+                      "WebSocket: All phones ready, navigating to /chat"
+                    );
+                    navigate("/chat");
                     return;
                   }
                   // Set status based on first phone
@@ -864,27 +1088,32 @@ function LoadingPage() {
                     phoneIndex: 0,
                     status: data.status || "initializing",
                     qrCode: data.qrCode || null,
-                    phoneInfo: data.phoneInfo || ""
+                    phoneInfo: data.phoneInfo || "",
                   };
-                  
+
                   if (!isMountedRef.current) return;
                   setPhones([phone]);
                   if (!isMountedRef.current) return;
                   setSelectedPhoneIndex(0);
-                  
+
                   // Handle status based on old format
                   if (data.status === "qr" && data.qrCode) {
                     if (!isMountedRef.current) return;
                     setQrCodeImage(data.qrCode);
                     if (!isMountedRef.current) return;
                     setBotStatus("qr");
-                  } else if (data.status === "authenticated" || data.status === "ready") {
+                  } else if (
+                    data.status === "authenticated" ||
+                    data.status === "ready"
+                  ) {
                     if (!isMountedRef.current) return;
                     setBotStatus("ready");
                     if (!isMountedRef.current) return;
                     setShouldFetchContacts(true);
-                    console.log("WebSocket old format: Status ready, navigating to /chat");
-          
+                    console.log(
+                      "WebSocket old format: Status ready, navigating to /chat"
+                    );
+                    navigate("/chat");
                     return;
                   } else {
                     if (!isMountedRef.current) return;
@@ -900,7 +1129,8 @@ function LoadingPage() {
                 if (data.action === "done_process") {
                   setBotStatus(data.status);
                   setProcessingComplete(true);
-    
+                  console.log("Processing complete, navigating to /chat");
+                  navigate("/chat");
                   return;
                 }
               } else if (data.type === "bot_activity") {
@@ -930,11 +1160,21 @@ function LoadingPage() {
 
           ws.current.onclose = (event) => {
             clearTimeout(connectionTimeout);
-            console.log("WebSocket connection closed:", event.code, event.reason);
+            console.log(
+              "WebSocket connection closed:",
+              event.code,
+              event.reason
+            );
             console.log("Close event details:", event);
             setWsConnected(false);
-            if (event.code !== 1000) { // Not a normal closure
-              console.error("WebSocket closed with error code:", event.code, "Reason:", event.reason);
+            if (event.code !== 1000) {
+              // Not a normal closure
+              console.error(
+                "WebSocket closed with error code:",
+                event.code,
+                "Reason:",
+                event.reason
+              );
               setError("WebSocket connection lost. Please refresh the page.");
             }
           };
@@ -948,11 +1188,15 @@ function LoadingPage() {
 
           // Try alternative protocol if available
           if (retries > 0) {
-            console.log(`Retrying WebSocket connection in 2 seconds... (${retries} attempts remaining)`);
+            console.log(
+              `Retrying WebSocket connection in 2 seconds... (${retries} attempts remaining)`
+            );
             setTimeout(() => initWebSocket(retries - 1), 2000);
           } else {
             console.error("WebSocket connection failed after all retries");
-            setError("Unable to establish WebSocket connection. Please check your internet connection and try again.");
+            setError(
+              "Unable to establish WebSocket connection. Please check your internet connection and try again."
+            );
           }
         }
       }
@@ -991,14 +1235,19 @@ function LoadingPage() {
 
   useEffect(() => {
     if (shouldFetchContacts && !isLoading) {
-      console.log("useEffect: shouldFetchContacts is true and not loading, navigating to /chat");
-
+      console.log(
+        "useEffect: shouldFetchContacts is true and not loading, navigating to /chat"
+      );
     }
   }, [shouldFetchContacts, isLoading, navigate]);
 
   useEffect(() => {
-    if (contactsFetched && fetchedChats === totalChats && contacts && contacts.length > 0) {
-
+    if (
+      contactsFetched &&
+      fetchedChats === totalChats &&
+      contacts &&
+      contacts.length > 0
+    ) {
     }
   }, [contactsFetched, fetchedChats, totalChats, contacts, navigate]);
 
@@ -1161,9 +1410,7 @@ function LoadingPage() {
 
   useEffect(() => {
     if (processingComplete && contactsFetched && !isLoading) {
-      const timer = setTimeout(() => {
- 
-      }, 1000); // Add a small delay to ensure smooth transition
+      const timer = setTimeout(() => {}, 1000); // Add a small delay to ensure smooth transition
       return () => clearTimeout(timer);
     }
   }, [processingComplete, contactsFetched, isLoading, navigate]);
@@ -1186,7 +1433,21 @@ function LoadingPage() {
     }
   };
 
-  useEffect(() => {}, [botStatus, isProcessingChats, fetchedChats, totalChats]);
+  // Auto-redirect to chat when bot status becomes ready
+  useEffect(() => {
+    console.log("Bot status changed:", botStatus);
+    
+    // Redirect to chat when bot is ready and processing is complete
+    if (botStatus === "ready" || botStatus === "authenticated") {
+      console.log("Bot status is ready/authenticated, checking if should navigate...");
+      
+      // Navigate immediately when bot becomes ready, similar to the old implementation
+      if (!isProcessingChats && processingComplete) {
+        console.log("Navigating to /chat - bot is ready and processing complete");
+        navigate("/chat");
+      }
+    }
+  }, [botStatus, isProcessingChats, processingComplete, navigate]);
 
   useEffect(() => {
     let progressInterval: string | number | NodeJS.Timeout | undefined;
@@ -1253,9 +1514,9 @@ function LoadingPage() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             phoneNumber,
-            phoneIndex: selectedPhoneIndex 
+            phoneIndex: selectedPhoneIndex,
           }),
         }
       );
@@ -1286,7 +1547,6 @@ function LoadingPage() {
   useEffect(() => {
     if (botStatus === "ready" || botStatus === "authenticated") {
       setShouldFetchContacts(true);
-
     }
   }, [botStatus, navigate]);
 
@@ -1510,56 +1770,76 @@ function LoadingPage() {
                       Juta Web
                     </h1>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Connect your WhatsApp Business account to start managing customer conversations
+                      Connect your WhatsApp Business account to start managing
+                      customer conversations
                     </p>
                   </div>
 
                   {/* Main Content Card */}
                   <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 w-full max-w-2xl">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-                      
                       {/* Left Side - Steps */}
                       <div className="text-left">
-                        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">Steps to connect:</h2>
-                        
+                        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">
+                          Steps to connect:
+                        </h2>
+
                         <div className="space-y-2">
                           <div className="flex items-start space-x-2">
                             <div className="flex-shrink-0 w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-xs">
                               1
                             </div>
                             <div>
-                              <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">Open WhatsApp on your phone</p>
-                              <p className="text-xs text-gray-600 dark:text-gray-400">Make sure you have WhatsApp installed and open</p>
+                              <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">
+                                Open WhatsApp on your phone
+                              </p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">
+                                Make sure you have WhatsApp installed and open
+                              </p>
                             </div>
                           </div>
-                          
+
                           <div className="flex items-start space-x-2">
                             <div className="flex-shrink-0 w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-xs">
                               2
                             </div>
                             <div>
-                              <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">Go to Settings</p>
-                              <p className="text-xs text-gray-600 dark:text-gray-400">Tap the three dots menu (Android) or Settings (iPhone)</p>
+                              <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">
+                                Go to Settings
+                              </p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">
+                                Tap the three dots menu (Android) or Settings
+                                (iPhone)
+                              </p>
                             </div>
                           </div>
-                          
+
                           <div className="flex items-start space-x-2">
                             <div className="flex-shrink-0 w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-xs">
                               3
                             </div>
                             <div>
-                              <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">Tap "Linked Devices"</p>
-                              <p className="text-xs text-gray-600 dark:text-gray-400">Then tap "Link a Device"</p>
+                              <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">
+                                Tap "Linked Devices"
+                              </p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">
+                                Then tap "Link a Device"
+                              </p>
                             </div>
                           </div>
-                          
+
                           <div className="flex items-start space-x-2">
                             <div className="flex-shrink-0 w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-xs">
                               4
                             </div>
                             <div>
-                              <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">Scan the QR code</p>
-                              <p className="text-xs text-gray-600 dark:text-gray-400">Point your phone camera at the QR code on the right</p>
+                              <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">
+                                Scan the QR code
+                              </p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">
+                                Point your phone camera at the QR code on the
+                                right
+                              </p>
                             </div>
                           </div>
                         </div>
@@ -1570,15 +1850,26 @@ function LoadingPage() {
                             onClick={() => setShowPairingCode(!showPairingCode)}
                             className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline text-xs font-medium"
                           >
-                            {showPairingCode ? 'Hide phone number option' : 'Use phone number instead >'}
+                            {showPairingCode
+                              ? "Hide phone number option"
+                              : "Use phone number instead >"}
                           </button>
-                          
+
                           {showPairingCode && (
                             <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-md">
-                              <p className="text-xs text-gray-600 dark:text-gray-300 mb-1.5">Enter your phone number to get a pairing code:</p>
+                              <p className="text-xs text-gray-600 dark:text-gray-300 mb-1.5">
+                                Enter your phone number to get a pairing code:
+                              </p>
                               <input
                                 type="tel"
-                                value={phoneNumber || (phones && phones.find(p => p.phoneIndex === selectedPhoneIndex)?.phoneInfo) || ""}
+                                value={
+                                  phoneNumber ||
+                                  (phones &&
+                                    phones.find(
+                                      (p) => p.phoneIndex === selectedPhoneIndex
+                                    )?.phoneInfo) ||
+                                  ""
+                                }
                                 onChange={(e) => setPhoneNumber(e.target.value)}
                                 placeholder="Enter phone number (e.g., 60123456789)"
                                 className="w-full px-2 py-1.5 border rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-600 focus:outline-none focus:border-blue-500 text-xs mb-1.5"
@@ -1590,7 +1881,10 @@ function LoadingPage() {
                               >
                                 {isPairingCodeLoading ? (
                                   <span className="flex items-center justify-center">
-                                    <LoadingIcon icon="three-dots" className="w-3 h-3 mr-1" />
+                                    <LoadingIcon
+                                      icon="three-dots"
+                                      className="w-3 h-3 mr-1"
+                                    />
                                     Generating pairing code...
                                   </span>
                                 ) : (
@@ -1602,8 +1896,16 @@ function LoadingPage() {
 
                           {pairingCode && (
                             <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-md">
-                              <p className="text-green-700 dark:text-green-300 font-medium mb-1 text-sm">Your pairing code: <strong className="text-xl">{pairingCode}</strong></p>
-                              <p className="text-xs text-green-600 dark:text-green-400">Enter this code in your WhatsApp app to authenticate.</p>
+                              <p className="text-green-700 dark:text-green-300 font-medium mb-1 text-sm">
+                                Your pairing code:{" "}
+                                <strong className="text-xl">
+                                  {pairingCode}
+                                </strong>
+                              </p>
+                              <p className="text-xs text-green-600 dark:text-green-400">
+                                Enter this code in your WhatsApp app to
+                                authenticate.
+                              </p>
                             </div>
                           )}
                         </div>
@@ -1613,14 +1915,27 @@ function LoadingPage() {
                       <div className="flex flex-col items-center">
                         {/* Connection Status */}
                         <div className="mb-2 flex items-center space-x-1.5">
-                          <div className={`w-2 h-2 rounded-full ${
-                            qrCodeImage ? 'bg-green-500' : wsConnected ? 'bg-green-500' : 'bg-red-500'
-                          }`}></div>
+                          <div
+                            className={`w-2 h-2 rounded-full ${
+                              qrCodeImage
+                                ? "bg-green-500"
+                                : wsConnected
+                                ? "bg-green-500"
+                                : isPolling
+                                ? "bg-blue-500 animate-pulse"
+                                : "bg-red-500"
+                            }`}
+                          ></div>
                           <span className="text-xs text-gray-600 dark:text-gray-400">
-                            {qrCodeImage ? 'QR Code Ready' : 
-                              wsConnected ? 'Connected to server' : 
-                              error ? 'Connection failed' : 
-                              'Connecting...'}
+                            {qrCodeImage
+                              ? "QR Code Ready"
+                              : isPolling
+                              ? "Checking for updates..."
+                              : wsConnected
+                              ? "Connected to server"
+                              : error
+                              ? "Connection failed"
+                              : "Connecting..."}
                           </span>
                         </div>
 
@@ -1632,11 +1947,16 @@ function LoadingPage() {
                             </label>
                             <select
                               value={selectedPhoneIndex}
-                              onChange={(e) => handlePhoneSelection(Number(e.target.value))}
+                              onChange={(e) =>
+                                handlePhoneSelection(Number(e.target.value))
+                              }
                               className="w-full px-2 py-1.5 border rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-600 focus:outline-none focus:border-blue-500 text-xs"
                             >
                               {phones.map((phone, index) => (
-                                <option key={phone.phoneIndex} value={phone.phoneIndex}>
+                                <option
+                                  key={phone.phoneIndex}
+                                  value={phone.phoneIndex}
+                                >
                                   {phone.phoneInfo} - {phone.status}
                                 </option>
                               ))}
@@ -1653,7 +1973,9 @@ function LoadingPage() {
                               src={logoUrl}
                               style={{ animation: "spin 10s linear infinite" }}
                             />
-                            <p className="text-gray-600 dark:text-gray-400 text-sm">Loading QR Code...</p>
+                            <p className="text-gray-600 dark:text-gray-400 text-sm">
+                              Loading QR Code...
+                            </p>
                           </div>
                         ) : qrCodeImage ? (
                           <div className="bg-white dark:bg-gray-700 p-3 rounded-lg shadow-md border-2 border-gray-100 dark:border-gray-600">
@@ -1664,23 +1986,41 @@ function LoadingPage() {
                             />
                             {phones && phones.length > 1 && (
                               <p className="mt-1.5 text-xs text-gray-600 dark:text-gray-400 text-center">
-                                For: {phones.find(p => p.phoneIndex === selectedPhoneIndex)?.phoneInfo || ""}
+                                For:{" "}
+                                {phones.find(
+                                  (p) => p.phoneIndex === selectedPhoneIndex
+                                )?.phoneInfo || ""}
                               </p>
                             )}
                           </div>
                         ) : (
                           <div className="text-center p-4">
-                            <p className="text-gray-600 dark:text-gray-400 text-sm">No QR Code available</p>
-                            <p className="text-gray-500 dark:text-gray-500 text-xs">Please try refreshing the page</p>
+                            <p className="text-gray-600 dark:text-gray-400 text-sm">
+                              No QR Code available
+                            </p>
+                            <p className="text-gray-500 dark:text-gray-500 text-xs">
+                              Please try refreshing the page
+                            </p>
                           </div>
                         )}
 
                         {/* Success Message */}
                         {qrCodeImage && (
-                          <div className="mt-2 p-1.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-md w-full">
-                            <p className="text-green-700 dark:text-green-300 font-medium text-xs text-center">
-                              ✅ QR Code Ready - Scan to Connect
-                            </p>
+                          <div className="mt-2 space-y-1">
+                            <div className="p-1.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-md w-full">
+                              <p className="text-green-700 dark:text-green-300 font-medium text-xs text-center">
+                                ✅ QR Code Ready - Scan to Connect
+                              </p>
+                            </div>
+                            {isPolling && (
+                              <div className="p-1 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md w-full">
+                                <p className="text-blue-700 dark:text-blue-300 text-xs text-center flex items-center justify-center space-x-1">
+                                  <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse"></div>
+                                  <span>Auto-updating QR code</span>
+                                  <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse"></div>
+                                </p>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -1695,7 +2035,9 @@ function LoadingPage() {
                       </div>
                       {error.includes("WebSocket") && (
                         <div className="text-xs text-red-600">
-                          <p className="mb-1 font-medium">Troubleshooting tips:</p>
+                          <p className="mb-1 font-medium">
+                            Troubleshooting tips:
+                          </p>
                           <ul className="list-disc list-inside space-y-0.5 text-xs mb-1.5">
                             <li>Check your internet connection</li>
                             <li>Try refreshing the page</li>
@@ -1706,7 +2048,8 @@ function LoadingPage() {
                               setError("");
                               setWsConnected(false);
                               if (isAuthReady) {
-                                const userEmail = localStorage.getItem("userEmail");
+                                const userEmail =
+                                  localStorage.getItem("userEmail");
                                 if (userEmail) {
                                   fetchQRCode();
                                 }
@@ -1723,71 +2066,193 @@ function LoadingPage() {
                 </>
               ) : (
                 <>
-                  <div className="mt-0.5 text-xs text-gray-800 dark:text-gray-200">
-                    {phones && phones.length > 0 ? (
-                      <div>
-                        <div className="mb-0.5">
-                          {phones.every(phone => phone.status === "ready" || phone.status === "authenticated")
-                            ? "All phones authenticated. Loading contacts..."
-                            : "Phone Status:"}
+                  {/* Modern Status Card */}
+                  <div className="mb-6">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 w-full max-w-2xl">
+                      {/* Status Header */}
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-green-500 rounded-full animate-pulse"></div>
+                          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                            Connection Status
+                          </h2>
                         </div>
-                        {phones && phones.map((phone, index) => (
-                          <div key={phone.phoneIndex} className="text-xs mb-0.5 flex items-center justify-between">
-                            <span>{phone.phoneInfo}</span>
-                            <span className={`px-1 py-0.5 rounded text-xs ${
-                              phone.status === "ready" || phone.status === "authenticated" 
-                                ? "bg-green-100 text-green-800" 
-                                : phone.status === "qr" 
-                                ? "bg-yellow-100 text-yellow-800" 
-                                : "bg-gray-100 text-gray-800"
-                            }`}>
-                              {phone.status}
+                        {isPolling && (
+                          <div className="flex items-center space-x-2 text-blue-600 dark:text-blue-400">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-ping"></div>
+                            <span className="text-xs font-medium">Live Updates</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Phone Status Display */}
+                      {phones && phones.length > 0 ? (
+                        <div className="space-y-3">
+                          {/* Overall Status Banner */}
+                          <div className={`p-3 rounded-lg border-l-4 ${
+                            phones.every(
+                              (phone) =>
+                                phone.status === "ready" ||
+                                phone.status === "authenticated"
+                            )
+                              ? "bg-green-50 dark:bg-green-900/20 border-green-500 dark:border-green-400"
+                              : "bg-blue-50 dark:bg-blue-900/20 border-blue-500 dark:border-blue-400"
+                          }`}>
+                            <div className="flex items-center space-x-2">
+                              {phones.every(
+                                (phone) =>
+                                  phone.status === "ready" ||
+                                  phone.status === "authenticated"
+                              ) ? (
+                                <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              ) : (
+                                <svg className="w-4 h-4 text-blue-600 dark:text-blue-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                              )}
+                              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                                {phones.every(
+                                  (phone) =>
+                                    phone.status === "ready" ||
+                                    phone.status === "authenticated"
+                                )
+                                  ? "🎉 All phones authenticated! Loading your contacts..."
+                                  : "📱 Checking phone connections..."}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Individual Phone Cards */}
+                          <div className="grid gap-3">
+                            {phones.map((phone, index) => (
+                              <div
+                                key={phone.phoneIndex}
+                                className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 border border-gray-200 dark:border-gray-600"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-3">
+                                    <div className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600"></div>
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                      📱 {phone.phoneInfo}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <span
+                                      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                                        phone.status === "ready" ||
+                                        phone.status === "authenticated"
+                                          ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                                          : phone.status === "qr"
+                                          ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+                                          : phone.status === "initializing"
+                                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
+                                          : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
+                                      }`}
+                                    >
+                                      {phone.status === "ready" && "✅ Ready"}
+                                      {phone.status === "authenticated" && "✅ Connected"}
+                                      {phone.status === "qr" && "🔄 Waiting for scan"}
+                                      {phone.status === "initializing" && "⏳ Starting up"}
+                                      {!["ready", "authenticated", "qr", "initializing"].includes(phone.status) && phone.status}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-4">
+                          <div className="flex items-center justify-center space-x-2 mb-2">
+                            <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              {botStatus === "authenticated" || botStatus === "ready"
+                                ? "🎉 Authentication successful! Loading contacts..."
+                                : botStatus === "initializing"
+                                ? "⚡ Initializing WhatsApp connection..."
+                                : "🔄 Fetching connection data..."}
                             </span>
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      botStatus === "authenticated" || botStatus === "ready"
-                        ? "Authentication successful. Loading contacts..."
-                        : botStatus === "initializing"
-                        ? "Initializing WhatsApp connection..."
-                        : "Fetching Data..."
-                    )}
+                        </div>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Modern Progress Card */}
                   {isProcessingChats && (
-                    <div className="space-y-0.5 mt-0.5">
-                      <Progress className="w-full">
-                        <Progress.Bar
-                          className="transition-all duration-300 ease-in-out"
-                          style={{
-                            width: `${(fetchedChats / totalChats) * 100}%`,
-                          }}
-                        >
-                          {Math.round((fetchedChats / totalChats) * 100)}%
-                        </Progress.Bar>
-                      </Progress>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">
-                        {processingComplete
-                          ? contactsFetched
-                            ? "Chats loaded. Preparing to navigate..."
-                            : "Processing complete. Loading contacts..."
-                          : `Processing ${fetchedChats} of ${totalChats} chats`}
+                    <div className="mb-6">
+                      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 w-full max-w-2xl">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                            Loading Progress
+                          </h3>
+                          <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                            {Math.round((fetchedChats / totalChats) * 100)}%
+                          </span>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          <div className="relative">
+                            <div className="overflow-hidden h-3 text-xs flex rounded-full bg-gray-200 dark:bg-gray-700">
+                              <div
+                                style={{ width: `${(fetchedChats / totalChats) * 100}%` }}
+                                className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500 ease-out"
+                              ></div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-600 dark:text-gray-400">
+                              {processingComplete
+                                ? contactsFetched
+                                  ? "✅ Chats loaded. Preparing to navigate..."
+                                  : "🔄 Processing complete. Loading contacts..."
+                                : `📥 Processing ${fetchedChats} of ${totalChats} chats`}
+                            </span>
+                            <span className="text-gray-500 dark:text-gray-500 text-xs">
+                              {fetchedChats}/{totalChats}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
+
+                  {/* Modern Loading Card */}
                   {(isLoading || !processingComplete || isFetchingChats) && (
-                    <div className="mt-0.5 flex flex-col items-center">
-                      <img
-                        alt="Logo"
-                        className="w-8 h-8 animate-spin mx-auto"
-                        src={logoUrl}
-                        style={{ animation: "spin 3s linear infinite" }}
-                      />
-                      <p className="mt-0.5 text-gray-600 dark:text-gray-400 text-xs">
-                        {isQRLoading
-                          ? "Please wait while QR code is loading..."
-                          : "Please wait while QR Code is loading..."}
-                      </p>
+                    <div className="mb-6">
+                      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 w-full max-w-2xl">
+                        <div className="flex flex-col items-center text-center space-y-4">
+                          <div className="relative">
+                            <img
+                              alt="Logo"
+                              className="w-12 h-12 mx-auto"
+                              src={logoUrl}
+                              style={{ animation: "spin 3s linear infinite" }}
+                            />
+                            <div className="absolute inset-0 rounded-full border-2 border-blue-200 dark:border-blue-800 animate-ping"></div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                              Setting up your workspace
+                            </h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {isQRLoading
+                                ? "🔄 Generating secure QR code..."
+                                : "⚡ Preparing your WhatsApp integration..."}
+                            </p>
+                          </div>
+                          
+                          <div className="flex items-center space-x-1">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }}></div>
+                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </>
@@ -1797,8 +2262,10 @@ function LoadingPage() {
 
               {/* Action Buttons Section */}
               <div className="mt-4 space-y-2 w-full max-w-xl mx-auto">
-                <h3 className="text-sm font-semibold text-gray-800 mb-2">Additional Options</h3>
-                
+                <h3 className="text-sm font-semibold text-gray-800 mb-2">
+                  Additional Options
+                </h3>
+
                 {/* Primary Actions Row - First Row */}
                 <div className="flex gap-2">
                   <button
@@ -1814,14 +2281,26 @@ function LoadingPage() {
                           src={logoUrl}
                         />
                       ) : (
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        <svg
+                          className="w-3 h-3"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                          />
                         </svg>
                       )}
-                      <span className="text-sm">{isRefreshing ? 'Refreshing...' : 'Refresh Connection'}</span>
+                      <span className="text-sm">
+                        {isRefreshing ? "Refreshing..." : "Refresh Connection"}
+                      </span>
                     </div>
                   </button>
-                  
+
                   <a
                     href="https://wa.link/pcgo1k"
                     target="_blank"
@@ -1829,117 +2308,198 @@ function LoadingPage() {
                     className="flex-1 px-3 py-2 bg-green-500 text-white text-xs font-semibold rounded-md hover:bg-green-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 shadow-sm hover:shadow-md"
                   >
                     <div className="flex items-center justify-center space-x-1.5">
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <svg
+                        className="w-3 h-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
                       </svg>
                       <span className="text-sm">Get Help</span>
                     </div>
                   </a>
                 </div>
-                
+
                 {/* Secondary Actions Row - Second Row */}
                 <div className="flex gap-2">
                   {/* Reinitialize Bot Button */}
                   <button
                     onClick={() => reinitializeBot()}
-                    disabled={isReinitializing || reinitializeCooldown > 0 || !phones || phones.length === 0}
+                    disabled={
+                      isReinitializing ||
+                      reinitializeCooldown > 0 ||
+                      !phones ||
+                      phones.length === 0
+                    }
                     className={`flex-1 px-3 py-2 text-xs font-semibold rounded-md transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-opacity-50 shadow-sm hover:shadow-md ${
                       isReinitializing || reinitializeCooldown > 0
-                        ? 'bg-orange-500 text-white cursor-not-allowed' 
-                        : 'bg-orange-500 text-white hover:bg-orange-600 focus:ring-orange-500'
+                        ? "bg-orange-500 text-white cursor-not-allowed"
+                        : "bg-orange-500 text-white hover:bg-orange-600 focus:ring-orange-500"
                     }`}
                   >
                     <div className="flex items-center justify-center space-x-1.5">
                       {isReinitializing ? (
                         <div className="relative">
-                          <svg className="w-3 h-3 animate-spin text-white" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          <svg
+                            className="w-3 h-3 animate-spin text-white"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
                           </svg>
                         </div>
                       ) : (
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2M9 14l3-3m0 0l3 3m-3-3V4" />
+                        <svg
+                          className="w-3 h-3"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2M9 14l3-3m0 0l3 3m-3-3V4"
+                          />
                         </svg>
                       )}
                       <span className="font-medium text-sm">
-                        {isReinitializing 
-                          ? 'Restarting...' 
-                          : reinitializeCooldown > 0 
-                            ? `Wait (${reinitializeCooldown}s)` 
-                            : 'Restart Bot'
-                        }
+                        {isReinitializing
+                          ? "Restarting..."
+                          : reinitializeCooldown > 0
+                          ? `Wait (${reinitializeCooldown}s)`
+                          : "Restart Bot"}
                       </span>
                     </div>
                   </button>
-                  
+
                   {/* Disconnect Bot Button */}
                   <button
-                    onClick={() => showDisconnectConfirmation(companyId || '')}
-                    disabled={isDisconnecting || !companyId || !phones || phones.length === 0}
+                    onClick={() => showDisconnectConfirmation(companyId || "")}
+                    disabled={
+                      isDisconnecting ||
+                      !companyId ||
+                      !phones ||
+                      phones.length === 0
+                    }
                     className={`flex-1 px-3 py-2 text-xs font-semibold rounded-md transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-opacity-50 shadow-sm hover:shadow-md ${
                       isDisconnecting
-                        ? 'bg-red-500 text-white cursor-not-allowed' 
-                        : 'bg-red-500 text-white hover:bg-red-600 focus:ring-red-500'
+                        ? "bg-red-500 text-white cursor-not-allowed"
+                        : "bg-red-500 text-white hover:bg-red-600 focus:ring-red-500"
                     }`}
                   >
                     <div className="flex items-center justify-center space-x-1.5">
                       {isDisconnecting ? (
                         <div className="relative">
-                          <svg className="w-3 h-3 animate-spin text-white" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          <svg
+                            className="w-3 h-3 animate-spin text-white"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
                           </svg>
                         </div>
                       ) : (
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
+                        <svg
+                          className="w-3 h-3"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728"
+                          />
                         </svg>
                       )}
                       <span className="font-medium text-sm">
-                        {isDisconnecting ? 'Disconnecting...' : 'Disconnect Bot'}
+                        {isDisconnecting
+                          ? "Disconnecting..."
+                          : "Disconnect Bot"}
                       </span>
                     </div>
                   </button>
                 </div>
-                
+
                 {/* Go to Chat Button - Full Width */}
                 <button
                   onClick={() => navigate("/chat")}
                   className="w-full px-3 py-2 bg-blue-500 text-white text-xs font-semibold rounded-md hover:bg-blue-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 shadow-sm hover:shadow-md"
                 >
                   <div className="flex items-center justify-center space-x-1.5">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    <svg
+                      className="w-3 h-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                      />
                     </svg>
                     <span className="text-sm">Go to Chat</span>
                   </div>
                 </button>
               </div>
-
-
             </>
           }
         </div>
       )}
-      
+
       {/* Onboarding Component */}
-      <LoadingPageOnboarding 
+      <LoadingPageOnboarding
         isOpen={showOnboarding}
         onClose={() => setShowOnboarding(false)}
       />
-      
+
       {/* Enhanced Floating Help Button with Persistent Indicator */}
       <div className="fixed bottom-3 right-3 z-40 flex flex-col items-center">
         {/* Persistent Guidance Indicator - Directly above button */}
         <div className="bg-blue-600 text-white px-1.5 py-1 rounded-full shadow-lg animate-pulse mb-1 text-center">
           <div className="flex items-center justify-center space-x-1">
             <div className="w-1 h-1 bg-white rounded-full animate-pulse"></div>
-            <span className="text-xs font-medium whitespace-nowrap">Click for help!</span>
+            <span className="text-xs font-medium whitespace-nowrap">
+              Click for help!
+            </span>
             <div className="w-1 h-1 bg-white rounded-full animate-pulse"></div>
           </div>
         </div>
-        
+
         {/* Enhanced Floating Help Button */}
         <button
           onClick={() => setShowOnboarding(true)}
@@ -1947,15 +2507,15 @@ function LoadingPage() {
           title="Learn about Juta CRM features"
         >
           <BookOpen className="w-4 h-4" />
-          
+
           {/* Pulsing ring effect */}
           <div className="absolute inset-0 rounded-full border-3 border-blue-400 animate-ping opacity-75"></div>
-          
+
           {/* Hover effect */}
           <div className="absolute inset-0 rounded-full bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
         </button>
       </div>
-      
+
       {/* Onboarding Hint - Only show for new users */}
       {showOnboardingHint && (
         <div className="fixed bottom-16 right-3 bg-blue-600 text-white px-2 py-1.5 rounded-md shadow-lg z-50 max-w-xs animate-fade-in">
@@ -1965,7 +2525,10 @@ function LoadingPage() {
             </div>
             <div className="flex-1">
               <p className="text-xs font-medium mb-0.5">Welcome to Juta CRM!</p>
-              <p className="text-xs text-blue-100 mb-1">Click the blue button below for a step-by-step guide to get started.</p>
+              <p className="text-xs text-blue-100 mb-1">
+                Click the blue button below for a step-by-step guide to get
+                started.
+              </p>
               <div className="flex items-center justify-center">
                 <div className="w-3 h-3 bg-white/20 rounded-full flex items-center justify-center">
                   <BookOpen className="w-1.5 h-1.5 text-white" />
@@ -1974,8 +2537,18 @@ function LoadingPage() {
                 <div className="w-1 h-1 bg-white/40 rounded-full animate-pulse"></div>
                 <div className="w-0.5 h-0.5 bg-white/60 rounded-full mx-1 animate-pulse"></div>
                 <div className="w-3 h-3 bg-white/20 rounded-full flex items-center justify-center">
-                  <svg className="w-1.5 h-1.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  <svg
+                    className="w-1.5 h-1.5 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
                   </svg>
                 </div>
               </div>
@@ -1989,53 +2562,178 @@ function LoadingPage() {
           </div>
         </div>
       )}
-      
+
       {/* Disconnect Confirmation Modal */}
       <Dialog
         open={showDisconnectModal}
         onClose={() => setShowDisconnectModal(false)}
       >
         <Dialog.Panel>
-          <div className="p-5 text-center">
-            <Lucide
-              icon="XCircle"
-              className="w-16 h-16 mx-auto mt-3 text-danger"
-            />
-            <div className="mt-5 text-3xl">Are you sure?</div>
-            <div className="mt-2 text-slate-500">
-              {disconnectPhoneIndex !== undefined
-                ? `Do you really want to disconnect Phone ${disconnectPhoneIndex + 1} of ${disconnectBotName}?`
-                : `Do you really want to disconnect all phones of ${disconnectBotName}?`}
-              <br />
-              This process cannot be undone.
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden max-w-md mx-auto">
+            {/* Header Section */}
+            <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4">
+              <div className="flex items-center space-x-3">
+                <div className="flex-shrink-0">
+                  <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                    <svg
+                      className="w-6 h-6 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">
+                    ⚠️ Disconnect Bot
+                  </h3>
+                  <p className="text-red-100 text-sm">
+                    This action requires confirmation
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="px-5 pb-8 text-center">
-            <button
-              type="button"
-              onClick={() => setShowDisconnectModal(false)}
-              className="w-24 mr-1 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              disabled={isDisconnecting}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={confirmDisconnect}
-              className="w-24 px-3 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-              disabled={isDisconnecting}
-            >
-              {isDisconnecting ? (
-                <div className="flex items-center justify-center">
-                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+
+            {/* Content Section */}
+            <div className="px-6 py-6">
+              <div className="text-center space-y-4">
+                {/* Warning Icon */}
+                <div className="mx-auto w-16 h-16 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center">
+                  <svg
+                    className="w-8 h-8 text-red-500 dark:text-red-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728"
+                    />
                   </svg>
                 </div>
-              ) : (
-                'Disconnect'
-              )}
-            </button>
+
+                {/* Main Message */}
+                <div className="space-y-2">
+                  <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                    Are you absolutely sure?
+                  </h4>
+                  <div className="text-gray-600 dark:text-gray-400 space-y-2">
+                    <p className="text-sm leading-relaxed">
+                      {disconnectPhoneIndex !== undefined
+                        ? `You're about to disconnect Phone ${
+                            disconnectPhoneIndex + 1
+                          } of ${disconnectBotName}.`
+                        : `You're about to disconnect all phones of ${disconnectBotName}.`}
+                    </p>
+                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                      <div className="flex items-start space-x-2">
+                        <svg
+                          className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        <p className="text-xs text-amber-700 dark:text-amber-300">
+                          <strong>Warning:</strong> This action cannot be undone. You'll need to reconnect by scanning the QR code again.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 flex flex-col sm:flex-row gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDisconnectModal(false)}
+                disabled={isDisconnecting}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 dark:focus:ring-gray-400 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="flex items-center justify-center space-x-2">
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                  <span>Cancel</span>
+                </div>
+              </button>
+              
+              <button
+                type="button"
+                onClick={confirmDisconnect}
+                disabled={isDisconnecting}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+              >
+                {isDisconnecting ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <svg
+                      className="w-4 h-4 animate-spin"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    <span>Disconnecting...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center space-x-2">
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728"
+                      />
+                    </svg>
+                    <span>Yes, Disconnect</span>
+                  </div>
+                )}
+              </button>
+            </div>
           </div>
         </Dialog.Panel>
       </Dialog>
