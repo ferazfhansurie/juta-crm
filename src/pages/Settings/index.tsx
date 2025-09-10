@@ -90,6 +90,7 @@ function SettingsPage() {
 
   useEffect(() => {
     fetchSettings();
+   
   }, []);
 
   // Fetch phone status and names when both companyId and apiUrl are available
@@ -716,7 +717,7 @@ function SettingsPage() {
       <div className="min-h-screen backdrop-blur-3xl">
         {/* Top Navigation Bar with Enhanced Glassmorphism */}
         <div className="sticky top-0 z-50 bg-white/70 dark:bg-slate-900/70 backdrop-blur-3xl border-b border-white/30 dark:border-slate-700/40 shadow-2xl shadow-slate-200/20 dark:shadow-slate-900/30">
-          <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="max-w-7xl mx-auto px-4 py-2">
             <div className="flex justify-between items-center">
               <div className="flex items-center space-x-4">
                 <Link to="/users-layout-2">
@@ -739,7 +740,7 @@ function SettingsPage() {
                         />
                       </svg>
                     </div>
-                    <span className="ml-2 font-medium">Back</span>
+                    <span className="ml-2 text-sm font-medium">Back</span>
                   </Button>
                 </Link>
                 <div className="p-2.5 rounded-2xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 dark:from-blue-400/20 dark:to-indigo-400/20 backdrop-blur-sm border border-blue-200/40 dark:border-blue-700/40">
@@ -763,7 +764,7 @@ function SettingsPage() {
                     />
                   </svg>
                 </div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
+                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
                   Settings
                 </h1>
               </div>
@@ -773,9 +774,9 @@ function SettingsPage() {
         </div>
 
         {/* Main Content Area with Enhanced Glassmorphism */}
-        <div className="max-w-7xl mx-auto p-6 pb-20">
+        <div className="max-w-7xl mx-auto p-4 pb-8">
           {/* Navigation Buttons */}
-          <div className="group relative bg-white/70 dark:bg-slate-800/70 backdrop-blur-2xl rounded-3xl border border-white/30 dark:border-slate-700/30 p-8 mb-8 shadow-2xl shadow-slate-200/20 dark:shadow-slate-900/40 transition-all duration-500 hover:shadow-3xl hover:shadow-slate-200/30 dark:hover:shadow-slate-900/60">
+          <div className="group relative bg-white/70 dark:bg-slate-800/70 backdrop-blur-2xl rounded-3xl border border-white/30 dark:border-slate-700/30 p-4 mb-4 shadow-2xl shadow-slate-200/20 dark:shadow-slate-900/40 transition-all duration-500 hover:shadow-3xl hover:shadow-slate-200/30 dark:hover:shadow-slate-900/60">
             <div className="flex flex-wrap gap-4">
               <Link to="/loading2">
                 {showAddUserButton && phoneCount >= 2 && (
@@ -798,7 +799,7 @@ function SettingsPage() {
                         />
                       </svg>
                     </div>
-                    <span className="ml-2 font-medium">Add Number</span>
+                    <span className="ml-2 text-sm font-medium">Add Number</span>
                   </Button>
                 )}
               </Link>
@@ -823,7 +824,7 @@ function SettingsPage() {
                       />
                     </svg>
                   </div>
-                  <span className="ml-2 font-medium">Quick Replies</span>
+                  <span className="ml-2 text-sm font-medium">Quick Replies</span>
                 </Button>
               </Link>
 
@@ -848,7 +849,7 @@ function SettingsPage() {
                         />
                       </svg>
                     </div>
-                    <span className="ml-2 font-medium">
+                    <span className="ml-2 text-sm font-medium">
                       Feedback Form Builder
                     </span>
                   </Button>
@@ -876,7 +877,7 @@ function SettingsPage() {
                         />
                       </svg>
                     </div>
-                    <span className="ml-2 font-medium">Storage Pricing</span>
+                    <span className="ml-2 text-sm font-medium">Storage Pricing</span>
                   </Button>
                 </Link>
               )}
@@ -884,8 +885,8 @@ function SettingsPage() {
           </div>
 
           {/* Theme Settings Section */}
-          <div className="group relative bg-white/70 dark:bg-slate-800/70 backdrop-blur-2xl rounded-3xl border border-white/30 dark:border-slate-700/30 p-8 mb-8 shadow-2xl shadow-slate-200/20 dark:shadow-slate-900/40 transition-all duration-500 hover:shadow-3xl hover:shadow-slate-200/30 dark:hover:shadow-slate-900/60">
-            <div className="flex items-center space-x-4 mb-8">
+          <div className="group relative bg-white/70 dark:bg-slate-800/70 backdrop-blur-2xl rounded-3xl border border-white/30 dark:border-slate-700/30 p-4 mb-4 shadow-2xl shadow-slate-200/20 dark:shadow-slate-900/40 transition-all duration-500 hover:shadow-3xl hover:shadow-slate-200/30 dark:hover:shadow-slate-900/60">
+            <div className="flex items-center space-x-4 mb-4">
               <div className="p-3 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 dark:from-indigo-400/20 dark:to-purple-400/20 backdrop-blur-sm border border-indigo-200/40 dark:border-indigo-700/40">
                 <svg
                   className="w-8 h-8 text-indigo-600 dark:text-indigo-400"
@@ -901,17 +902,17 @@ function SettingsPage() {
                   />
                 </svg>
               </div>
-              <h2 className="text-2xl font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">
+              <h2 className="text-lg font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">
                 Theme Settings
               </h2>
             </div>
 
-            <div className="space-y-8">
-              <div className="bg-gradient-to-r from-slate-50/50 to-slate-100/30 dark:from-slate-700/30 dark:to-slate-600/20 backdrop-blur-xl rounded-2xl p-6 border border-slate-200/40 dark:border-slate-600/40">
-                <label className="block mb-6 text-lg font-semibold text-slate-700 dark:text-slate-300">
+            <div className="space-y-4">
+              <div className="bg-gradient-to-r from-slate-50/50 to-slate-100/30 dark:from-slate-700/30 dark:to-slate-600/20 backdrop-blur-xl rounded-2xl p-4 border border-slate-200/40 dark:border-slate-600/40">
+                <label className="block mb-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
                   Appearance Mode
                 </label>
-                <div className="flex items-center space-x-6">
+                <div className="flex items-center space-x-4">
                   <button
                     onClick={() => dispatch(setDarkMode(false))}
                     className={`group relative px-8 py-4 rounded-2xl border transition-all duration-300 backdrop-blur-sm ${
@@ -922,7 +923,7 @@ function SettingsPage() {
                   >
                     <div className="flex items-center space-x-3">
                       <div className="w-6 h-6 rounded-full bg-gradient-to-r from-yellow-400 to-orange-400 shadow-xl shadow-yellow-500/30"></div>
-                      <span className="font-semibold">Light Mode</span>
+                      <span className="text-sm font-semibold">Light Mode</span>
                     </div>
                   </button>
 
@@ -936,7 +937,7 @@ function SettingsPage() {
                   >
                     <div className="flex items-center space-x-3">
                       <div className="w-6 h-6 rounded-full bg-gradient-to-r from-slate-600 to-slate-800 shadow-xl shadow-slate-700/30"></div>
-                      <span className="font-semibold">Dark Mode</span>
+                      <span className="text-sm font-semibold">Dark Mode</span>
                     </div>
                   </button>
                 </div>
@@ -946,11 +947,11 @@ function SettingsPage() {
 
           {/* Company ID Change Section - Only show for juta.com users */}
           {showCompanyIdChange && (
-            <div className="group relative bg-white/70 dark:bg-slate-800/70 backdrop-blur-2xl rounded-3xl border border-white/30 dark:border-slate-700/30 p-8 mb-8 shadow-2xl shadow-slate-200/20 dark:shadow-slate-900/40 transition-all duration-500 hover:shadow-3xl hover:shadow-slate-200/30 dark:hover:shadow-slate-900/60">
-              <div className="flex items-center space-x-4 mb-8">
-                <div className="p-3 rounded-2xl bg-gradient-to-br from-orange-500/20 to-red-500/20 dark:from-orange-400/20 dark:to-red-400/20 backdrop-blur-sm border border-orange-200/40 dark:border-orange-700/40">
+            <div className="group relative bg-white/70 dark:bg-slate-800/70 backdrop-blur-2xl rounded-3xl border border-white/30 dark:border-slate-700/30 p-4 mb-4 shadow-2xl shadow-slate-200/20 dark:shadow-slate-900/40 transition-all duration-500 hover:shadow-3xl hover:shadow-slate-200/30 dark:hover:shadow-slate-900/60">
+              <div className="flex items-center space-x-4 mb-4">
+                <div className="p-2 rounded-xl bg-gradient-to-br from-orange-500/20 to-red-500/20 dark:from-orange-400/20 dark:to-red-400/20 backdrop-blur-sm border border-orange-200/40 dark:border-orange-700/40">
                   <svg
-                    className="w-8 h-8 text-orange-600 dark:text-orange-400"
+                    className="w-6 h-6 text-orange-600 dark:text-orange-400"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -963,7 +964,7 @@ function SettingsPage() {
                     />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-semibold bg-gradient-to-r from-orange-600 to-red-600 dark:from-orange-400 dark:to-red-400 bg-clip-text text-transparent">
+                <h2 className="text-lg font-semibold bg-gradient-to-r from-orange-600 to-red-600 dark:from-orange-400 dark:to-red-400 bg-clip-text text-transparent">
                   Change Company ID
                 </h2>
               </div>
@@ -974,9 +975,9 @@ function SettingsPage() {
                 </div>
               )}
 
-              <div className="space-y-8">
-                <div className="bg-gradient-to-r from-slate-50/50 to-slate-100/30 dark:from-slate-700/30 dark:to-slate-600/20 backdrop-blur-xl rounded-2xl p-6 border border-slate-200/40 dark:border-slate-600/40">
-                  <label className="block mb-4 text-lg font-semibold text-slate-700 dark:text-slate-300">
+              <div className="space-y-4">
+                <div className="bg-gradient-to-r from-slate-50/50 to-slate-100/30 dark:from-slate-700/30 dark:to-slate-600/20 backdrop-blur-xl rounded-2xl p-4 border border-slate-200/40 dark:border-slate-600/40">
+                  <label className="block mb-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
                     Current Company ID
                   </label>
                   <input
@@ -987,8 +988,8 @@ function SettingsPage() {
                   />
                 </div>
 
-                <div className="bg-gradient-to-r from-slate-50/50 to-slate-100/30 dark:from-slate-700/30 dark:to-slate-600/20 backdrop-blur-xl rounded-2xl p-6 border border-slate-200/40 dark:border-slate-600/40">
-                  <label className="block mb-4 text-lg font-semibold text-slate-700 dark:text-slate-300">
+                <div className="bg-gradient-to-r from-slate-50/50 to-slate-100/30 dark:from-slate-700/30 dark:to-slate-600/20 backdrop-blur-xl rounded-2xl p-4 border border-slate-200/40 dark:border-slate-600/40">
+                  <label className="block mb-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
                     New Company ID
                   </label>
                   <input
@@ -1022,7 +1023,7 @@ function SettingsPage() {
                         />
                       </svg>
                     </div>
-                    <span className="font-semibold">
+                    <span className="text-sm font-semibold">
                       {isChangingCompanyId
                         ? "Changing..."
                         : "Change Company ID"}
@@ -1034,11 +1035,11 @@ function SettingsPage() {
           )}
 
           {/* Bot Management Section */}
-          <div className="group relative bg-white/70 dark:bg-slate-800/70 backdrop-blur-2xl rounded-3xl border border-white/30 dark:border-slate-700/30 p-8 mb-8 shadow-2xl shadow-slate-200/20 dark:shadow-slate-900/40 transition-all duration-500 hover:shadow-3xl hover:shadow-slate-200/30 dark:hover:shadow-slate-900/60">
-            <div className="flex items-center space-x-4 mb-8">
-              <div className="p-3 rounded-2xl bg-gradient-to-br from-red-500/20 to-pink-500/20 dark:from-red-400/20 dark:to-pink-400/20 backdrop-blur-sm border border-red-200/40 dark:border-red-700/40">
+          <div className="group relative bg-white/70 dark:bg-slate-800/70 backdrop-blur-2xl rounded-3xl border border-white/30 dark:border-slate-700/30 p-4 mb-4 shadow-2xl shadow-slate-200/20 dark:shadow-slate-900/40 transition-all duration-500 hover:shadow-3xl hover:shadow-slate-200/30 dark:hover:shadow-slate-900/60">
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-red-500/20 to-pink-500/20 dark:from-red-400/20 dark:to-pink-400/20 backdrop-blur-sm border border-red-200/40 dark:border-red-700/40">
                 <svg
-                  className="w-8 h-8 text-red-600 dark:text-red-400"
+                  className="w-6 h-6 text-red-600 dark:text-red-400"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -1051,15 +1052,15 @@ function SettingsPage() {
                   />
                 </svg>
               </div>
-              <h2 className="text-2xl font-semibold bg-gradient-to-r from-red-600 to-pink-600 dark:from-red-400 dark:to-pink-400 bg-clip-text text-transparent">
+              <h2 className="text-lg font-semibold bg-gradient-to-r from-red-600 to-pink-600 dark:from-red-400 dark:to-pink-400 bg-clip-text text-transparent">
                 Bot Management
               </h2>
             </div>
 
-            <div className="space-y-6">
-              <div className="bg-gradient-to-r from-slate-50/50 to-slate-100/30 dark:from-slate-700/30 dark:to-slate-600/20 backdrop-blur-xl rounded-2xl p-8 border border-slate-200/40 dark:border-slate-600/40">
-                <div className="flex flex-col space-y-8">
-                  <div className="text-center space-y-3">
+            <div className="space-y-4">
+              <div className="bg-gradient-to-r from-slate-50/50 to-slate-100/30 dark:from-slate-700/30 dark:to-slate-600/20 backdrop-blur-xl rounded-2xl p-4 border border-slate-200/40 dark:border-slate-600/40">
+                <div className="flex flex-col space-y-4">
+                  <div className="text-center space-y-2">
                     <div className="mx-auto w-16 h-16 bg-gradient-to-br from-red-500/20 to-pink-500/20 dark:from-red-400/20 dark:to-pink-400/20 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-red-200/40 dark:border-red-700/40">
                       <svg
                         className="w-8 h-8 text-red-600 dark:text-red-400"
@@ -1075,10 +1076,10 @@ function SettingsPage() {
                         />
                       </svg>
                     </div>
-                    <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
                       Disconnect Bot
                     </h3>
-                    <p className="text-slate-600 dark:text-slate-400 max-w-md mx-auto">
+                    <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto">
                       Disconnect your WhatsApp bot connection
                       {phoneCount > 1 ? "s" : ""}
                     </p>
@@ -1102,7 +1103,7 @@ function SettingsPage() {
                               icon="three-dots"
                               className="w-5 h-5"
                             />
-                            <span className="font-semibold">
+                            <span className="text-sm font-semibold">
                               Disconnecting...
                             </span>
                           </div>
@@ -1123,7 +1124,7 @@ function SettingsPage() {
                                 />
                               </svg>
                             </div>
-                            <span className="font-semibold">
+                            <span className="text-sm font-semibold">
                               Disconnect Bot
                             </span>
                           </div>
@@ -1132,9 +1133,9 @@ function SettingsPage() {
                     </div>
                   ) : (
                     // Multiple phones layout
-                    <div className="space-y-8">
+                    <div className="space-y-4">
                       {/* Individual Phone Disconnect */}
-                      <div className="bg-gradient-to-r from-slate-100/60 to-slate-200/40 dark:from-slate-600/40 dark:to-slate-500/30 backdrop-blur-xl rounded-2xl p-6 border border-slate-200/50 dark:border-slate-600/50">
+                      <div className="bg-gradient-to-r from-slate-100/60 to-slate-200/40 dark:from-slate-600/40 dark:to-slate-500/30 backdrop-blur-xl rounded-2xl p-4 border border-slate-200/50 dark:border-slate-600/50">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 sm:space-x-6">
                           <div className="flex items-center space-x-4">
                             <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 dark:from-blue-400/20 dark:to-indigo-400/20 backdrop-blur-sm border border-blue-200/40 dark:border-blue-700/40">
@@ -1153,10 +1154,10 @@ function SettingsPage() {
                               </svg>
                             </div>
                             <div>
-                              <span className="text-lg font-semibold text-slate-700 dark:text-slate-300">
+                              <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                                 Disconnect specific phone:
                               </span>
-                              <p className="text-sm text-slate-500 dark:text-slate-400">
+                              <p className="text-xs text-slate-500 dark:text-slate-400">
                                 Select a phone to disconnect individually
                               </p>
                             </div>
@@ -1259,7 +1260,7 @@ function SettingsPage() {
                                     icon="three-dots"
                                     className="w-4 h-4"
                                   />
-                                  <span className="font-medium">
+                                  <span className="text-sm font-medium">
                                     Disconnecting...
                                   </span>
                                 </div>
@@ -1280,7 +1281,7 @@ function SettingsPage() {
                                       />
                                     </svg>
                                   </div>
-                                  <span className="font-medium">
+                                  <span className="text-sm font-medium">
                                     Disconnect Selected
                                   </span>
                                 </div>
@@ -1299,7 +1300,7 @@ function SettingsPage() {
                         </div>
 
                         {/* Disconnect All Phones */}
-                        <div className="bg-gradient-to-r from-red-50/60 to-pink-50/40 dark:from-red-900/30 dark:to-pink-900/20 backdrop-blur-xl rounded-2xl p-6 border border-red-200/50 dark:border-red-700/50">
+                        <div className="bg-gradient-to-r from-red-50/60 to-pink-50/40 dark:from-red-900/30 dark:to-pink-900/20 backdrop-blur-xl rounded-2xl p-4 border border-red-200/50 dark:border-red-700/50">
                           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0 sm:space-x-6">
                             <div className="flex items-center space-x-4">
                               <div className="p-2 rounded-xl bg-gradient-to-br from-red-500/20 to-pink-500/20 dark:from-red-400/20 dark:to-pink-400/20 backdrop-blur-sm border border-red-200/40 dark:border-red-700/40">
@@ -1318,10 +1319,10 @@ function SettingsPage() {
                                 </svg>
                               </div>
                               <div>
-                                <span className="text-lg font-semibold text-slate-700 dark:text-slate-300">
+                                <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                                   Disconnect all phones ({phoneCount} phones)
                                 </span>
-                                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                                   This will disconnect all {phoneCount} phone
                                   connections
                                 </p>
@@ -1344,7 +1345,7 @@ function SettingsPage() {
                                     icon="three-dots"
                                     className="w-4 h-4"
                                   />
-                                  <span className="font-medium">
+                                  <span className="text-sm font-medium">
                                     Disconnecting All...
                                   </span>
                                 </div>
@@ -1365,7 +1366,7 @@ function SettingsPage() {
                                       />
                                     </svg>
                                   </div>
-                                  <span className="font-medium">
+                                  <span className="text-sm font-medium">
                                     Disconnect All
                                   </span>
                                 </div>
@@ -1382,11 +1383,11 @@ function SettingsPage() {
           </div>
 
           {/* Daily Report Settings Section */}
-          <div className="group relative bg-white/70 dark:bg-slate-800/70 backdrop-blur-2xl rounded-3xl border border-white/30 dark:border-slate-700/30 p-8 mb-8 shadow-2xl shadow-slate-200/20 dark:shadow-slate-900/40 transition-all duration-500 hover:shadow-3xl hover:shadow-slate-200/30 dark:hover:shadow-slate-900/60">
-            <div className="flex items-center space-x-4 mb-8">
-              <div className="p-3 rounded-2xl bg-gradient-to-br from-green-500/20 to-teal-500/20 dark:from-green-400/20 dark:to-teal-400/20 backdrop-blur-sm border border-green-200/40 dark:border-green-700/40">
+          <div className="group relative bg-white/70 dark:bg-slate-800/70 backdrop-blur-2xl rounded-3xl border border-white/30 dark:border-slate-700/30 p-4 mb-4 shadow-2xl shadow-slate-200/20 dark:shadow-slate-900/40 transition-all duration-500 hover:shadow-3xl hover:shadow-slate-200/30 dark:hover:shadow-slate-900/60">
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-green-500/20 to-teal-500/20 dark:from-green-400/20 dark:to-teal-400/20 backdrop-blur-sm border border-green-200/40 dark:border-green-700/40">
                 <svg
-                  className="w-8 h-8 text-green-600 dark:text-green-400"
+                  className="w-6 h-6 text-green-600 dark:text-green-400"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -1399,7 +1400,7 @@ function SettingsPage() {
                   />
                 </svg>
               </div>
-              <h2 className="text-2xl font-semibold bg-gradient-to-r from-green-600 to-teal-600 dark:from-green-400 dark:to-teal-400 bg-clip-text text-transparent">
+              <h2 className="text-lg font-semibold bg-gradient-to-r from-green-600 to-teal-600 dark:from-green-400 dark:to-teal-400 bg-clip-text text-transparent">
                 Daily Report Settings
               </h2>
             </div>
@@ -1410,7 +1411,7 @@ function SettingsPage() {
               </div>
             )}
 
-            <div className="space-y-8">
+            <div className="space-y-4">
               <div>
                 <label className="flex items-center space-x-3 cursor-pointer">
                   <input
@@ -1419,7 +1420,7 @@ function SettingsPage() {
                     onChange={(e) => setEnabled(e.target.checked)}
                     className="form-checkbox h-5 w-5 text-green-500 rounded focus:ring-green-500/50 focus:ring-2"
                   />
-                  <span className="text-lg font-medium">
+                  <span className="text-sm font-medium">
                     Enable Daily Reports
                   </span>
                 </label>
@@ -1428,7 +1429,7 @@ function SettingsPage() {
               {enabled && (
                 <>
                   <div>
-                    <label className="block mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                       Report Time
                     </label>
                     <input
@@ -1440,7 +1441,7 @@ function SettingsPage() {
                   </div>
 
                   <div>
-                    <label className="block mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                       WhatsApp Group ID
                     </label>
                     <input
@@ -1467,7 +1468,7 @@ function SettingsPage() {
                   disabled={isSaving}
                   className="backdrop-blur-sm bg-gradient-to-r from-green-500/80 to-teal-500/80 border border-white/20 hover:from-green-600/80 hover:to-teal-600/80 transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:scale-105"
                 >
-                  {isSaving ? "Saving..." : "Save Settings"}
+                  <span className="text-sm">{isSaving ? "Saving..." : "Save Settings"}</span>
                 </Button>
 
                 {enabled && (
@@ -1476,7 +1477,7 @@ function SettingsPage() {
                     onClick={handleTriggerReport}
                     className="backdrop-blur-sm bg-gradient-to-r from-emerald-500/80 to-green-500/80 border border-white/20 hover:from-emerald-600/80 hover:to-green-600/80 transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:scale-105"
                   >
-                    Send Report Now
+                    <span className="text-sm">Send Report Now</span>
                   </Button>
                 )}
               </div>
@@ -1484,11 +1485,11 @@ function SettingsPage() {
           </div>
 
           {/* Auto-Reply Settings Section */}
-          <div className="group relative bg-white/70 dark:bg-slate-800/70 backdrop-blur-2xl rounded-3xl border border-white/30 dark:border-slate-700/30 p-8 mb-8 shadow-2xl shadow-slate-200/20 dark:shadow-slate-900/40 transition-all duration-500 hover:shadow-3xl hover:shadow-slate-200/30 dark:hover:shadow-slate-900/60">
-            <div className="flex items-center space-x-4 mb-8">
-              <div className="p-3 rounded-2xl bg-gradient-to-br from-purple-500/20 to-indigo-500/20 dark:from-purple-400/20 dark:to-indigo-400/20 backdrop-blur-sm border border-purple-200/40 dark:border-purple-700/40">
+          <div className="group relative bg-white/70 dark:bg-slate-800/70 backdrop-blur-2xl rounded-3xl border border-white/30 dark:border-slate-700/30 p-4 mb-4 shadow-2xl shadow-slate-200/20 dark:shadow-slate-900/40 transition-all duration-500 hover:shadow-3xl hover:shadow-slate-200/30 dark:hover:shadow-slate-900/60">
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-purple-500/20 to-indigo-500/20 dark:from-purple-400/20 dark:to-indigo-400/20 backdrop-blur-sm border border-purple-200/40 dark:border-purple-700/40">
                 <svg
-                  className="w-8 h-8 text-purple-600 dark:text-purple-400"
+                  className="w-6 h-6 text-purple-600 dark:text-purple-400"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -1501,7 +1502,7 @@ function SettingsPage() {
                   />
                 </svg>
               </div>
-              <h2 className="text-2xl font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-400 dark:to-indigo-400 bg-clip-text text-transparent">
+              <h2 className="text-lg font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-400 dark:to-indigo-400 bg-clip-text text-transparent">
                 Auto-Reply Settings
               </h2>
             </div>
@@ -1512,7 +1513,7 @@ function SettingsPage() {
               </div>
             )}
 
-            <div className="space-y-8">
+            <div className="space-y-4">
               <div>
                 <label className="flex items-center space-x-3 cursor-pointer">
                   <input
@@ -1521,9 +1522,9 @@ function SettingsPage() {
                     onChange={(e) => setAutoReplyEnabled(e.target.checked)}
                     className="form-checkbox h-5 w-5 text-purple-500 rounded focus:ring-purple-500/50 focus:ring-2"
                   />
-                  <span className="text-lg font-medium">Enable Auto-Reply</span>
+                  <span className="text-sm font-medium">Enable Auto-Reply</span>
                 </label>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 ml-8">
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 ml-8">
                   Automatically reply to messages that haven't been responded to
                   within the specified time frame
                 </p>
@@ -1531,7 +1532,7 @@ function SettingsPage() {
 
               {autoReplyEnabled && (
                 <div>
-                  <label className="block mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                     Auto-Reply Threshold (Hours)
                   </label>
                   <div className="flex items-center space-x-4">
@@ -1561,7 +1562,7 @@ function SettingsPage() {
                   disabled={isSavingAutoReply}
                   className="backdrop-blur-sm bg-gradient-to-r from-purple-500/80 to-indigo-500/80 border border-white/20 hover:from-purple-600/80 hover:to-indigo-600/80 transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:scale-105"
                 >
-                  {isSavingAutoReply ? "Saving..." : "Save Auto-Reply Settings"}
+                  <span className="text-sm">{isSavingAutoReply ? "Saving..." : "Save Auto-Reply Settings"}</span>
                 </Button>
               </div>
             </div>
@@ -1596,10 +1597,10 @@ function SettingsPage() {
                     </div>
                   </div>
                   <div>
-                    <h3 className="text-xl font-semibold text-white">
+                    <h3 className="text-lg font-semibold text-white">
                       ⚠️ Disconnect Bot
                     </h3>
-                    <p className="text-red-100 text-sm">
+                    <p className="text-red-100 text-xs">
                       This action requires confirmation
                     </p>
                   </div>
@@ -1607,8 +1608,8 @@ function SettingsPage() {
               </div>
 
               {/* Content Section */}
-              <div className="px-8 py-8">
-                <div className="text-center space-y-6">
+              <div className="px-6 py-4">
+                <div className="text-center space-y-4">
                   {/* Warning Icon */}
                   <div className="mx-auto w-20 h-20 bg-red-50/20 dark:bg-red-900/20 rounded-full flex items-center justify-center backdrop-blur-sm border border-red-200/30">
                     <svg
@@ -1627,12 +1628,12 @@ function SettingsPage() {
                   </div>
 
                   {/* Main Message */}
-                  <div className="space-y-3">
-                    <h4 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  <div className="space-y-2">
+                    <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100">
                       Are you absolutely sure?
                     </h4>
-                    <div className="text-gray-600 dark:text-gray-400 space-y-3">
-                      <p className="text-sm leading-relaxed">
+                    <div className="text-gray-600 dark:text-gray-400 space-y-2">
+                      <p className="text-xs leading-relaxed">
                         {disconnectPhoneIndex !== undefined
                           ? `You're about to disconnect Phone ${
                               disconnectPhoneIndex + 1
@@ -1654,7 +1655,7 @@ function SettingsPage() {
                               d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                             />
                           </svg>
-                          <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
+                          <p className="text-xs text-amber-700 dark:text-amber-300 leading-tight">
                             <strong>Warning:</strong> This action cannot be
                             undone. You'll need to reconnect by scanning the QR
                             code again.
@@ -1667,7 +1668,7 @@ function SettingsPage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="backdrop-blur-sm bg-gray-50/30 dark:bg-gray-700/30 px-8 py-6 flex flex-col sm:flex-row gap-4">
+              <div className="backdrop-blur-sm bg-gray-50/30 dark:bg-gray-700/30 px-6 py-4 flex flex-col sm:flex-row gap-3">
                 <Button
                   type="button"
                   variant="outline-secondary"
@@ -1689,7 +1690,7 @@ function SettingsPage() {
                         d="M6 18L18 6M6 6l12 12"
                       />
                     </svg>
-                    <span>Cancel</span>
+                    <span className="text-sm">Cancel</span>
                   </div>
                 </Button>
 
@@ -1703,7 +1704,7 @@ function SettingsPage() {
                   {isDisconnecting ? (
                     <div className="flex items-center justify-center space-x-2">
                       <LoadingIcon icon="three-dots" className="w-4 h-4" />
-                      <span>
+                      <span className="text-sm">
                         {disconnectPhoneIndex !== undefined
                           ? "Disconnecting..."
                           : "Disconnecting All..."}
@@ -1724,7 +1725,7 @@ function SettingsPage() {
                           d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728"
                         />
                       </svg>
-                      <span>
+                      <span className="text-sm">
                         {disconnectPhoneIndex !== undefined
                           ? "Yes, Disconnect"
                           : "Yes, Disconnect All"}

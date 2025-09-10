@@ -72,6 +72,7 @@ import ChatGPTStyle from "../pages/ChatGPTStyle";
 import SplitTest from "../pages/SplitTest";
 import ThankYou from "../pages/ThankYou";
 import OnboardingDemo from "../pages/OnboardingDemo";
+import FacebookLeadManager from "../pages/FacebookLeadManager";
 
 function Router() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -170,6 +171,8 @@ function Router() {
         { path: "image-zoom", element: <ImageZoom /> },
         { path: "opp", element: <Opportunities /> },
         { path: "users-layout-2/loading2", element: <LoadingIcon2 /> },
+        { path: "users-layout-2/facebook-lead-manager", element: <FacebookLeadManager /> },
+        { path: "facebook-lead-manager", element: <FacebookLeadManager /> },
         { path: "dashboard-overview-2", element: <DashboardOverview2 /> },
      
       ],

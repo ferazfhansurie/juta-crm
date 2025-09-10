@@ -191,8 +191,8 @@ const MessageList: React.FC<MessageListProps> = ({
   };
 
   return (
-    <div className="flex flex-col w-full h-full bg-white dark:bg-gray-900 relative">
-      <div className="flex items-center justify-between p-1.5 border-b border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
+    <div className="flex flex-col w-full h-full backdrop-blur-xl bg-white/50 dark:bg-gray-800/50 rounded-2xl shadow-2xl border border-white/30 dark:border-gray-600/40 relative overflow-hidden group">
+      <div className="flex items-center justify-between p-1.5 border-b border-white/20 dark:border-gray-600/40 backdrop-blur-md bg-gradient-to-r from-white/60 to-white/40 dark:from-gray-800/60 dark:to-gray-900/80 shadow-lg">
         <div className="flex items-center">
           <div className="px-3 py-1.5 bg-gray-600 dark:bg-gray-500 text-white rounded-full shadow-lg font-semibold text-xs capitalize">
             {assistantName}
@@ -212,7 +212,7 @@ const MessageList: React.FC<MessageListProps> = ({
         </div>
       </div>
 
-            <div className="flex-1 overflow-y-auto p-3 bg-gray-50 dark:bg-gray-900 relative">
+            <div className="flex-1 overflow-y-auto p-3 backdrop-blur-md bg-gradient-to-br from-white/20 via-white/10 to-white/5 dark:from-gray-800/40 dark:via-gray-800/20 dark:to-gray-900/60 relative">
         {/* Tool Buttons - Positioned at top of chat area */}
         <div className="flex items-center gap-1.5 mb-3 pb-2 border-b border-gray-200 dark:border-gray-700">
         </div>
@@ -2114,9 +2114,9 @@ const Main: React.FC = () => {
   // If in fullscreen mode, show only the chat interface
   if (isFullscreenMode) {
     return (
-      <div className="flex flex-col w-full h-screen bg-white dark:bg-gray-900">
+      <div className="flex flex-col w-full h-screen backdrop-blur-xl bg-white/50 dark:bg-gray-800/50 rounded-2xl shadow-2xl border border-white/30 dark:border-gray-600/40 overflow-hidden group">
         {/* Fullscreen Header */}
-        <div className="flex items-center justify-between p-3 border-b border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-900">
+        <div className="flex items-center justify-between p-3 border-b border-white/20 dark:border-gray-600/40 backdrop-blur-md bg-gradient-to-r from-white/60 to-white/40 dark:from-gray-800/60 dark:to-gray-900/80 shadow-lg">
                   <div className="flex items-center">
           <div className="px-4 py-2 bg-gray-600 dark:bg-gray-500 text-white rounded-full shadow-lg font-semibold text-base capitalize">
             {assistantInfo.name}
@@ -2136,7 +2136,7 @@ const Main: React.FC = () => {
         </div>
 
         {/* Fullscreen Chat Messages */}
-        <div className="flex-1 overflow-y-auto p-3 bg-gray-50 dark:bg-gray-900">
+        <div className="flex-1 overflow-y-auto p-3 backdrop-blur-md bg-gradient-to-br from-white/20 via-white/10 to-white/5 dark:from-gray-800/40 dark:via-gray-800/20 dark:to-gray-900/60">
           {messages.length === 0 ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center text-gray-500 dark:text-gray-400">
@@ -2314,11 +2314,19 @@ const Main: React.FC = () => {
   }
 
   return (
-    <div className="flex justify-center h-screen bg-gray-50 dark:bg-gray-900">
-      <div className={`w-full ${isWideScreen ? "max-w-7xl flex" : "max-w-lg"}`}>
+    <div className="flex justify-center h-screen bg-gradient-to-br from-slate-100/80 via-blue-100/60 to-indigo-200/80 dark:from-gray-900/90 dark:via-gray-800/80 dark:to-gray-700/90 relative overflow-hidden">
+      {/* Animated background elements */}
+      <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-blue-50/30 dark:from-gray-800/40 dark:via-transparent dark:to-gray-700/30"></div>
+      <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full blur-3xl animate-pulse"></div>
+      <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-indigo-400/20 to-pink-600/20 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
+      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-cyan-400/15 to-blue-500/15 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
+      <div className={`w-full ${isWideScreen ? "max-w-7xl flex" : "max-w-lg"} relative z-10`}>
         {isWideScreen ? (
           <>
-            <div className="w-1/2 pl-1.5 pr-1.5 ml-1.5 mr-1.5 mt-0 overflow-auto bg-gray-50 dark:bg-gray-800 rounded-lg pt-1.5 px-3 pb-3">
+            <div className="w-1/2 pl-1.5 pr-1.5 ml-1.5 mr-1.5 mt-0 overflow-auto backdrop-blur-xl bg-white/40 dark:bg-gray-800/40 rounded-2xl shadow-2xl border border-white/30 dark:border-gray-600/40 pt-1.5 px-3 pb-3 hover:shadow-3xl transition-all duration-500 relative group">
+              {/* Enhanced glassmorphic inner glow */}
+              <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-white/10 dark:from-gray-700/20 dark:via-transparent dark:to-gray-700/10 rounded-2xl"></div>
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-400/10 via-purple-400/10 to-pink-400/10 dark:from-blue-500/10 dark:via-purple-500/10 dark:to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
               {loading ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="flex flex-col items-center w-3/4 max-w-lg text-center p-3">
@@ -2336,7 +2344,7 @@ const Main: React.FC = () => {
                       <select
                         value={selectedAssistant}
                         onChange={(e) => handleAssistantChange(e.target.value)}
-                        className="w-full p-1.5 text-lg font-bold border border-gray-300 rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-green-500"
+                        className="w-full p-1.5 text-lg font-bold backdrop-blur-md bg-gradient-to-br from-white/80 to-white/60 dark:from-gray-700/80 dark:to-gray-700/60 border border-white/30 dark:border-gray-500/40 rounded-2xl dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-lg hover:shadow-xl transition-all duration-300 relative z-10"
                       >
                         {assistants.map((assistant) => (
                           <option key={assistant.id} value={assistant.id}>
@@ -2373,8 +2381,10 @@ const Main: React.FC = () => {
                     <div className="flex flex-wrap gap-1.5">
                       <button 
                         onClick={handleAutomatedClick}
-                        className="px-2 py-1.5 bg-blue-500 dark:bg-blue-600 text-white border-2 border-blue-600 dark:border-blue-500 rounded-lg hover:bg-blue-600 dark:hover:bg-blue-700 hover:border-blue-700 dark:hover:border-blue-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-1.5 whitespace-nowrap text-xs"
+                        className="px-2 py-1.5 backdrop-blur-md bg-gradient-to-br from-blue-500/90 to-blue-600/90 dark:from-blue-400/90 dark:to-blue-500/90 text-white border border-blue-300/40 dark:border-blue-400/40 rounded-xl hover:bg-gradient-to-br hover:from-blue-600/90 hover:to-blue-700/90 dark:hover:from-blue-500/90 dark:hover:to-blue-600/90 shadow-lg hover:shadow-xl active:scale-95 hover:scale-105 transform transition-all duration-300 ease-out flex items-center gap-1.5 whitespace-nowrap text-xs relative overflow-hidden group"
                       >
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 via-transparent to-blue-500/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        <div className="relative z-10 flex items-center gap-1.5">
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
                           className="h-3 w-3"
@@ -2388,15 +2398,19 @@ const Main: React.FC = () => {
                           />
                         </svg>
                         AI Tools
+                        </div>
                       </button>
                       <button
                         onClick={handleManualClick}
-                        className="px-2 py-1.5 bg-indigo-500 dark:bg-indigo-600 text-white border-2 border-indigo-600 dark:border-indigo-500 rounded-lg hover:bg-indigo-600 dark:hover:bg-indigo-700 hover:border-indigo-700 dark:hover:border-indigo-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-1.5 whitespace-nowrap text-xs"
+                        className="px-2 py-1.5 backdrop-blur-md bg-gradient-to-br from-indigo-500/90 to-indigo-600/90 dark:from-indigo-400/90 dark:to-indigo-500/90 text-white border border-indigo-300/40 dark:border-indigo-400/40 rounded-xl hover:bg-gradient-to-br hover:from-indigo-600/90 hover:to-indigo-700/90 dark:hover:from-indigo-500/90 dark:hover:to-indigo-600/90 shadow-lg hover:shadow-xl active:scale-95 hover:scale-105 transform transition-all duration-300 ease-out flex items-center gap-1.5 whitespace-nowrap text-xs relative overflow-hidden group"
                       >
+                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-400/20 via-transparent to-indigo-500/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        <div className="relative z-10 flex items-center gap-1.5">
                         <svg className="h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                           <path d="M2 10a8 8 0 1116 0 8 8 0 01-16 0zm7-3h2v6H9V7zm0 8h2v2H9v-2z" />
                         </svg>
                         Keyword Tools
+                        </div>
                       </button>
                       <Link to="/follow-ups">
                         <button className="px-2 py-1.5 bg-teal-500 dark:bg-teal-600 text-white border-2 border-teal-600 dark:border-teal-500 rounded-lg hover:bg-teal-600 dark:hover:bg-teal-700 hover:border-teal-700 dark:hover:border-teal-600 shadow-lg active:scale-90 hover:scale-105 transform transition-all duration-200 ease-out flex items-center gap-1.5 whitespace-nowrap text-xs">
@@ -2433,8 +2447,9 @@ const Main: React.FC = () => {
 
                   {/* AI Tools Section - Show when Automated is selected */}
                   {showAiToolsSection && (
-                    <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-100 dark:border-blue-800 shadow-sm">
-                      <div className="flex justify-between items-center mb-3">
+                    <div className="mb-4 p-3 backdrop-blur-md bg-gradient-to-br from-blue-500/20 to-blue-600/20 dark:from-blue-400/30 dark:to-blue-500/30 rounded-2xl border border-blue-300/40 dark:border-blue-400/40 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] relative overflow-hidden group">
+                      <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 via-transparent to-blue-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <div className="flex justify-between items-center mb-3 relative z-10">
                         <label className="text-lg font-medium dark:text-gray-200 flex items-center gap-2">
                           <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
@@ -2461,47 +2476,63 @@ const Main: React.FC = () => {
                           </svg>
                         </button>
                       </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 relative z-10">
                         Click on any tool category to see examples and copy them directly to your chat
                       </p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="grid grid-cols-2 gap-2 relative z-10">
                         <button
                           onClick={() => openAiToolsModal('calendar')}
-                          className="p-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors duration-200 text-left"
+                          className="p-2 backdrop-blur-md bg-gradient-to-br from-blue-500/90 to-blue-600/90 dark:from-blue-400/90 dark:to-blue-500/90 text-white border border-blue-300/40 dark:border-blue-400/40 rounded-xl hover:bg-gradient-to-br hover:from-blue-600/90 hover:to-blue-700/90 dark:hover:from-blue-500/90 dark:hover:to-blue-600/90 shadow-lg hover:shadow-xl transition-all duration-300 text-left hover:scale-105 relative overflow-hidden group"
                         >
-                          <div className="font-medium">Calendar & Reminders</div>
-                          <div className="text-xs opacity-90">Event management & scheduling</div>
+                          <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 via-transparent to-blue-500/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                          <div className="relative z-10">
+                            <div className="font-medium text-sm">Calendar & Reminders</div>
+                            <div className="text-xs opacity-90">Event management & scheduling</div>
+                          </div>
                         </button>
                         <button
                           onClick={() => openAiToolsModal('contact')}
-                          className="p-3 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors duration-200 text-left"
+                          className="p-2 backdrop-blur-md bg-gradient-to-br from-purple-500/90 to-purple-600/90 dark:from-purple-400/90 dark:to-purple-500/90 text-white border border-purple-300/40 dark:border-purple-400/40 rounded-xl hover:bg-gradient-to-br hover:from-purple-600/90 hover:to-purple-700/90 dark:hover:from-purple-500/90 dark:hover:to-purple-600/90 shadow-lg hover:shadow-xl transition-all duration-300 text-left hover:scale-105 relative overflow-hidden group"
                         >
-                          <div className="font-medium">Contact Management</div>
-                          <div className="text-xs opacity-90">Contact & tag operations</div>
+                          <div className="absolute inset-0 bg-gradient-to-br from-purple-400/20 via-transparent to-purple-500/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                          <div className="relative z-10">
+                            <div className="font-medium text-sm">Contact Management</div>
+                            <div className="text-xs opacity-90">Contact & tag operations</div>
+                          </div>
                         </button>
                         <button
                           onClick={() => openAiToolsModal('database')}
-                          className="p-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors duration-200 text-left"
+                          className="p-2 backdrop-blur-md bg-gradient-to-br from-orange-500/90 to-orange-600/90 dark:from-orange-400/90 dark:to-orange-500/90 text-white border border-orange-300/40 dark:border-orange-400/40 rounded-xl hover:bg-gradient-to-br hover:from-orange-600/90 hover:to-orange-700/90 dark:hover:from-orange-500/90 dark:hover:to-orange-600/90 shadow-lg hover:shadow-xl transition-all duration-300 text-left hover:scale-105 relative overflow-hidden group"
                         >
-                          <div className="font-medium">Database & Custom Fields</div>
-                          <div className="text-xs opacity-90">Data management tools</div>
+                          <div className="absolute inset-0 bg-gradient-to-br from-orange-400/20 via-transparent to-orange-500/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                          <div className="relative z-10">
+                            <div className="font-medium text-sm">Database & Custom Fields</div>
+                            <div className="text-xs opacity-90">Data management tools</div>
+                          </div>
                         </button>
                         <button
                           onClick={() => openAiToolsModal('followUps')}
-                          className="p-3 bg-pink-500 hover:bg-pink-600 text-white rounded-lg transition-colors duration-200 text-left"
+                          className="p-2 backdrop-blur-md bg-gradient-to-br from-pink-500/90 to-pink-600/90 dark:from-pink-400/90 dark:to-pink-500/90 text-white border border-pink-300/40 dark:border-pink-400/40 rounded-xl hover:bg-gradient-to-br hover:from-pink-600/90 hover:to-pink-700/90 dark:hover:from-pink-500/90 dark:hover:to-pink-600/90 shadow-lg hover:shadow-xl transition-all duration-300 text-left hover:scale-105 relative overflow-hidden group"
                         >
-                          <div className="font-medium">Follow-Up Management</div>
-                          <div className="text-xs opacity-90">Templates & sequences</div>
+                          <div className="absolute inset-0 bg-gradient-to-br from-pink-400/20 via-transparent to-pink-500/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                          <div className="relative z-10">
+                            <div className="font-medium text-sm">Follow-Up Management</div>
+                            <div className="text-xs opacity-90">Templates & sequences</div>
+                          </div>
                         </button>
                         <button
                           onClick={() => openAiToolsModal('utility')}
-                          className="p-3 bg-teal-500 hover:bg-teal-600 text-white rounded-lg transition-colors duration-200 text-left md:col-span-2"
+                          className="p-2 backdrop-blur-md bg-gradient-to-br from-teal-500/90 to-teal-600/90 dark:from-teal-400/90 dark:to-teal-500/90 text-white border border-teal-300/40 dark:border-teal-400/40 rounded-xl hover:bg-gradient-to-br hover:from-teal-600/90 hover:to-teal-700/90 dark:hover:from-teal-500/90 dark:hover:to-teal-600/90 shadow-lg hover:shadow-xl transition-all duration-300 text-left hover:scale-105 relative overflow-hidden group col-span-2"
                         >
-                          <div className="font-medium">Utility Functions</div>
-                          <div className="text-xs opacity-90">Web search, dates & system tools</div>
+                          <div className="absolute inset-0 bg-gradient-to-br from-teal-400/20 via-transparent to-teal-500/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                          <div className="relative z-10">
+                            <div className="font-medium text-sm">Utility Functions</div>
+                            <div className="text-xs opacity-90">Web search, dates & system tools</div>
+                          </div>
                         </button>
                       </div>
                     </div>
+                    
                   )}
 
                   <div className="mb-4">
