@@ -767,12 +767,29 @@ function LoadingPage() {
           const phoneNeedingQR = statusData.phones.find(
             (phone: any) => phone.status === "qr"
           );
+          const phoneNeedingPairingCode = statusData.phones.find(
+            (phone: any) => phone.status === "pairing_code"
+          );
+          
           if (phoneNeedingQR && phoneNeedingQR.qrCode) {
             if (phoneNeedingQR.qrCode !== qrCodeImage) {
               console.log("Polling: New QR code detected, updating...");
               setQrCodeImage(phoneNeedingQR.qrCode);
               setSelectedPhoneIndex(phoneNeedingQR.phoneIndex);
               setBotStatus("qr");
+              // Clear pairing code when switching to QR
+              setPairingCode(null);
+              setShowPairingCode(false);
+            }
+          } else if (phoneNeedingPairingCode && phoneNeedingPairingCode.pairingCode) {
+            if (phoneNeedingPairingCode.pairingCode !== pairingCode) {
+              console.log("Polling: New pairing code detected, updating...");
+              setPairingCode(phoneNeedingPairingCode.pairingCode);
+              setSelectedPhoneIndex(phoneNeedingPairingCode.phoneIndex);
+              setBotStatus("pairing_code");
+              setShowPairingCode(true);
+              // Clear QR code when switching to pairing code
+              setQrCodeImage(null);
             }
           } else if (
             statusData.phones.every(
@@ -807,6 +824,20 @@ function LoadingPage() {
               );
               setQrCodeImage(statusData.qrCode);
               setBotStatus("qr");
+              // Clear pairing code when switching to QR
+              setPairingCode(null);
+              setShowPairingCode(false);
+            }
+          } else if (statusData.status === "pairing_code" && statusData.pairingCode) {
+            if (statusData.pairingCode !== pairingCode) {
+              console.log(
+                "Polling: New pairing code detected (old format), updating..."
+              );
+              setPairingCode(statusData.pairingCode);
+              setBotStatus("pairing_code");
+              setShowPairingCode(true);
+              // Clear QR code when switching to pairing code
+              setQrCodeImage(null);
             }
           } else if (
             statusData.status === "authenticated" ||
@@ -1762,7 +1793,7 @@ function LoadingPage() {
         <div className="flex flex-col items-center w-full max-w-2xl text-center px-3 py-4">
           {
             <>
-              {botStatus === "qr" ? (
+              {botStatus === "qr" || botStatus === "pairing_code" ? (
                 <>
                   {/* Main Title */}
                   <div className="mb-4">
@@ -1770,8 +1801,10 @@ function LoadingPage() {
                       Juta Web
                     </h1>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Connect your WhatsApp Business account to start managing
-                      customer conversations
+                      {botStatus === "pairing_code" 
+                        ? "Use the pairing code below to connect your WhatsApp Business account"
+                        : "Connect your WhatsApp Business account to start managing customer conversations"
+                      }
                     </p>
                   </div>
 
@@ -1781,143 +1814,207 @@ function LoadingPage() {
                       {/* Left Side - Steps */}
                       <div className="text-left">
                         <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">
-                          Steps to connect:
+                          {botStatus === "pairing_code" ? "Steps to connect with pairing code:" : "Steps to connect:"}
                         </h2>
 
                         <div className="space-y-2">
-                          <div className="flex items-start space-x-2">
-                            <div className="flex-shrink-0 w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-xs">
-                              1
-                            </div>
-                            <div>
-                              <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">
-                                Open WhatsApp on your phone
-                              </p>
-                              <p className="text-xs text-gray-600 dark:text-gray-400">
-                                Make sure you have WhatsApp installed and open
-                              </p>
-                            </div>
-                          </div>
+                          {botStatus === "pairing_code" ? (
+                            // Pairing code steps
+                            <>
+                              <div className="flex items-start space-x-2">
+                                <div className="flex-shrink-0 w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-xs">
+                                  1
+                                </div>
+                                <div>
+                                  <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">
+                                    Open WhatsApp on your phone
+                                  </p>
+                                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                                    Make sure you have WhatsApp installed and open
+                                  </p>
+                                </div>
+                              </div>
 
-                          <div className="flex items-start space-x-2">
-                            <div className="flex-shrink-0 w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-xs">
-                              2
-                            </div>
-                            <div>
-                              <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">
-                                Go to Settings
-                              </p>
-                              <p className="text-xs text-gray-600 dark:text-gray-400">
-                                Tap the three dots menu (Android) or Settings
-                                (iPhone)
-                              </p>
-                            </div>
-                          </div>
+                              <div className="flex items-start space-x-2">
+                                <div className="flex-shrink-0 w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-xs">
+                                  2
+                                </div>
+                                <div>
+                                  <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">
+                                    Go to Settings → Linked Devices
+                                  </p>
+                                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                                    Tap the three dots menu (Android) or Settings (iPhone), then "Linked Devices"
+                                  </p>
+                                </div>
+                              </div>
 
-                          <div className="flex items-start space-x-2">
-                            <div className="flex-shrink-0 w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-xs">
-                              3
-                            </div>
-                            <div>
-                              <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">
-                                Tap "Linked Devices"
-                              </p>
-                              <p className="text-xs text-gray-600 dark:text-gray-400">
-                                Then tap "Link a Device"
-                              </p>
-                            </div>
-                          </div>
+                              <div className="flex items-start space-x-2">
+                                <div className="flex-shrink-0 w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-xs">
+                                  3
+                                </div>
+                                <div>
+                                  <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">
+                                    Tap "Link with phone number"
+                                  </p>
+                                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                                    Choose the option to link with phone number instead of QR code
+                                  </p>
+                                </div>
+                              </div>
 
-                          <div className="flex items-start space-x-2">
-                            <div className="flex-shrink-0 w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-xs">
-                              4
-                            </div>
-                            <div>
-                              <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">
-                                Scan the QR code
-                              </p>
-                              <p className="text-xs text-gray-600 dark:text-gray-400">
-                                Point your phone camera at the QR code on the
-                                right
-                              </p>
-                            </div>
-                          </div>
-                        </div>
+                              <div className="flex items-start space-x-2">
+                                <div className="flex-shrink-0 w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-xs">
+                                  4
+                                </div>
+                                <div>
+                                  <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">
+                                    Enter the pairing code
+                                  </p>
+                                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                                    Type the 8-digit code shown on the right into your WhatsApp app
+                                  </p>
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            // QR code steps
+                            <>
+                              <div className="flex items-start space-x-2">
+                                <div className="flex-shrink-0 w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-xs">
+                                  1
+                                </div>
+                                <div>
+                                  <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">
+                                    Open WhatsApp on your phone
+                                  </p>
+                                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                                    Make sure you have WhatsApp installed and open
+                                  </p>
+                                </div>
+                              </div>
 
-                        {/* Alternative Method */}
-                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
-                          <button
-                            onClick={() => setShowPairingCode(!showPairingCode)}
-                            className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline text-xs font-medium"
-                          >
-                            {showPairingCode
-                              ? "Hide phone number option"
-                              : "Use phone number instead >"}
-                          </button>
+                              <div className="flex items-start space-x-2">
+                                <div className="flex-shrink-0 w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-xs">
+                                  2
+                                </div>
+                                <div>
+                                  <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">
+                                    Go to Settings
+                                  </p>
+                                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                                    Tap the three dots menu (Android) or Settings (iPhone)
+                                  </p>
+                                </div>
+                              </div>
 
-                          {showPairingCode && (
-                            <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-md">
-                              <p className="text-xs text-gray-600 dark:text-gray-300 mb-1.5">
-                                Enter your phone number to get a pairing code:
-                              </p>
-                              <input
-                                type="tel"
-                                value={
-                                  phoneNumber ||
-                                  (phones &&
-                                    phones.find(
-                                      (p) => p.phoneIndex === selectedPhoneIndex
-                                    )?.phoneInfo) ||
-                                  ""
-                                }
-                                onChange={(e) => setPhoneNumber(e.target.value)}
-                                placeholder="Enter phone number (e.g., 60123456789)"
-                                className="w-full px-2 py-1.5 border rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-600 focus:outline-none focus:border-blue-500 text-xs mb-1.5"
-                              />
-                              <button
-                                onClick={requestPairingCode}
-                                disabled={isPairingCodeLoading || !phoneNumber}
-                                className="w-full px-2 py-1.5 bg-blue-500 text-white text-xs font-semibold rounded-md hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:bg-gray-400"
-                              >
-                                {isPairingCodeLoading ? (
-                                  <span className="flex items-center justify-center">
-                                    <LoadingIcon
-                                      icon="three-dots"
-                                      className="w-3 h-3 mr-1"
-                                    />
-                                    Generating pairing code...
-                                  </span>
-                                ) : (
-                                  "Get Pairing Code"
-                                )}
-                              </button>
-                            </div>
-                          )}
+                              <div className="flex items-start space-x-2">
+                                <div className="flex-shrink-0 w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-xs">
+                                  3
+                                </div>
+                                <div>
+                                  <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">
+                                    Tap "Linked Devices"
+                                  </p>
+                                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                                    Then tap "Link a Device"
+                                  </p>
+                                </div>
+                              </div>
 
-                          {pairingCode && (
-                            <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-md">
-                              <p className="text-green-700 dark:text-green-300 font-medium mb-1 text-sm">
-                                Your pairing code:{" "}
-                                <strong className="text-xl">
-                                  {pairingCode}
-                                </strong>
-                              </p>
-                              <p className="text-xs text-green-600 dark:text-green-400">
-                                Enter this code in your WhatsApp app to
-                                authenticate.
-                              </p>
-                            </div>
+                              <div className="flex items-start space-x-2">
+                                <div className="flex-shrink-0 w-4 h-4 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-xs">
+                                  4
+                                </div>
+                                <div>
+                                  <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">
+                                    Scan the QR code
+                                  </p>
+                                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                                    Point your phone camera at the QR code on the right
+                                  </p>
+                                </div>
+                              </div>
+                            </>
                           )}
                         </div>
+
+                        {/* Alternative Method - Only show in QR mode */}
+                        {botStatus === "qr" && (
+                          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                            <button
+                              onClick={() => setShowPairingCode(!showPairingCode)}
+                              className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline text-xs font-medium"
+                            >
+                              {showPairingCode
+                                ? "Hide phone number option"
+                                : "Use phone number instead >"}
+                            </button>
+
+                            {showPairingCode && (
+                              <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-md">
+                                <p className="text-xs text-gray-600 dark:text-gray-300 mb-1.5">
+                                  Enter your phone number to get a pairing code:
+                                </p>
+                                <input
+                                  type="tel"
+                                  value={
+                                    phoneNumber ||
+                                    (phones &&
+                                      phones.find(
+                                        (p) => p.phoneIndex === selectedPhoneIndex
+                                      )?.phoneInfo) ||
+                                    ""
+                                  }
+                                  onChange={(e) => setPhoneNumber(e.target.value)}
+                                  placeholder="Enter phone number (e.g., 60123456789)"
+                                  className="w-full px-2 py-1.5 border rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-600 focus:outline-none focus:border-blue-500 text-xs mb-1.5"
+                                />
+                                <button
+                                  onClick={requestPairingCode}
+                                  disabled={isPairingCodeLoading || !phoneNumber}
+                                  className="w-full px-2 py-1.5 bg-blue-500 text-white text-xs font-semibold rounded-md hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:bg-gray-400"
+                                >
+                                  {isPairingCodeLoading ? (
+                                    <span className="flex items-center justify-center">
+                                      <LoadingIcon
+                                        icon="three-dots"
+                                        className="w-3 h-3 mr-1"
+                                      />
+                                      Generating pairing code...
+                                    </span>
+                                  ) : (
+                                    "Get Pairing Code"
+                                  )}
+                                </button>
+                              </div>
+                            )}
+
+                            {pairingCode && (
+                              <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-md">
+                                <p className="text-green-700 dark:text-green-300 font-medium mb-1 text-sm">
+                                  Your pairing code:{" "}
+                                  <strong className="text-xl">
+                                    {pairingCode}
+                                  </strong>
+                                </p>
+                                <p className="text-xs text-green-600 dark:text-green-400">
+                                  Enter this code in your WhatsApp app to
+                                  authenticate.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
 
-                      {/* Right Side - QR Code */}
+                      {/* Right Side - QR Code or Pairing Code */}
                       <div className="flex flex-col items-center">
                         {/* Connection Status */}
                         <div className="mb-2 flex items-center space-x-1.5">
                           <div
                             className={`w-2 h-2 rounded-full ${
-                              qrCodeImage
+                              qrCodeImage || pairingCode
                                 ? "bg-green-500"
                                 : wsConnected
                                 ? "bg-green-500"
@@ -1927,7 +2024,9 @@ function LoadingPage() {
                             }`}
                           ></div>
                           <span className="text-xs text-gray-600 dark:text-gray-400">
-                            {qrCodeImage
+                            {botStatus === "pairing_code" && pairingCode
+                              ? "Pairing Code Ready"
+                              : qrCodeImage
                               ? "QR Code Ready"
                               : isPolling
                               ? "Checking for updates..."
@@ -1964,59 +2063,111 @@ function LoadingPage() {
                           </div>
                         )}
 
-                        {/* QR Code Display */}
-                        {isQRLoading ? (
-                          <div className="text-center">
-                            <img
-                              alt="Loading"
-                              className="w-12 h-12 animate-spin mx-auto mb-1.5"
-                              src={logoUrl}
-                              style={{ animation: "spin 10s linear infinite" }}
-                            />
-                            <p className="text-gray-600 dark:text-gray-400 text-sm">
-                              Loading QR Code...
-                            </p>
-                          </div>
-                        ) : qrCodeImage ? (
-                          <div className="bg-white dark:bg-gray-700 p-3 rounded-lg shadow-md border-2 border-gray-100 dark:border-gray-600">
-                            <img
-                              src={qrCodeImage}
-                              alt="QR Code"
-                              className="w-32 h-32 mx-auto"
-                            />
-                            {phones && phones.length > 1 && (
-                              <p className="mt-1.5 text-xs text-gray-600 dark:text-gray-400 text-center">
-                                For:{" "}
-                                {phones.find(
-                                  (p) => p.phoneIndex === selectedPhoneIndex
-                                )?.phoneInfo || ""}
+                        {/* QR Code or Pairing Code Display */}
+                        {botStatus === "pairing_code" ? (
+                          // Pairing Code Display
+                          pairingCode ? (
+                            <div className="bg-white dark:bg-gray-700 p-6 rounded-lg shadow-md border-2 border-green-200 dark:border-green-600">
+                              <div className="text-center">
+                                <div className="mb-3">
+                                  <span className="text-3xl">📱</span>
+                                </div>
+                                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">
+                                  Your Pairing Code
+                                </h3>
+                                <div className="bg-gray-100 dark:bg-gray-600 rounded-lg p-4 mb-3">
+                                  <p className="text-3xl font-mono font-bold text-gray-800 dark:text-gray-200 tracking-wider">
+                                    {pairingCode}
+                                  </p>
+                                </div>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                  Enter this code in your WhatsApp app
+                                </p>
+                                {phones && phones.length > 1 && (
+                                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-500">
+                                    For: {phones.find((p) => p.phoneIndex === selectedPhoneIndex)?.phoneInfo || ""}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-center p-4">
+                              <div className="mb-3">
+                                <div className="w-12 h-12 mx-auto bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                                  <span className="text-2xl">📱</span>
+                                </div>
+                              </div>
+                              <p className="text-gray-600 dark:text-gray-400 text-sm">
+                                Generating pairing code...
                               </p>
-                            )}
-                          </div>
+                              <p className="text-gray-500 dark:text-gray-500 text-xs mt-1">
+                                Please wait while we prepare your authentication code
+                              </p>
+                            </div>
+                          )
                         ) : (
-                          <div className="text-center p-4">
-                            <p className="text-gray-600 dark:text-gray-400 text-sm">
-                              No QR Code available
-                            </p>
-                            <p className="text-gray-500 dark:text-gray-500 text-xs">
-                              Please try refreshing the page
-                            </p>
-                          </div>
+                          // QR Code Display
+                          isQRLoading ? (
+                            <div className="text-center">
+                              <img
+                                alt="Loading"
+                                className="w-12 h-12 animate-spin mx-auto mb-1.5"
+                                src={logoUrl}
+                                style={{ animation: "spin 10s linear infinite" }}
+                              />
+                              <p className="text-gray-600 dark:text-gray-400 text-sm">
+                                Loading QR Code...
+                              </p>
+                            </div>
+                          ) : qrCodeImage ? (
+                            <div className="bg-white dark:bg-gray-700 p-3 rounded-lg shadow-md border-2 border-gray-100 dark:border-gray-600">
+                              <img
+                                src={qrCodeImage}
+                                alt="QR Code"
+                                className="w-32 h-32 mx-auto"
+                              />
+                              {phones && phones.length > 1 && (
+                                <p className="mt-1.5 text-xs text-gray-600 dark:text-gray-400 text-center">
+                                  For:{" "}
+                                  {phones.find(
+                                    (p) => p.phoneIndex === selectedPhoneIndex
+                                  )?.phoneInfo || ""}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="text-center p-4">
+                              <p className="text-gray-600 dark:text-gray-400 text-sm">
+                                No QR Code available
+                              </p>
+                              <p className="text-gray-500 dark:text-gray-500 text-xs">
+                                Please try refreshing the page
+                              </p>
+                            </div>
+                          )
                         )}
 
                         {/* Success Message */}
-                        {qrCodeImage && (
+                        {(qrCodeImage || (botStatus === "pairing_code" && pairingCode)) && (
                           <div className="mt-2 space-y-1">
                             <div className="p-1.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-md w-full">
                               <p className="text-green-700 dark:text-green-300 font-medium text-xs text-center">
-                                ✅ QR Code Ready - Scan to Connect
+                                {botStatus === "pairing_code" 
+                                  ? "✅ Pairing Code Ready - Enter in WhatsApp"
+                                  : "✅ QR Code Ready - Scan to Connect"
+                                }
                               </p>
                             </div>
                             {isPolling && (
                               <div className="p-1 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md w-full">
                                 <p className="text-blue-700 dark:text-blue-300 text-xs text-center flex items-center justify-center space-x-1">
                                   <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse"></div>
-                                  <span>Auto-updating QR code</span>
+                                  <span>
+                                    {botStatus === "pairing_code" 
+                                      ? "Auto-updating pairing code"
+                                      : "Auto-updating QR code"
+                                    }
+                                  </span>
                                   <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse"></div>
                                 </p>
                               </div>
@@ -2028,7 +2179,7 @@ function LoadingPage() {
                   </div>
 
                   {/* Error Display */}
-                  {error && !qrCodeImage && (
+                  {error && !qrCodeImage && !(botStatus === "pairing_code" && pairingCode) && (
                     <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-md w-full max-w-xl mx-auto">
                       <div className="text-red-700 font-medium mb-1.5 text-sm">
                         Connection Error: {error}
@@ -2146,6 +2297,8 @@ function LoadingPage() {
                                           ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
                                           : phone.status === "qr"
                                           ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+                                          : phone.status === "pairing_code"
+                                          ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
                                           : phone.status === "initializing"
                                           ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
                                           : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
@@ -2154,8 +2307,9 @@ function LoadingPage() {
                                       {phone.status === "ready" && "✅ Ready"}
                                       {phone.status === "authenticated" && "✅ Connected"}
                                       {phone.status === "qr" && "🔄 Waiting for scan"}
+                                      {phone.status === "pairing_code" && "🔢 Pairing code ready"}
                                       {phone.status === "initializing" && "⏳ Starting up"}
-                                      {!["ready", "authenticated", "qr", "initializing"].includes(phone.status) && phone.status}
+                                      {!["ready", "authenticated", "qr", "pairing_code", "initializing"].includes(phone.status) && phone.status}
                                     </span>
                                   </div>
                                 </div>
