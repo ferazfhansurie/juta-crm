@@ -32,6 +32,11 @@ const menu: Array<Menu | "divider"> = [
     //   title: "File Manager",
     // },
     {
+      icon: "Facebook",
+      pathname: "/facebook-lead-manager",
+      title: "Facebook Leads",
+    },
+    {
       icon: "Calendar",
       pathname: "/calendar",
       title: "Calendar",
