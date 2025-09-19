@@ -848,6 +848,10 @@ function Main() {
   const [showGroupContacts, setShowGroupContacts] = useState(false);
   const [showUnassignedContacts, setShowUnassignedContacts] = useState(false);
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
+  
+  // Drag and drop state variables
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [dragCounter, setDragCounter] = useState(0);
   const [reminderDate, setReminderDate] = useState<Date | null>(null);
   const [reminderText, setReminderText] = useState("");
 
@@ -3624,6 +3628,116 @@ function Main() {
         </div>
       </div>
     );
+  };
+
+  // File validation helper for drag and drop
+  const validateDroppedFile = (file: File): { isValid: boolean; fileType: string; category: 'image' | 'video' | 'document' | 'unknown' } => {
+    const fileType: string = getFileTypeFromMimeType(file.type);
+    
+    if (fileType === "Unknown") {
+      return { isValid: false, fileType, category: 'unknown' };
+    }
+
+    // Categorize supported file types
+    const imageTypes: string[] = ["JPEG", "PNG", "GIF", "WebP", "SVG"];
+    const videoTypes: string[] = ["MP4", "WebM", "OGV"];
+    const documentTypes: string[] = ["PDF", "Word", "Excel", "PowerPoint", "Text", "RTF"];
+    const archiveTypes: string[] = ["ZIP", "RAR", "7Z"];
+    const audioTypes: string[] = ["MP3", "WAV", "OGG"];
+
+    if (imageTypes.includes(fileType)) {
+      return { isValid: true, fileType, category: 'image' };
+    } else if (videoTypes.includes(fileType)) {
+      return { isValid: true, fileType, category: 'video' };
+    } else if (documentTypes.includes(fileType) || archiveTypes.includes(fileType) || audioTypes.includes(fileType)) {
+      return { isValid: true, fileType, category: 'document' };
+    }
+
+    return { isValid: false, fileType, category: 'unknown' };
+  };
+
+  // Drag and drop event handlers
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragCounter(prev => prev + 1);
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragOver(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragCounter(prev => {
+      const newCount = prev - 1;
+      if (newCount === 0) {
+        setIsDragOver(false);
+      }
+      return newCount;
+    });
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    setIsDragOver(false);
+    setDragCounter(0);
+
+    if (!selectedChatId) {
+      toast.error("Please select a contact to send files to");
+      return;
+    }
+
+    const files = Array.from(e.dataTransfer.files);
+    
+    if (files.length === 0) {
+      return;
+    }
+
+    // Process each file
+    const imageFiles: File[] = [];
+    for (const file of files) {
+      const validation = validateDroppedFile(file);
+      
+      if (!validation.isValid) {
+        toast.error(`Unsupported file type: ${file.name} (${validation.fileType})`);
+        continue;
+      }
+
+      try {
+        if (validation.category === 'image') {
+          // Collect image files to handle multiple images
+          imageFiles.push(file);
+        } else if (validation.category === 'video') {
+          // Handle video files (one at a time)
+          setSelectedVideo(file);
+          setVideoModalOpen(true);
+          break; // Only handle one video at a time
+        } else if (validation.category === 'document') {
+          // Handle document files (one at a time)
+          setSelectedDocument(file);
+          setDocumentModalOpen(true);
+          break; // Only handle one document at a time
+        }
+      } catch (error) {
+        console.error('Error processing dropped file:', error);
+        toast.error(`Failed to process file: ${file.name}`);
+      }
+    }
+
+    // Handle collected image files
+    if (imageFiles.length > 0) {
+      const imageUrls = imageFiles.map(file => URL.createObjectURL(file));
+      setPastedImageUrl(imageUrls);
+      setImageModalOpen2(true);
+    }
   };
 
   const uploadDocument = async (file: File): Promise<string> => {
@@ -12143,9 +12257,42 @@ function Main() {
 
   return (
     <div
-      className="flex flex-col md:flex-row overflow-y-auto bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 p-2"
+      className="flex flex-col md:flex-row overflow-y-auto bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 p-2 relative"
       style={{ height: "100vh" }}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
     >
+      {/* Drag and drop overlay */}
+      {isDragOver && (
+        <div className="absolute inset-0 z-50 bg-blue-500/20 backdrop-blur-sm border-4 border-dashed border-blue-500 flex items-center justify-center">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-lg text-center max-w-md mx-4">
+            <Lucide icon="Upload" className="w-16 h-16 text-blue-500 mx-auto mb-4" />
+            <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-2">
+              Drop files here to upload
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              Supported file types:
+            </p>
+            <div className="grid grid-cols-1 gap-2 text-sm text-gray-600 dark:text-gray-400">
+              <div className="flex items-center gap-2">
+                <Lucide icon="Image" className="w-4 h-4 text-blue-500" />
+                <span>Images: JPEG, PNG, GIF, WebP, SVG</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Lucide icon="Video" className="w-4 h-4 text-green-500" />
+                <span>Videos: MP4, WebM, OGV</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Lucide icon="File" className="w-4 h-4 text-purple-500" />
+                <span>Documents: PDF, Word, Excel, etc.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <audio ref={audioRef} src={noti} />
       <div
         className={`flex flex-col w-full md:min-w-[30%] md:max-w-[30%] bg-gray-100 dark:bg-gray-900 border-r border-gray-300 dark:border-gray-700 ${
