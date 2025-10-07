@@ -28,6 +28,7 @@ import "react-pdf/dist/esm/Page/AnnotationLayer.css";
 import Tippy from "@/components/Base/Tippy";
 import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 import { ReactMic } from "react-mic";
+import AutoReplyModal from "@/components/AutoReplyModal";
 import { useNavigate } from "react-router-dom";
 import noti from "../../assets/audio/noti.mp3";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
@@ -848,6 +849,8 @@ function Main() {
   const [showGroupContacts, setShowGroupContacts] = useState(false);
   const [showUnassignedContacts, setShowUnassignedContacts] = useState(false);
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
+  const [isAutoReplyModalOpen, setIsAutoReplyModalOpen] = useState(false);
+  const [isAutoReplyLoading, setIsAutoReplyLoading] = useState(false);
   
   // Drag and drop state variables
   const [isDragOver, setIsDragOver] = useState(false);
@@ -1280,6 +1283,59 @@ function Main() {
       console.error("Error fetching quota by email:", error);
       toast.error("Error fetching quota information");
       return null;
+    }
+  };
+
+  // Function to trigger manual auto-reply
+  const handleTriggerAutoReply = async (autoReplyHours: number) => {
+    try {
+      setIsAutoReplyLoading(true);
+      
+      if (!companyId) {
+        toast.error("Company ID not found");
+        return;
+      }
+
+      console.log(`Triggering auto-reply for company ${companyId} with ${autoReplyHours} hours`);
+
+      const response = await fetch(
+        `${baseUrl}/api/manual-sync-auto-reply/${companyId}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            autoReplyHours: autoReplyHours,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to trigger auto-reply");
+      }
+
+      const responseData = await response.json();
+      
+      if (responseData.success) {
+        toast.success(
+          `Auto-reply triggered successfully! ${responseData.processedCount || 0} messages processed.`
+        );
+        setIsAutoReplyModalOpen(false);
+      } else {
+        throw new Error(responseData.error || "Failed to trigger auto-reply");
+      }
+    } catch (error) {
+      console.error("Error triggering auto-reply:", error);
+      toast.error(
+        "Failed to trigger auto-reply: " +
+          (error instanceof Error ? error.message : String(error))
+      );
+    } finally {
+      setIsAutoReplyLoading(false);
     }
   };
 
@@ -15416,12 +15472,12 @@ function Main() {
                     </div>
                   </button>
                   <button
-                    onClick={() => setIsSearchModalOpen(true)}
-                    className="bg-white/30 hover:bg-white/50 dark:bg-gray-700/30 dark:hover:bg-gray-600/50 text-gray-800 dark:text-gray-200 font-semibold py-5 px-10 rounded-2xl transition-all duration-300 border border-white/50 dark:border-gray-600/50 shadow-lg hover:shadow-xl backdrop-blur-md hover:scale-105 transform"
+                    onClick={() => setIsAutoReplyModalOpen(true)}
+                    className="bg-gradient-to-r from-purple-500/80 to-indigo-600/80 hover:from-purple-600/90 hover:to-indigo-700/90 text-white font-semibold py-5 px-10 rounded-2xl transition-all duration-300 border border-purple-400/50 dark:border-purple-300/50 shadow-lg hover:shadow-xl backdrop-blur-md hover:scale-105 transform"
                   >
                     <div className="flex items-center space-x-3">
-                      <Lucide icon="Search" className="w-5 h-5" />
-                      <span>Search Contacts</span>
+                      <Lucide icon="Zap" className="w-5 h-5" />
+                      <span>Trigger Auto-Reply</span>
                     </div>
                   </button>
                   <button
@@ -19172,6 +19228,14 @@ function Main() {
           </div>
         </div>
       )}
+
+      {/* Auto-Reply Modal */}
+      <AutoReplyModal
+        isOpen={isAutoReplyModalOpen}
+        onClose={() => setIsAutoReplyModalOpen(false)}
+        onTrigger={handleTriggerAutoReply}
+        isLoading={isAutoReplyLoading}
+      />
       
    
     </div>
