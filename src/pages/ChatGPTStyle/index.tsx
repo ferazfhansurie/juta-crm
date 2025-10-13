@@ -193,7 +193,7 @@ const Main: React.FC = () => {
 
     try {
       // Always use WSS for ngrok HTTPS tunnel
-      const wsUrl = `wss://juta-dev.ngrok.dev/ws/chatgpt/${userEmail}/${companyId}`;
+      const wsUrl = `wss://bisnesgpt.serveo.net/ws/chatgpt/${userEmail}/${companyId}`;
 
       ws.current = new WebSocket(wsUrl);
 

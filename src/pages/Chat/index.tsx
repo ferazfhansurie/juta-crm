@@ -5672,7 +5672,7 @@ function Main() {
         console.log("🔗 [WEBSOCKET] User email:", userEmail);
 
         // Create WebSocket connection with proper protocol handling
-        const wsUrl = `wss://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`;
+        const wsUrl = `wss://bisnesgpt.serveo.net/ws/${userEmail}/${companyId}`;
         console.log("🔗 [WEBSOCKET] WebSocket URL:", wsUrl);
         ws = new WebSocket(wsUrl);
         setWsConnection(ws);
@@ -11776,7 +11776,7 @@ function Main() {
         sleepDuration: activateSleep ? sleepDuration : null,
       };
 
-      // Make API call to juta-dev.ngrok.dev
+      // Make API call to bisnesgpt.serveo.net
       const response = await axios.post(
         `${apiUrl}/api/schedule-message/${companyId}`,
         scheduledMessageData
