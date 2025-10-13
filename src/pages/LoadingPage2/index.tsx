@@ -598,8 +598,8 @@ function LoadingPage2() {
 
           // Connect to WebSocket with proper protocol handling
           let wsUrl = window.location.protocol === 'https:' 
-            ? `wss://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`
-            : `ws://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`;
+            ? `wss://bisnesgpt.serveo.net/ws/${userEmail}/${companyId}`
+            : `ws://bisnesgpt.serveo.net/ws/${userEmail}/${companyId}`;
           
           console.log("Attempting WebSocket connection to:", wsUrl);
           console.log("User email:", userEmail);
@@ -616,8 +616,8 @@ function LoadingPage2() {
             
             // Try alternative WebSocket URL if first fails
             const alternativeUrl = wsUrl.includes('wss://') 
-              ? `ws://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`
-              : `wss://juta-dev.ngrok.dev/ws/${userEmail}/${companyId}`;
+              ? `ws://bisnesgpt.serveo.net/ws/${userEmail}/${companyId}`
+              : `wss://bisnesgpt.serveo.net/ws/${userEmail}/${companyId}`;
             
             console.log("Trying alternative WebSocket URL:", alternativeUrl);
             try {

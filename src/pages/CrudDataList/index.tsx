@@ -4076,7 +4076,7 @@ function Main() {
         multiple: multiple,
       };
 
-      // Make API call to juta-dev.ngrok.dev
+      // Make API call to bisnesgpt.serveo.net
       const response = await axios.post(
         `${baseUrl}/api/schedule-message/${companyId}`,
         scheduledMessageData
