@@ -56,7 +56,7 @@ interface BotStatusResponse {
 }
 
 function LoadingPage2() {
-  const baseUrl = "https://juta-dev.ngrok.dev";
+  const baseUrl = "https://bisnesgpt.serveo.net";
   const [progress, setProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -139,7 +139,7 @@ function LoadingPage2() {
 
       // Get user config to get companyId
       const userResponse = await fetch(
-        `https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(
+        `https://bisnesgpt.serveo.net/api/user/config?email=${encodeURIComponent(
           userEmail
         )}`,
         {
@@ -161,7 +161,7 @@ function LoadingPage2() {
 
       // Get all bot status and company data in one call
       const statusResponse = await fetch(
-        `https://juta-dev.ngrok.dev/api/bot-status/${companyId}`,
+        `https://bisnesgpt.serveo.net/api/bot-status/${companyId}`,
         {
           method: "GET",
           headers: {
@@ -392,7 +392,7 @@ function LoadingPage2() {
 
       // Get user config to get companyId
       const userResponse = await fetch(
-        `https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`,
+        `https://bisnesgpt.serveo.net/api/user/config?email=${encodeURIComponent(userEmail)}`,
         {
           method: "GET",
           headers: {
@@ -410,7 +410,7 @@ function LoadingPage2() {
       const userData = await userResponse.json();
       const companyId = userData.company_id;
 
-      const response = await fetch('https://juta-dev.ngrok.dev/api/bots/reinitialize', {
+      const response = await fetch('https://bisnesgpt.serveo.net/api/bots/reinitialize', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -556,7 +556,7 @@ function LoadingPage2() {
 
           // Get company ID from SQL database
           const response = await fetch(
-            `https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(
+            `https://bisnesgpt.serveo.net/api/user/config?email=${encodeURIComponent(
               userEmail
             )}`
           );
@@ -570,7 +570,7 @@ function LoadingPage2() {
           // Test if WebSocket endpoint is accessible
           console.log("Testing WebSocket endpoint accessibility...");
           try {
-            const testResponse = await fetch(`https://juta-dev.ngrok.dev/api/health`, { 
+            const testResponse = await fetch(`https://bisnesgpt.serveo.net/api/health`, { 
               method: 'GET',
               mode: 'cors'
             });

@@ -106,7 +106,7 @@ export const ConfigProvider = ({ children }: { children: ReactNode }) => {
 
         // Fetch user data from Neon database using user-company-data endpoint
         const userResponse = await fetch(
-          `https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
+          `https://bisnesgpt.serveo.net/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
           {
             method: "GET",
             headers: {

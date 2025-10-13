@@ -101,7 +101,7 @@ async function fetchConfigFromDatabase() {
 
   try {
     // Fetch user data from SQL database
-    const response = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+    const response = await fetch(`https://bisnesgpt.serveo.net/api/user/config?email=${encodeURIComponent(userEmail)}`, {
       method: 'GET',
       headers: { 
         'Content-Type': 'application/json'
@@ -128,7 +128,7 @@ async function fetchConfigFromDatabase() {
     }
 
     // Fetch company data
-    const companyResponse = await fetch(`https://juta-dev.ngrok.dev/api/companies/${companyId}`, {
+    const companyResponse = await fetch(`https://bisnesgpt.serveo.net/api/companies/${companyId}`, {
       method: 'GET',
       headers: { 
         'Content-Type': 'application/json',

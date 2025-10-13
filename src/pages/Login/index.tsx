@@ -37,7 +37,7 @@ function Main() {
     setError("");
     try {
       console.log('Sending login request with:', { email });
-      const response = await fetch('https://juta-dev.ngrok.dev/api/login', {
+      const response = await fetch('https://bisnesgpt.serveo.net/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),

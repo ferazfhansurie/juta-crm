@@ -187,7 +187,7 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
 
     try {
       const userResponse = await fetch(
-        `https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
+        `https://bisnesgpt.serveo.net/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
         {
           method: "GET",
           headers: {
@@ -229,7 +229,7 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
       console.log('Fetching company config for company ID:', companyId);
 
       // Use the same endpoint as the main application to get company data
-      const response = await axios.get(`https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
+      const response = await axios.get(`https://bisnesgpt.serveo.net/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
 
       if (response.status === 200) {
         const { companyData } = response.data;
@@ -276,7 +276,7 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
         if (!apiKey) {
           console.log('API key not found in company data, trying company-config endpoint...');
           try {
-            const configResponse = await axios.get(`https://juta-dev.ngrok.dev/api/company-config/${companyId}`);
+            const configResponse = await axios.get(`https://bisnesgpt.serveo.net/api/company-config/${companyId}`);
             if (configResponse.data.openaiApiKey) {
               apiKey = configResponse.data.openaiApiKey;
               console.log('API key fetched from company-config endpoint');
@@ -465,13 +465,13 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
 
       // Get company ID
       const userResponse = await axios.get(
-        `https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`
+        `https://bisnesgpt.serveo.net/api/user-company-data?email=${encodeURIComponent(userEmail)}`
       );
       const companyId = userResponse.data.userData.companyId;
 
       // Fetch current follow-up templates
       const templatesResponse = await axios.get(
-        `https://juta-dev.ngrok.dev/api/followup-templates?companyId=${encodeURIComponent(companyId)}`
+        `https://bisnesgpt.serveo.net/api/followup-templates?companyId=${encodeURIComponent(companyId)}`
       );
 
       if (!templatesResponse.data.success) {
@@ -486,7 +486,7 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
       for (const template of templates) {
         try {
           const messagesResponse = await axios.get(
-            `https://juta-dev.ngrok.dev/api/followup-templates/${template.templateId}/messages`
+            `https://bisnesgpt.serveo.net/api/followup-templates/${template.templateId}/messages`
           );
           
           if (messagesResponse.data.success && Array.isArray(messagesResponse.data.messages)) {
@@ -587,7 +587,7 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
       });
       
       const response = await axios.post(
-        'https://juta-dev.ngrok.dev/api/followup-brainstorm/',
+        'https://bisnesgpt.serveo.net/api/followup-brainstorm/',
         {
           message: messageText,
           email: userEmail,
@@ -821,7 +821,7 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
 
       // Get company ID first
       const userResponse = await axios.get(
-        `https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`
+        `https://bisnesgpt.serveo.net/api/user-company-data?email=${encodeURIComponent(userEmail)}`
       );
       const companyId = userResponse.data.userData.companyId;
 
@@ -1005,7 +1005,7 @@ const AIFollowupBuilder: React.FC<AIFollowupBuilderProps> = ({
     });
     
       const response = await axios.post(
-        'https://juta-dev.ngrok.dev/api/followup-save-templates/',
+        'https://bisnesgpt.serveo.net/api/followup-save-templates/',
         {
           companyId: companyId,
           email: userEmail,

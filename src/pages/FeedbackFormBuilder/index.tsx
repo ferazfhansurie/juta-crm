@@ -43,7 +43,7 @@ function FeedbackFormBuilder() {
   });
   const [companyId, setCompanyId] = useState<string>('');
   const [userEmail, setUserEmail] = useState<string>('');
-  const [baseUrl] = useState<string>('https://juta-dev.ngrok.dev');
+  const [baseUrl] = useState<string>('https://bisnesgpt.serveo.net');
 
   useEffect(() => {
     fetchUserData();

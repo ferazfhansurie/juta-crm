@@ -565,7 +565,7 @@ export const updateMonthlyAssignments = async (employeeName: string, incrementVa
     }
 
     // Fetch companyId from SQL user data via your existing API
-    const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`, {
+    const userResponse = await axios.get(`https://bisnesgpt.serveo.net/api/user-data/${userEmail}`, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }
@@ -579,7 +579,7 @@ export const updateMonthlyAssignments = async (employeeName: string, incrementVa
     const companyId = userData.company_id; // Use company_id from SQL
 
     // Call the new SQL API endpoint to update monthly assignments
-    await axios.post('https://juta-dev.ngrok.dev/api/employees/update-monthly-assignments', {
+    await axios.post('https://bisnesgpt.serveo.net/api/employees/update-monthly-assignments', {
       companyId: companyId,
       employeeName: employeeName, // This is the employee's name which serves as their identifier in the Firebase context. In SQL, it maps to the 'name' column.
       incrementValue: incrementValue
@@ -828,9 +828,9 @@ interface Tag {
     try {
       const userEmail = localStorage.getItem('userEmail');
       if (!userEmail) return;
-      const userRes = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`);
+      const userRes = await axios.get(`https://bisnesgpt.serveo.net/api/user-data/${userEmail}`);
       const companyId = userRes.data.company_id;
-      const res = await axios.get(`https://juta-dev.ngrok.dev/api/companies/${companyId}/monthly-usage`);
+      const res = await axios.get(`https://bisnesgpt.serveo.net/api/companies/${companyId}/monthly-usage`);
       const usage = res.data.usage;
   
       const labels = usage.map((row: any) => row.month);
@@ -907,7 +907,7 @@ interface Tag {
   
     try {
       // Fetch user data from SQL database
-      const response = await fetch(`https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+      const response = await fetch(`https://bisnesgpt.serveo.net/api/user/config?email=${encodeURIComponent(userEmail)}`, {
         method: 'GET',
         headers: { 
           'Content-Type': 'application/json'
@@ -933,7 +933,7 @@ interface Tag {
       }
   
       // Fetch company data
-      const companyResponse = await fetch(`https://juta-dev.ngrok.dev/api/companies/${companyId}`, {
+      const companyResponse = await fetch(`https://bisnesgpt.serveo.net/api/companies/${companyId}`, {
         method: 'GET',
         headers: { 
           'Content-Type': 'application/json',
@@ -952,7 +952,7 @@ interface Tag {
       }
   
       // Fetch contacts with replies
-   /*   const repliesResponse = await fetch(`https://juta-dev.ngrok.dev/api/companies/${companyId}/replies`, {
+   /*   const repliesResponse = await fetch(`https://bisnesgpt.serveo.net/api/companies/${companyId}/replies`, {
         method: 'GET',
         headers: { 
           'Content-Type': 'application/json',
@@ -986,7 +986,7 @@ interface Tag {
       if (!userEmail) return null;
 
       // Get companyId from user data
-      const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`, {
+      const userResponse = await axios.get(`https://bisnesgpt.serveo.net/api/user-data/${userEmail}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -995,7 +995,7 @@ interface Tag {
       if (!companyId) return null;
 
       // Get employees data
-      const employeesResponse = await axios.get(`https://juta-dev.ngrok.dev/api/employees-data/${companyId}`, {
+      const employeesResponse = await axios.get(`https://bisnesgpt.serveo.net/api/employees-data/${companyId}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -1007,7 +1007,7 @@ interface Tag {
 
       // Get contacts data
       const contactsResponse = await axios.get(
-        `https://juta-dev.ngrok.dev/api/companies/${companyId}/contacts?email=${encodeURIComponent(userEmail)}`,
+        `https://bisnesgpt.serveo.net/api/companies/${companyId}/contacts?email=${encodeURIComponent(userEmail)}`,
         {
           headers: {}
         }
@@ -1379,7 +1379,7 @@ interface Tag {
 
     try {
       // Get companyId from user data
-      const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`, {
+      const userResponse = await axios.get(`https://bisnesgpt.serveo.net/api/user-data/${userEmail}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -1392,7 +1392,7 @@ interface Tag {
 
       // Get contacts data
       const contactsResponse = await axios.get(
-        `https://juta-dev.ngrok.dev/api/companies/${companyId}/contacts?email=${encodeURIComponent(userEmail)}`,
+        `https://bisnesgpt.serveo.net/api/companies/${companyId}/contacts?email=${encodeURIComponent(userEmail)}`,
         {
           headers: {}
         }
@@ -1490,7 +1490,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
 
       try {
         // Get companyId from user data
-        const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`, {
+        const userResponse = await axios.get(`https://bisnesgpt.serveo.net/api/user-data/${userEmail}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
@@ -1503,7 +1503,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
           const loadAIDataFirst = async () => {
             try {
               console.log('🔍 Fetching AI config data...');
-              const configResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-config?email=${encodeURIComponent(userEmail)}`, {
+              const configResponse = await axios.get(`https://bisnesgpt.serveo.net/api/user-config?email=${encodeURIComponent(userEmail)}`, {
                 headers: {
                   'Authorization': `Bearer ${localStorage.getItem('token')}`
                 }
@@ -1613,7 +1613,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
     
     try {
       // Get companyId from user data
-      const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`, {
+      const userResponse = await axios.get(`https://bisnesgpt.serveo.net/api/user-data/${userEmail}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -1622,7 +1622,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       if (!companyId) return;
 
       // Get tags data
-      const tagsResponse = await axios.get(`https://juta-dev.ngrok.dev/api/companies/${companyId}/tags`, {
+      const tagsResponse = await axios.get(`https://bisnesgpt.serveo.net/api/companies/${companyId}/tags`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -1645,7 +1645,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
 
     try {
       // Get companyId from user data
-      const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`, {
+      const userResponse = await axios.get(`https://bisnesgpt.serveo.net/api/user-data/${userEmail}`, {
         headers: {}
       });
       const companyId = userResponse.data.company_id;
@@ -1653,7 +1653,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
 
       // Get contacts data
       const contactsResponse = await axios.get(
-        `https://juta-dev.ngrok.dev/api/companies/${companyId}/contacts?email=${encodeURIComponent(userEmail)}`,
+        `https://bisnesgpt.serveo.net/api/companies/${companyId}/contacts?email=${encodeURIComponent(userEmail)}`,
         {
           headers: {}
         }
@@ -1933,7 +1933,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
 
     try {
       // Get companyId from user data
-      const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`, {
+      const userResponse = await axios.get(`https://bisnesgpt.serveo.net/api/user-data/${userEmail}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -1943,7 +1943,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
 
       // Get contacts data
       const contactsResponse = await axios.get(
-        `https://juta-dev.ngrok.dev/api/companies/${companyId}/contacts?email=${encodeURIComponent(userEmail)}`,
+        `https://bisnesgpt.serveo.net/api/companies/${companyId}/contacts?email=${encodeURIComponent(userEmail)}`,
         {
           headers: {}
         }
@@ -2076,9 +2076,9 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
     try {
       const userEmail = localStorage.getItem('userEmail');
       if (!userEmail) return;
-      const userRes = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`);
+      const userRes = await axios.get(`https://bisnesgpt.serveo.net/api/user-data/${userEmail}`);
       const companyId = userRes.data.company_id;
-      const res = await axios.get(`https://juta-dev.ngrok.dev/api/companies/${companyId}/scheduled-messages-summary`);
+      const res = await axios.get(`https://bisnesgpt.serveo.net/api/companies/${companyId}/scheduled-messages-summary`);
       const summary = res.data.summary;
   
       // Process into chart data
@@ -2170,12 +2170,12 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       if (!userEmail) return;
   
       // Get companyId from user-data endpoint
-      const userRes = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`);
+      const userRes = await axios.get(`https://bisnesgpt.serveo.net/api/user-data/${userEmail}`);
       const companyId = userRes.data.company_id;
       if (!companyId) return;
 
       // Use the new dashboard endpoint that provides comprehensive data
-      const dashboardRes = await axios.get(`https://juta-dev.ngrok.dev/api/dashboard/${companyId}`, {
+      const dashboardRes = await axios.get(`https://bisnesgpt.serveo.net/api/dashboard/${companyId}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -2358,7 +2358,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       console.error('Error fetching company data:', error);
       // Fallback to original method if new endpoint fails
       try {
-        const companyRes = await axios.get(`https://juta-dev.ngrok.dev/api/company-config/${companyId}`);
+        const companyRes = await axios.get(`https://bisnesgpt.serveo.net/api/company-config/${companyId}`);
         const companyData = companyRes.data.companyData;
       } catch (fallbackError) {
         console.error('Fallback fetch also failed:', fallbackError);
@@ -2374,7 +2374,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       const userEmail = localStorage.getItem('userEmail');
       if (!userEmail) return;
 
-      const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`, {
+      const userResponse = await axios.get(`https://bisnesgpt.serveo.net/api/user-data/${userEmail}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -2390,7 +2390,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       while (retryCount <= maxRetries) {
         try {
           console.log(`🔄 Attempting dashboard fetch (attempt ${retryCount + 1}/${maxRetries + 1})...`);
-          const dashboardResponse = await axios.get(`https://juta-dev.ngrok.dev/api/dashboard/${companyId}`, {
+          const dashboardResponse = await axios.get(`https://bisnesgpt.serveo.net/api/dashboard/${companyId}`, {
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('token')}`
             },
@@ -2445,7 +2445,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       // BUT only if AI data hasn't been loaded yet
       if (!aiDataLoaded) {
         try {
-          const configResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-config?email=${encodeURIComponent(userEmail)}`, {
+          const configResponse = await axios.get(`https://bisnesgpt.serveo.net/api/user-config?email=${encodeURIComponent(userEmail)}`, {
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
@@ -2516,7 +2516,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
 
       // Fetch recent activity
       try {
-        const activityResponse = await axios.get(`https://juta-dev.ngrok.dev/api/companies/${companyId}/recent-activity`, {
+        const activityResponse = await axios.get(`https://bisnesgpt.serveo.net/api/companies/${companyId}/recent-activity`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
@@ -2530,7 +2530,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
 
       // Fetch performance metrics
       try {
-        const performanceResponse = await axios.get(`https://juta-dev.ngrok.dev/api/companies/${companyId}/performance-metrics`, {
+        const performanceResponse = await axios.get(`https://bisnesgpt.serveo.net/api/companies/${companyId}/performance-metrics`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
@@ -2641,7 +2641,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       
       // Method 1: Try to get assignments from dedicated assignments endpoint
       try {
-        const assignmentsResponse = await axios.get(`https://juta-dev.ngrok.dev/api/assignments/${companyId}`, {
+        const assignmentsResponse = await axios.get(`https://bisnesgpt.serveo.net/api/assignments/${companyId}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
@@ -2657,7 +2657,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       
       // Method 2: Get contacts and analyze tags for assignments
       const contactsResponse = await axios.get(
-        `https://juta-dev.ngrok.dev/api/companies/${companyId}/contacts?email=${encodeURIComponent(userEmail)}`,
+        `https://bisnesgpt.serveo.net/api/companies/${companyId}/contacts?email=${encodeURIComponent(userEmail)}`,
         {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -2770,7 +2770,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
   const fetchEmployeesFallback = async (companyId: string) => {
     try {
       console.log('🔄 Fetching employees as fallback...');
-      const employeesResponse = await axios.get(`https://juta-dev.ngrok.dev/api/employees-data/${companyId}`, {
+      const employeesResponse = await axios.get(`https://bisnesgpt.serveo.net/api/employees-data/${companyId}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -2854,7 +2854,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       }
       
       // Get companyId from user-data endpoint
-      const userRes = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`);
+      const userRes = await axios.get(`https://bisnesgpt.serveo.net/api/user-data/${userEmail}`);
       const companyId = userRes.data.company_id;
       if (!companyId) return;
   
@@ -2869,7 +2869,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       // Try to fetch stats from the stats endpoint first
       try {
         const response = await axios.get(
-          `https://juta-dev.ngrok.dev/api/stats/${companyId}?employeeId=${employeeId}`,
+          `https://bisnesgpt.serveo.net/api/stats/${companyId}?employeeId=${employeeId}`,
           {
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -3031,7 +3031,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
         const userEmail = localStorage.getItem('userEmail');
         if (userEmail) {
           try {
-            const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`);
+            const userResponse = await axios.get(`https://bisnesgpt.serveo.net/api/user-data/${userEmail}`);
             const companyId = userResponse.data.company_id;
             if (companyId) {
               await fetchEmployeesFallback(companyId);
@@ -3054,7 +3054,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
         const userEmail = localStorage.getItem('userEmail');
         if (userEmail) {
           try {
-            const configResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-config?email=${encodeURIComponent(userEmail)}`, {
+            const configResponse = await axios.get(`https://bisnesgpt.serveo.net/api/user-config?email=${encodeURIComponent(userEmail)}`, {
               headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
               }
@@ -3152,7 +3152,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       if (!userEmail) return;
 
       // Get companyId from user data
-      const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`, {
+      const userResponse = await axios.get(`https://bisnesgpt.serveo.net/api/user-data/${userEmail}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -3161,7 +3161,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       if (!companyId) return;
 
       // Get contacts data
-      const contactsResponse = await axios.get(`https://juta-dev.ngrok.dev/api/companies/${companyId}/contacts`, {
+      const contactsResponse = await axios.get(`https://bisnesgpt.serveo.net/api/companies/${companyId}/contacts`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -3332,7 +3332,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       if (!userEmail) return;
 
       // Get companyId from user data
-      const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`, {
+      const userResponse = await axios.get(`https://bisnesgpt.serveo.net/api/user-data/${userEmail}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -3343,7 +3343,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
 
       // TODO: Replace with actual assignments API endpoint when available
       // For now, using contacts data as a placeholder
-      const contactsResponse = await axios.get(`https://juta-dev.ngrok.dev/api/companies/${companyId}/contacts`, {
+      const contactsResponse = await axios.get(`https://bisnesgpt.serveo.net/api/companies/${companyId}/contacts`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -3814,7 +3814,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       }
 
       // Get companyId from user data
-      const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`, {
+      const userResponse = await axios.get(`https://bisnesgpt.serveo.net/api/user-data/${userEmail}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -3823,7 +3823,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       if (!companyId) return;
 
       // Add tag to contact using API
-      await axios.post(`https://juta-dev.ngrok.dev/api/contacts/${companyId}/${contactId}/tags`, {
+      await axios.post(`https://bisnesgpt.serveo.net/api/contacts/${companyId}/${contactId}/tags`, {
         tags: [employeeName]
       }, {
         headers: {
@@ -3849,7 +3849,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       }
 
       // Get companyId from user data
-      const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`, {
+      const userResponse = await axios.get(`https://bisnesgpt.serveo.net/api/user-data/${userEmail}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -3858,7 +3858,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
       if (!companyId) return;
 
       // Remove tag from contact using API
-      await axios.delete(`https://juta-dev.ngrok.dev/api/contacts/${companyId}/${contactId}/tags`, {
+      await axios.delete(`https://bisnesgpt.serveo.net/api/contacts/${companyId}/${contactId}/tags`, {
         data: { tags: [employeeName] },
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -4247,7 +4247,7 @@ setEngagementScore(Number(newEngagementScore.toFixed(2)));
                         const userEmail = localStorage.getItem('userEmail');
                         if (userEmail) {
                           try {
-                            const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`);
+                            const userResponse = await axios.get(`https://bisnesgpt.serveo.net/api/user-data/${userEmail}`);
                             const companyId = userResponse.data.company_id;
                             if (companyId) {
                               console.log('🔄 Manually refreshing employee assignments...');

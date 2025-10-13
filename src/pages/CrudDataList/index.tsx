@@ -640,7 +640,7 @@ function Main() {
     };
   });
 
-  const baseUrl = "https://juta-dev.ngrok.dev";
+  const baseUrl = "https://bisnesgpt.serveo.net";
 
   // Add this useEffect to save visible columns when they change
   useEffect(() => {
@@ -2544,7 +2544,7 @@ function Main() {
         return;
       }
       const companyData = docSnapshot.data();
-      const baseUrl = companyData.apiUrl || "https://juta-dev.ngrok.dev";
+      const baseUrl = companyData.apiUrl || "https://bisnesgpt.serveo.net";
       let message = `Hello ${
         assignedEmployee.name
       }, a new contact has been assigned to you:\n\nName: ${
@@ -4199,7 +4199,7 @@ function Main() {
       }
 
       const companyData = docSnapshot.data();
-      const baseUrl = companyData.apiUrl || "https://juta-dev.ngrok.dev";
+      const baseUrl = companyData.apiUrl || "https://bisnesgpt.serveo.net";
       const accessToken = companyData.ghl_accessToken;
       const whapiToken = companyData.whapiToken;
       const phoneNumber = id.split("+")[1];

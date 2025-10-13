@@ -9,7 +9,7 @@ import { useAppSelector } from "@/stores/hooks";
 import { selectDarkMode } from "@/stores/darkModeSlice";
 import Button from "@/components/Base/Button";
 
-const baseUrl = "https://juta-dev.ngrok.dev";
+const baseUrl = "https://bisnesgpt.serveo.net";
 
 interface ChatMessage {
   id: string;

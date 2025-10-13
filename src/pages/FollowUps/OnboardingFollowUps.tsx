@@ -202,7 +202,7 @@ const OnboardingFollowUps: React.FC = () => {
 
       // First get the company ID
       const userResponse = await axios.get(
-        `https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`
+        `https://bisnesgpt.serveo.net/api/user-company-data?email=${encodeURIComponent(userEmail)}`
       );
       
       if (!userResponse.data?.userData?.companyId) {
@@ -214,7 +214,7 @@ const OnboardingFollowUps: React.FC = () => {
       
       // Get company config to find assistant ID
       const configResponse = await axios.get(
-        `https://juta-dev.ngrok.dev/api/company-config/${companyId}`
+        `https://bisnesgpt.serveo.net/api/company-config/${companyId}`
       );
       
       if (!configResponse.data?.openaiApiKey) {
@@ -313,7 +313,7 @@ const OnboardingFollowUps: React.FC = () => {
 
       // Get company ID
       const userResponse = await axios.get(
-        `https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`
+        `https://bisnesgpt.serveo.net/api/user-company-data?email=${encodeURIComponent(userEmail)}`
       );
       
       if (!userResponse.data || !userResponse.data.userData || !userResponse.data.userData.companyId) {
@@ -345,7 +345,7 @@ const OnboardingFollowUps: React.FC = () => {
       };
 
       const templateResponse = await axios.post(
-        "https://juta-dev.ngrok.dev/api/followup-templates",
+        "https://bisnesgpt.serveo.net/api/followup-templates",
         templateData
       );
 
@@ -403,7 +403,7 @@ const OnboardingFollowUps: React.FC = () => {
           await new Promise(resolve => setTimeout(resolve, 500));
           
           const messageResponse = await axios.post(
-            `https://juta-dev.ngrok.dev/api/followup-templates/${templateId}/messages`,
+            `https://bisnesgpt.serveo.net/api/followup-templates/${templateId}/messages`,
             messageData
           );
 

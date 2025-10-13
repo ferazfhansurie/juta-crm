@@ -51,7 +51,7 @@ interface FeedbackResponse {
 export class DataImportService {
   private baseUrl: string;
 
-  constructor(baseUrl: string = 'https://juta-dev.ngrok.dev') {
+  constructor(baseUrl: string = 'https://bisnesgpt.serveo.net') {
     this.baseUrl = baseUrl;
   }
 

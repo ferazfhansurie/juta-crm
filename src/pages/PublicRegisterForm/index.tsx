@@ -8,7 +8,7 @@ function PublicRegisterForm() {
   const navigate = useNavigate();
   const { phone } = useParams<{ phone: string }>();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [baseUrl] = useState<string>('https://juta-dev.ngrok.dev');
+  const [baseUrl] = useState<string>('https://bisnesgpt.serveo.net');
   
   // Add error state for better error handling
   const [errors, setErrors] = useState<string[]>([]);

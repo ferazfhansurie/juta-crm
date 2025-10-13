@@ -12,7 +12,7 @@ import { generateCertificate } from "@/utils/pdfCert";
 import axios from "axios";
 
 // Database API base URL
-const baseUrl = "https://juta-dev.ngrok.dev";
+const baseUrl = "https://bisnesgpt.serveo.net";
 
 // Data interfaces
 interface Event {

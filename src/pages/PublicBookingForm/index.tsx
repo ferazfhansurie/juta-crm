@@ -120,7 +120,7 @@ function PublicBookingForm() {
   const [employees, setEmployees] = useState<any[]>([]);
   const [baseUrl] = useState(() => {
     // Use environment variable or fallback to development URL
-    return import.meta.env.VITE_API_BASE_URL || 'https://juta-dev.ngrok.dev';
+    return import.meta.env.VITE_API_BASE_URL || 'https://bisnesgpt.serveo.net';
   });
   const [isBooked, setIsBooked] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<string>('');

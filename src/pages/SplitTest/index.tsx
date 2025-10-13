@@ -60,7 +60,7 @@ const SplitTest: React.FC = () => {
     try {
       // Get user config to get companyId
       const userResponse = await fetch(
-        `https://juta-dev.ngrok.dev/api/user/config?email=${encodeURIComponent(
+        `https://bisnesgpt.serveo.net/api/user/config?email=${encodeURIComponent(
           userEmail
         )}`,
         {
@@ -99,7 +99,7 @@ const SplitTest: React.FC = () => {
       }
 
       const response = await axios.get(
-        `https://juta-dev.ngrok.dev/api/user-company-data?email=${encodeURIComponent(
+        `https://bisnesgpt.serveo.net/api/user-company-data?email=${encodeURIComponent(
           userEmail
         )}`
       );
@@ -109,7 +109,7 @@ const SplitTest: React.FC = () => {
         console.log(companyData);
         
         const response2 = await axios.get(
-          `https://juta-dev.ngrok.dev/api/company-config/${companyId}`
+          `https://bisnesgpt.serveo.net/api/company-config/${companyId}`
         );
 
         const { openaiApiKey } = response2.data;
@@ -129,7 +129,7 @@ const SplitTest: React.FC = () => {
     try {
       // Fetch variations from backend API
       const response = await axios.get(
-        `https://juta-dev.ngrok.dev/api/split-test/variations?companyId=${companyId}`
+        `https://bisnesgpt.serveo.net/api/split-test/variations?companyId=${companyId}`
       );
       
       if (response.status === 200) {
@@ -196,7 +196,7 @@ const SplitTest: React.FC = () => {
     
     try {
       const response = await axios.post(
-        "https://juta-dev.ngrok.dev/api/split-test/variations",
+        "https://bisnesgpt.serveo.net/api/split-test/variations",
         {
           companyId,
           variations: variations.map(v => ({
@@ -267,7 +267,7 @@ const SplitTest: React.FC = () => {
     
     try {
       const response = await axios.delete(
-        `https://juta-dev.ngrok.dev/api/split-test/variations/${variationId}?companyId=${companyId}`
+        `https://bisnesgpt.serveo.net/api/split-test/variations/${variationId}?companyId=${companyId}`
       );
       
       if (response.status === 200) {
@@ -287,7 +287,7 @@ const SplitTest: React.FC = () => {
     
     try {
       const response = await axios.patch(
-        `https://juta-dev.ngrok.dev/api/split-test/variations/${variationId}/toggle`,
+        `https://bisnesgpt.serveo.net/api/split-test/variations/${variationId}/toggle`,
         { companyId }
       );
       

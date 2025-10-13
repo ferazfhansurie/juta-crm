@@ -40,7 +40,7 @@ function PublicAttendanceForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState(phone || '');
   const [isConfirmed, setIsConfirmed] = useState(false);
-  const [baseUrl] = useState<string>('https://juta-dev.ngrok.dev');
+  const [baseUrl] = useState<string>('https://bisnesgpt.serveo.net');
 
   useEffect(() => {
     if (eventTitle) {

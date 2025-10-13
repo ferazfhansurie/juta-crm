@@ -2,13 +2,13 @@
 export const BACKEND_CONFIG = {
   // Development
   development: {
-    baseUrl: 'https://juta-dev.ngrok.dev',
-    apiUrl: 'https://juta-dev.ngrok.dev/api'
+    baseUrl: 'https://bisnesgpt.serveo.net',
+    apiUrl: 'https://bisnesgpt.serveo.net/api'
   },
   // Production - replace with your actual Neon backend URL
   production: {
-    baseUrl: 'https://juta-dev.ngrok.dev',
-    apiUrl: 'https://juta-dev.ngrok.dev/api'
+    baseUrl: 'https://bisnesgpt.serveo.net',
+    apiUrl: 'https://bisnesgpt.serveo.net/api'
   }
 };
 

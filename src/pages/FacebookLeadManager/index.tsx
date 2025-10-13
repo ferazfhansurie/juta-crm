@@ -81,7 +81,7 @@ function FacebookLeadManager() {
 
   // Settings states
   const [globalWelcomeMessage, setGlobalWelcomeMessage] = useState('');
-  const [webhookUrl] = useState('https://juta-dev.ngrok.dev/api/facebook-lead-webhook');
+  const [webhookUrl] = useState('https://bisnesgpt.serveo.net/api/facebook-lead-webhook');
   const [isTestingWebhook, setIsTestingWebhook] = useState(false);
 
   useEffect(() => {
@@ -102,12 +102,12 @@ function FacebookLeadManager() {
       const userEmail = localStorage.getItem('userEmail');
       
       // Get user data
-      const userResponse = await axios.get(`https://juta-dev.ngrok.dev/api/user-data/${userEmail}`);
+      const userResponse = await axios.get(`https://bisnesgpt.serveo.net/api/user-data/${userEmail}`);
       const userData = userResponse.data;
       setCompanyId(userData.company_id);
 
       // Get company settings
-      const companyConfigResponse = await axios.get(`https://juta-dev.ngrok.dev/api/company-config/${userData.company_id}`);
+      const companyConfigResponse = await axios.get(`https://bisnesgpt.serveo.net/api/company-config/${userData.company_id}`);
       const { companyData } = companyConfigResponse.data;
       setGlobalWelcomeMessage(companyData.facebook_welcome_message || 'Hi {name}! Thanks for your interest in our services. We will contact you shortly.');
 
@@ -124,7 +124,7 @@ function FacebookLeadManager() {
   const fetchFormMappings = async () => {
     try {
       if (!companyId) return;
-      const response = await axios.get(`https://juta-dev.ngrok.dev/api/facebook-form-mappings?company_id=${companyId}`);
+      const response = await axios.get(`https://bisnesgpt.serveo.net/api/facebook-form-mappings?company_id=${companyId}`);
       setFormMappings(response.data);
     } catch (error) {
       console.error('Error fetching form mappings:', error);
@@ -134,7 +134,7 @@ function FacebookLeadManager() {
   const fetchLeads = async () => {
     try {
       if (!companyId) return;
-      const response = await axios.get(`https://juta-dev.ngrok.dev/api/facebook-leads?company_id=${companyId}`);
+      const response = await axios.get(`https://bisnesgpt.serveo.net/api/facebook-leads?company_id=${companyId}`);
       setLeads(response.data);
     } catch (error) {
       console.error('Error fetching leads:', error);
@@ -144,7 +144,7 @@ function FacebookLeadManager() {
   const fetchAnalytics = async () => {
     try {
       if (!companyId) return;
-      const response = await axios.get(`https://juta-dev.ngrok.dev/api/facebook-lead-analytics?company_id=${companyId}`);
+      const response = await axios.get(`https://bisnesgpt.serveo.net/api/facebook-lead-analytics?company_id=${companyId}`);
       setAnalytics(response.data);
     } catch (error) {
       console.error('Error fetching analytics:', error);
@@ -153,7 +153,7 @@ function FacebookLeadManager() {
 
   const checkFacebookTokenStatus = async () => {
     try {
-      const response = await axios.get(`https://juta-dev.ngrok.dev/api/facebook-token-status`);
+      const response = await axios.get(`https://bisnesgpt.serveo.net/api/facebook-token-status`);
       setFacebookTokenStatus({
         isValid: response.data.success,
         user: response.data.user
@@ -174,10 +174,10 @@ function FacebookLeadManager() {
       };
 
       if (editingMapping) {
-        await axios.put(`https://juta-dev.ngrok.dev/api/facebook-form-mappings/${editingMapping.id}`, mappingData);
+        await axios.put(`https://bisnesgpt.serveo.net/api/facebook-form-mappings/${editingMapping.id}`, mappingData);
         toast.success('Form mapping updated successfully!');
       } else {
-        await axios.post(`https://juta-dev.ngrok.dev/api/facebook-form-mappings`, mappingData);
+        await axios.post(`https://bisnesgpt.serveo.net/api/facebook-form-mappings`, mappingData);
         toast.success('Form mapping created successfully!');
       }
 
@@ -214,7 +214,7 @@ function FacebookLeadManager() {
   const handleDeleteMapping = async (id: number) => {
     if (window.confirm('Are you sure you want to delete this form mapping?')) {
       try {
-        await axios.delete(`https://juta-dev.ngrok.dev/api/facebook-form-mappings/${id}?company_id=${companyId}`);
+        await axios.delete(`https://bisnesgpt.serveo.net/api/facebook-form-mappings/${id}?company_id=${companyId}`);
         toast.success('Form mapping deleted successfully!');
         fetchFormMappings();
       } catch (error) {
@@ -226,7 +226,7 @@ function FacebookLeadManager() {
 
   const handleToggleMapping = async (id: number, isActive: boolean) => {
     try {
-      await axios.put(`https://juta-dev.ngrok.dev/api/facebook-form-mappings/${id}`, { 
+      await axios.put(`https://bisnesgpt.serveo.net/api/facebook-form-mappings/${id}`, { 
         is_active: !isActive,
         company_id: companyId
       });
@@ -241,7 +241,7 @@ function FacebookLeadManager() {
   const handleTestWebhook = async () => {
     setIsTestingWebhook(true);
     try {
-      await axios.post(`https://juta-dev.ngrok.dev/api/facebook-lead-webhook`, {
+      await axios.post(`https://bisnesgpt.serveo.net/api/facebook-lead-webhook`, {
         object: 'page',
         entry: [{
           id: 'test_page_id',
@@ -268,7 +268,7 @@ function FacebookLeadManager() {
 
   const handleSaveGlobalSettings = async () => {
     try {
-      await axios.put(`https://juta-dev.ngrok.dev/api/company-config/${companyId}`, {
+      await axios.put(`https://bisnesgpt.serveo.net/api/company-config/${companyId}`, {
         facebook_welcome_message: globalWelcomeMessage
       });
       toast.success('Settings saved successfully!');
@@ -286,7 +286,7 @@ function FacebookLeadManager() {
 
   const handleResendMessage = async (lead: Lead) => {
     try {
-      await axios.post(`https://juta-dev.ngrok.dev/api/resend-facebook-message`, {
+      await axios.post(`https://bisnesgpt.serveo.net/api/resend-facebook-message`, {
         lead_id: lead.id,
         company_id: companyId,
         phone: lead.phone,
@@ -304,7 +304,7 @@ function FacebookLeadManager() {
   const handleDeleteLead = async (lead: Lead) => {
     if (window.confirm(`Are you sure you want to delete the lead from ${lead.name || lead.phone}?`)) {
       try {
-        await axios.delete(`https://juta-dev.ngrok.dev/api/facebook-leads/${lead.id}?company_id=${companyId}`);
+        await axios.delete(`https://bisnesgpt.serveo.net/api/facebook-leads/${lead.id}?company_id=${companyId}`);
         toast.success('Lead deleted successfully!');
         fetchLeads(); // Refresh leads data
       } catch (error) {

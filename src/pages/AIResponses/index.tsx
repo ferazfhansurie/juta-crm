@@ -141,7 +141,7 @@ function AIResponses() {
   const [tagActionMode, setTagActionMode] = useState<"add" | "delete">("add");
   const [companyId, setCompanyId] = useState<string>("");
   const [apiUrl, setApiUrl] = useState<string>("");
-  const baseUrl = "https://juta-dev.ngrok.dev";
+  const baseUrl = "https://bisnesgpt.serveo.net";
   const darkMode = useAppSelector(selectDarkMode);
 
   // Fetch company ID
