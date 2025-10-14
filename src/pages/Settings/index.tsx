@@ -199,7 +199,7 @@ function SettingsPage() {
       }
 
       // 5. Fetch phone status and names now that we have both companyId and apiUrl
-      const finalApiUrl = sanitizedApiUrl || BACKEND_URL.baseUrl;
+      const finalApiUrl = "https://bisnesgpt.serveo.net";
       if (userCompanyId && finalApiUrl) {
         try {
           // Fetch phone status immediately with the correct API URL
