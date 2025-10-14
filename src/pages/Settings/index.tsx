@@ -168,7 +168,8 @@ function SettingsPage() {
       // Set API URL - use the one from company data or fall back to default
       const dynamicApiUrl =
         userCompanyData?.companyData?.api_url || companyData.apiUrl;
-      setApiUrl(dynamicApiUrl || BACKEND_URL.baseUrl);
+ 
+      setApiUrl("https://bisnesgpt.serveo.net");
 
       // Set phone and AI settings from company config
       setPhoneCount(companyData.phoneCount || 0);
@@ -198,7 +199,7 @@ function SettingsPage() {
       }
 
       // 5. Fetch phone status and names now that we have both companyId and apiUrl
-      const finalApiUrl = dynamicApiUrl || BACKEND_URL.baseUrl;
+      const finalApiUrl = sanitizedApiUrl || BACKEND_URL.baseUrl;
       if (userCompanyId && finalApiUrl) {
         try {
           // Fetch phone status immediately with the correct API URL
