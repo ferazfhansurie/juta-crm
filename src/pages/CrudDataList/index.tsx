@@ -1532,12 +1532,13 @@ function Main() {
 
   const uploadFile = async (file: File): Promise<string> => {
     try {
-      const { companyId: cId, baseUrl: apiUrl } = await getCompanyData();
+      const { companyId: cId } = await getCompanyData();
 
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch(`${apiUrl}/api/upload-media`, {
+      console.log('CrudDataList - Uploading media to:', `${baseUrl}/api/upload-media`);
+      const response = await fetch(`${baseUrl}/api/upload-media`, {
         method: "POST",
         body: formData,
       });
@@ -1547,6 +1548,7 @@ function Main() {
       }
 
       const data = await response.json();
+      console.log('CrudDataList - Upload response:', data);
       return data.url;
     } catch (error) {
       console.error("Error uploading file:", error);
@@ -5583,16 +5585,24 @@ function Main() {
   useEffect(() => {
     const fetchPhoneStatuses = async () => {
       try {
-        console.log("fetching status");
+        console.log("CrudDataList - fetching phone status for companyId:", companyId, "baseUrl:", baseUrl);
         setIsLoadingStatus(true);
 
         const botStatusResponse = await axios.get(
           `${baseUrl}/api/bot-status/${companyId}`
         );
+        console.log("CrudDataList - bot-status response:", botStatusResponse.status, botStatusResponse.data);
 
         if (botStatusResponse.status === 200) {
           const data: BotStatusResponse = botStatusResponse.data;
           let qrCodesData: QRCodeData[] = [];
+
+          console.log('CrudDataList - Processing bot-status data:', {
+            hasPhones: data.phones && Array.isArray(data.phones),
+            phoneCount: data.phoneCount,
+            hasPhoneInfo: !!data.phoneInfo,
+            status: data.status
+          });
 
           // Check if phones array exists before mapping
           if (data.phones && Array.isArray(data.phones)) {
@@ -5603,22 +5613,23 @@ function Main() {
               qrCode: phone.qrCode,
               phoneInfo: typeof phone.phoneInfo === 'string' ? phone.phoneInfo : null,
             }));
+            console.log('CrudDataList - Setting qrCodes from phones array:', qrCodesData, 'data.phones:', data.phones);
             setQrCodes(qrCodesData);
-          } else if (
-            (data.phoneCount === 1 || data.phoneCount === 0) &&
-            data.phoneInfo
-          ) {
+          } else if (data.phoneInfo && data.status) {
             // Single phone: create QRCodeData from flat structure
+            // Use phoneInfo as indicator that we have phone data (even if phoneCount is missing)
             qrCodesData = [
               {
                 phoneIndex: 0,
                 status: data.status,
-                qrCode: data.qrCode,
+                qrCode: data.qrCode || null,
                 phoneInfo: typeof data.phoneInfo === 'string' ? data.phoneInfo : null,
               },
             ];
+            console.log('CrudDataList - Setting qrCodes for single phone:', qrCodesData, 'data:', data);
             setQrCodes(qrCodesData);
           } else {
+            console.log('CrudDataList - No phone data found, setting empty qrCodes. data:', data);
             setQrCodes([]);
           }
 
@@ -5634,17 +5645,20 @@ function Main() {
           }
         }
       } catch (error) {
-        console.error("Error fetching phone statuses:", error);
+        console.error("CrudDataList - Error fetching phone statuses:", error);
       } finally {
         setIsLoadingStatus(false);
       }
     };
 
+    console.log("CrudDataList - useEffect running, companyId:", companyId, "selectedPhone:", selectedPhone);
     if (companyId) {
       fetchPhoneStatuses();
       // Refresh status every 30 seconds
       const intervalId = setInterval(fetchPhoneStatuses, 30000);
       return () => clearInterval(intervalId);
+    } else {
+      console.log("CrudDataList - Skipping fetch, no companyId");
     }
   }, [companyId, selectedPhone]);
 
@@ -9932,6 +9946,7 @@ function Main() {
                     {phoneIndex !== null && phoneNames[phoneIndex] && (() => {
                       // Find the QR code by matching phoneIndex property
                       const selectedQrCode = qrCodes.find(qr => qr.phoneIndex === phoneIndex);
+                      console.log('CrudDataList Send Blast - phoneIndex:', phoneIndex, 'qrCodes:', qrCodes, 'selectedQrCode:', selectedQrCode, 'phoneNames:', phoneNames);
                       return (
                         <div
                           className={`inline-flex items-center px-4 py-2 rounded-full text-xs font-medium backdrop-blur-sm border border-white/10 ${
