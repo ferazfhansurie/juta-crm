@@ -9881,7 +9881,8 @@ function Main() {
                         {Object.keys(phoneNames).length > 0 ? (
                           Object.keys(phoneNames).map((index) => {
                             const phoneIndexOption = parseInt(index);
-                            const qrCode = qrCodes[phoneIndexOption];
+                            // Find the QR code by matching phoneIndex property
+                            const qrCode = qrCodes.find(qr => qr.phoneIndex === phoneIndexOption);
                             const phoneInfo = qrCode?.phoneInfo || `Phone ${phoneIndexOption + 1}`;
                             const statusInfo = qrCode
                               ? getStatusInfo(qrCode.status)
@@ -9928,29 +9929,33 @@ function Main() {
                         </div>
                       )}
                     </div>
-                    {phoneIndex !== null && phoneNames[phoneIndex] && (
-                      <div
-                        className={`inline-flex items-center px-4 py-2 rounded-full text-xs font-medium backdrop-blur-sm border border-white/10 ${
-                          qrCodes[phoneIndex]
-                            ? "bg-emerald-500/20 text-emerald-300"
-                            : "bg-red-500/20 text-red-300"
-                        }`}
-                      >
-                        <Lucide
-                          icon={
-                            qrCodes[phoneIndex]
-                              ? getStatusInfo(qrCodes[phoneIndex].status).icon
-                              : "XCircle"
-                          }
-                          className="w-4 h-4 mr-2"
-                        />
-                        {qrCodes[phoneIndex]
-                          ? getStatusInfo(qrCodes[phoneIndex].status).text
-                          : isLoadingStatus
-                          ? "Checking..."
-                          : "Not Connected"}
-                      </div>
-                    )}
+                    {phoneIndex !== null && phoneNames[phoneIndex] && (() => {
+                      // Find the QR code by matching phoneIndex property
+                      const selectedQrCode = qrCodes.find(qr => qr.phoneIndex === phoneIndex);
+                      return (
+                        <div
+                          className={`inline-flex items-center px-4 py-2 rounded-full text-xs font-medium backdrop-blur-sm border border-white/10 ${
+                            selectedQrCode
+                              ? "bg-emerald-500/20 text-emerald-300"
+                              : "bg-red-500/20 text-red-300"
+                          }`}
+                        >
+                          <Lucide
+                            icon={
+                              selectedQrCode
+                                ? getStatusInfo(selectedQrCode.status).icon
+                                : "XCircle"
+                            }
+                            className="w-4 h-4 mr-2"
+                          />
+                          {selectedQrCode
+                            ? getStatusInfo(selectedQrCode.status).text
+                            : isLoadingStatus
+                            ? "Checking..."
+                            : "Not Connected"}
+                        </div>
+                      );
+                    })()}
 
                     {/* Help message when phones are not connected */}
                     {Object.keys(phoneNames).length > 0 &&
