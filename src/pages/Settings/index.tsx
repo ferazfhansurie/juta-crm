@@ -44,6 +44,9 @@ function SettingsPage() {
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [isTriggeringManualReport, setIsTriggeringManualReport] = useState(false);
 
+  // Weekly report trigger state
+  const [isTriggeringWeeklyReport, setIsTriggeringWeeklyReport] = useState(false);
+
   // New state for companyId change functionality
   const [userEmail, setUserEmail] = useState<string>("");
   const [showCompanyIdChange, setShowCompanyIdChange] = useState(false);
@@ -524,6 +527,37 @@ function SettingsPage() {
       toast.error("Failed to send report. Please try again.");
     } finally {
       setIsTriggeringManualReport(false);
+    }
+  };
+
+  const handleTriggerWeeklyReport = async () => {
+    if (!companyId) {
+      toast.error("Company ID not found");
+      return;
+    }
+
+    setIsTriggeringWeeklyReport(true);
+    try {
+      const response = await axios.post(
+        `${apiUrl}/api/weekly-report/${companyId}/trigger`,
+        {}
+      );
+      if (response.data.success) {
+        toast.success("Weekly report sent to WhatsApp group successfully!");
+      } else {
+        throw new Error(response.data.error || "Failed to send weekly report");
+      }
+    } catch (error: any) {
+      console.error("Error triggering weekly report:", error);
+      if (error.response?.status === 404) {
+        toast.error("WhatsApp client not found for this company");
+      } else if (error.response?.status === 500) {
+        toast.error("Failed to send report. Please try again.");
+      } else {
+        toast.error(error.message || "Failed to send weekly report. Please try again.");
+      }
+    } finally {
+      setIsTriggeringWeeklyReport(false);
     }
   };
 
@@ -1598,6 +1632,71 @@ function SettingsPage() {
                     )}
                   </Button>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Weekly Report Trigger Section */}
+          <div className="group relative bg-white/70 dark:bg-slate-800/70 backdrop-blur-2xl rounded-3xl border border-white/30 dark:border-slate-700/30 p-4 mb-4 shadow-2xl shadow-slate-200/20 dark:shadow-slate-900/40 transition-all duration-500 hover:shadow-3xl hover:shadow-slate-200/30 dark:hover:shadow-slate-900/60">
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 dark:from-purple-400/20 dark:to-pink-400/20 backdrop-blur-sm border border-purple-200/40 dark:border-purple-700/40">
+                <svg
+                  className="w-6 h-6 text-purple-600 dark:text-purple-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  />
+                </svg>
+              </div>
+              <h2 className="text-lg font-semibold bg-gradient-to-r from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
+                Weekly Report Trigger
+              </h2>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-gradient-to-r from-slate-50/50 to-slate-100/30 dark:from-slate-700/30 dark:to-slate-600/20 backdrop-blur-xl rounded-2xl p-4 border border-slate-200/40 dark:border-slate-600/40">
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                  Send a 7-day performance summary report to your WhatsApp group. The report includes total leads, daily average, engagement rate, qualified & hot leads, and AI-generated insights.
+                </p>
+
+                <Button
+                  variant="primary"
+                  onClick={handleTriggerWeeklyReport}
+                  disabled={isTriggeringWeeklyReport || !companyId}
+                  className="w-full group bg-gradient-to-r from-purple-500/90 to-pink-500/90 hover:from-purple-600/90 hover:to-pink-600/90 backdrop-blur-sm border-purple-400/30 shadow-xl shadow-purple-500/30 transition-all duration-300 rounded-xl px-8 py-4 hover:scale-105 transform-gpu hover:shadow-2xl hover:shadow-purple-500/40"
+                >
+                  {isTriggeringWeeklyReport ? (
+                    <div className="flex items-center justify-center space-x-3">
+                      <LoadingIcon icon="three-dots" className="w-5 h-5" />
+                      <span className="text-sm font-semibold">Sending Weekly Report...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center space-x-3">
+                      <div className="p-1.5 rounded-lg bg-white/20 backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"
+                          />
+                        </svg>
+                      </div>
+                      <span className="text-sm font-semibold">Send Weekly Summary Report</span>
+                    </div>
+                  )}
+                </Button>
               </div>
             </div>
           </div>
