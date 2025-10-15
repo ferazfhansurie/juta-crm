@@ -40,6 +40,10 @@ function SettingsPage() {
   const [autoReplyHours, setAutoReplyHours] = useState("6");
   const [isSavingAutoReply, setIsSavingAutoReply] = useState(false);
 
+  // Manual report trigger state
+  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [isTriggeringManualReport, setIsTriggeringManualReport] = useState(false);
+
   // New state for companyId change functionality
   const [userEmail, setUserEmail] = useState<string>("");
   const [showCompanyIdChange, setShowCompanyIdChange] = useState(false);
@@ -490,6 +494,36 @@ function SettingsPage() {
     } catch (error) {
       console.error("Error triggering report:", error);
       alert("Failed to trigger report");
+    }
+  };
+
+  const handleTriggerManualReport = async () => {
+    if (!selectedDate) {
+      toast.error("Please select a date first");
+      return;
+    }
+
+    setIsTriggeringManualReport(true);
+    try {
+      const response = await axios.post(
+        `${apiUrl}/api/daily-report/${companyId}/trigger`,
+        {
+          date: selectedDate,
+        }
+      );
+      if (response.data.success) {
+        toast.success(
+          `Report sent successfully for ${response.data.date}! Found ${response.data.count} contact(s).`
+        );
+        setSelectedDate(""); // Reset date after successful send
+      } else {
+        throw new Error(response.data.error);
+      }
+    } catch (error) {
+      console.error("Error triggering manual report:", error);
+      toast.error("Failed to send report. Please try again.");
+    } finally {
+      setIsTriggeringManualReport(false);
     }
   };
 
@@ -1481,6 +1515,89 @@ function SettingsPage() {
                     <span className="text-sm">Send Report Now</span>
                   </Button>
                 )}
+              </div>
+            </div>
+          </div>
+
+          {/* Manual Report Trigger Section */}
+          <div className="group relative bg-white/70 dark:bg-slate-800/70 backdrop-blur-2xl rounded-3xl border border-white/30 dark:border-slate-700/30 p-4 mb-4 shadow-2xl shadow-slate-200/20 dark:shadow-slate-900/40 transition-all duration-500 hover:shadow-3xl hover:shadow-slate-200/30 dark:hover:shadow-slate-900/60">
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 dark:from-blue-400/20 dark:to-cyan-400/20 backdrop-blur-sm border border-blue-200/40 dark:border-blue-700/40">
+                <svg
+                  className="w-6 h-6 text-blue-600 dark:text-blue-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+              </div>
+              <h2 className="text-lg font-semibold bg-gradient-to-r from-blue-600 to-cyan-600 dark:from-blue-400 dark:to-cyan-400 bg-clip-text text-transparent">
+                Manual Report Trigger
+              </h2>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-gradient-to-r from-slate-50/50 to-slate-100/30 dark:from-slate-700/30 dark:to-slate-600/20 backdrop-blur-xl rounded-2xl p-4 border border-slate-200/40 dark:border-slate-600/40">
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                  Send a daily contact report for a specific date. This is useful for generating historical reports or resending reports for specific dates.
+                </p>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Select Date
+                    </label>
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                      max={new Date().toISOString().split("T")[0]}
+                      className="w-full px-4 py-3 border border-white/20 dark:border-gray-600/30 rounded-xl backdrop-blur-sm bg-white/50 dark:bg-gray-700/50 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 font-medium shadow-lg hover:shadow-xl"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      Select a date to generate and send the contact report for that specific day
+                    </p>
+                  </div>
+
+                  <Button
+                    variant="primary"
+                    onClick={handleTriggerManualReport}
+                    disabled={isTriggeringManualReport || !selectedDate || !companyId}
+                    className="w-full group bg-gradient-to-r from-blue-500/90 to-cyan-500/90 hover:from-blue-600/90 hover:to-cyan-600/90 backdrop-blur-sm border-blue-400/30 shadow-xl shadow-blue-500/30 transition-all duration-300 rounded-xl px-8 py-4 hover:scale-105 transform-gpu hover:shadow-2xl hover:shadow-blue-500/40"
+                  >
+                    {isTriggeringManualReport ? (
+                      <div className="flex items-center justify-center space-x-3">
+                        <LoadingIcon icon="three-dots" className="w-5 h-5" />
+                        <span className="text-sm font-semibold">Sending Report...</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center space-x-3">
+                        <div className="p-1.5 rounded-lg bg-white/20 backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                            />
+                          </svg>
+                        </div>
+                        <span className="text-sm font-semibold">Send Report for Selected Date</span>
+                      </div>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
