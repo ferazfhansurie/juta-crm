@@ -44,6 +44,7 @@ interface Phone {
   phoneIndex: number;
   status: string;
   qrCode: string | null;
+  pairingCode?: string | null;
   phoneInfo: string;
 }
 
@@ -69,6 +70,7 @@ function LoadingPage() {
   const [botStatus, setBotStatus] = useState<string | null>(null);
   const [phones, setPhones] = useState<Phone[]>([]);
   const [selectedPhoneIndex, setSelectedPhoneIndex] = useState<number>(0);
+  const [isManualPhoneSelection, setIsManualPhoneSelection] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
   const ws = useRef<WebSocket | null>(null);
   const navigate = useNavigate();
@@ -299,17 +301,36 @@ function LoadingPage() {
           }
         }
 
-        // Check if any phone needs QR code
-        const phoneNeedingQR = data.phones.find(
-          (phone) => phone.status === "qr"
-        );
-        if (phoneNeedingQR && phoneNeedingQR.qrCode) {
-          console.log("Setting QR code image:", phoneNeedingQR.qrCode);
-          setQrCodeImage(phoneNeedingQR.qrCode);
-          setSelectedPhoneIndex(phoneNeedingQR.phoneIndex);
-          setBotStatus("qr");
-          console.log("QR Code image set successfully");
-        } else if (
+        // Check phones status - only auto-select if no manual selection made
+        if (!isManualPhoneSelection) {
+          const phoneNeedingQR = data.phones.find(
+            (phone) => phone.status === "qr"
+          );
+          const phoneNeedingPairingCode = data.phones.find(
+            (phone) => phone.status === "pairing_code"
+          );
+          
+          if (phoneNeedingQR && phoneNeedingQR.qrCode) {
+            console.log("Setting QR code image:", phoneNeedingQR.qrCode);
+            setQrCodeImage(phoneNeedingQR.qrCode);
+            setSelectedPhoneIndex(phoneNeedingQR.phoneIndex);
+            setBotStatus("qr");
+            setPairingCode(null);
+            console.log("QR Code image set successfully");
+          } else if (phoneNeedingPairingCode && phoneNeedingPairingCode.pairingCode) {
+            console.log("Setting pairing code:", phoneNeedingPairingCode.pairingCode);
+            setPairingCode(phoneNeedingPairingCode.pairingCode);
+            setSelectedPhoneIndex(phoneNeedingPairingCode.phoneIndex);
+            setBotStatus("pairing_code");
+            setQrCodeImage(null);
+            console.log("Pairing code set successfully");
+          } else {
+            setBotStatus(data.phones[0]?.status || "initializing");
+          }
+        }
+        
+        // Check if all phones are ready (regardless of manual selection)
+        if (
           data.phones.every(
             (phone) =>
               phone.status === "ready" || phone.status === "authenticated"
@@ -319,8 +340,6 @@ function LoadingPage() {
           setShouldFetchContacts(true);
           console.log("All phones ready, navigating to /chat");
           navigate("/chat");
-        } else {
-          setBotStatus(data.phones[0]?.status || "initializing");
         }
       } else {
         // Old format with individual properties
@@ -400,6 +419,9 @@ function LoadingPage() {
 
     setIsRefreshing(true);
     setError(""); // Clear any existing errors
+
+    // Reset manual phone selection so auto-selection can work
+    setIsManualPhoneSelection(false);
 
     // Don't clear phones array immediately - let fetchQRCode handle it
     setQrCodeImage(null);
@@ -692,19 +714,37 @@ function LoadingPage() {
     }
   };
 
+  // Helper function to get current selected phone
+  const getSelectedPhone = () => {
+    return phones && phones.find((p) => p.phoneIndex === selectedPhoneIndex);
+  };
+
   const handlePhoneSelection = (phoneIndex: number) => {
+    console.log("Manual phone selection:", phoneIndex);
     setSelectedPhoneIndex(phoneIndex);
-    const selectedPhone =
-      phones && phones.find((p) => p.phoneIndex === phoneIndex);
+    setIsManualPhoneSelection(true); // Mark as manual selection
+    
+    const selectedPhone = phones && phones.find((p) => p.phoneIndex === phoneIndex);
     if (selectedPhone?.status === "qr" && selectedPhone.qrCode) {
       setQrCodeImage(selectedPhone.qrCode);
       setBotStatus("qr");
+      setPairingCode(null); // Clear pairing code when switching to QR
+    } else if (selectedPhone?.status === "pairing_code" && selectedPhone.pairingCode) {
+      setPairingCode(selectedPhone.pairingCode);
+      setBotStatus("pairing_code");
+      setQrCodeImage(null); // Clear QR code when switching to pairing code
     } else if (
       selectedPhone?.status === "ready" ||
       selectedPhone?.status === "authenticated"
     ) {
       setQrCodeImage(null);
+      setPairingCode(null);
       setBotStatus(selectedPhone.status);
+    } else {
+      // Handle other statuses
+      setQrCodeImage(null);
+      setPairingCode(null);
+      setBotStatus(selectedPhone?.status || "initializing");
     }
   };
 
@@ -714,19 +754,29 @@ function LoadingPage() {
     }
   }, [isAuthReady]);
 
-  // Auto-select first phone that needs QR code
+  // Auto-select first phone that needs QR code (only if no manual selection made)
   useEffect(() => {
-    if (phones && phones.length > 0) {
+    if (phones && phones.length > 0 && !isManualPhoneSelection) {
       const phoneNeedingQR = phones.find((phone) => phone.status === "qr");
+      const phoneNeedingPairingCode = phones.find((phone) => phone.status === "pairing_code");
+      
       if (phoneNeedingQR) {
         setSelectedPhoneIndex(phoneNeedingQR.phoneIndex);
         if (phoneNeedingQR.qrCode) {
           setQrCodeImage(phoneNeedingQR.qrCode);
           setBotStatus("qr");
+          setPairingCode(null);
+        }
+      } else if (phoneNeedingPairingCode) {
+        setSelectedPhoneIndex(phoneNeedingPairingCode.phoneIndex);
+        if (phoneNeedingPairingCode.pairingCode) {
+          setPairingCode(phoneNeedingPairingCode.pairingCode);
+          setBotStatus("pairing_code");
+          setQrCodeImage(null);
         }
       }
     }
-  }, [phones]);
+  }, [phones, isManualPhoneSelection]);
 
   // Continuous polling useEffect for bot status
   useEffect(() => {
@@ -764,34 +814,69 @@ function LoadingPage() {
         if (statusData.phones && Array.isArray(statusData.phones)) {
           setPhones(statusData.phones);
 
-          const phoneNeedingQR = statusData.phones.find(
-            (phone: any) => phone.status === "qr"
-          );
-          const phoneNeedingPairingCode = statusData.phones.find(
-            (phone: any) => phone.status === "pairing_code"
-          );
-          
-          if (phoneNeedingQR && phoneNeedingQR.qrCode) {
-            if (phoneNeedingQR.qrCode !== qrCodeImage) {
-              console.log("Polling: New QR code detected, updating...");
-              setQrCodeImage(phoneNeedingQR.qrCode);
-              setSelectedPhoneIndex(phoneNeedingQR.phoneIndex);
-              setBotStatus("qr");
-              // Clear pairing code when switching to QR
-              setPairingCode(null);
-              setShowPairingCode(false);
+          // If user has manually selected a phone, update data for that phone only
+          if (isManualPhoneSelection) {
+            const selectedPhone = statusData.phones.find(
+              (phone: any) => phone.phoneIndex === selectedPhoneIndex
+            );
+            
+            if (selectedPhone) {
+              if (selectedPhone.status === "qr" && selectedPhone.qrCode) {
+                if (selectedPhone.qrCode !== qrCodeImage) {
+                  console.log("Polling: Updating QR code for selected phone", selectedPhoneIndex);
+                  setQrCodeImage(selectedPhone.qrCode);
+                  setBotStatus("qr");
+                  setPairingCode(null);
+                }
+              } else if (selectedPhone.status === "pairing_code" && selectedPhone.pairingCode) {
+                if (selectedPhone.pairingCode !== pairingCode) {
+                  console.log("Polling: Updating pairing code for selected phone", selectedPhoneIndex);
+                  setPairingCode(selectedPhone.pairingCode);
+                  setBotStatus("pairing_code");
+                  setQrCodeImage(null);
+                }
+              } else if (selectedPhone.status === "ready" || selectedPhone.status === "authenticated") {
+                setBotStatus(selectedPhone.status);
+                setQrCodeImage(null);
+                setPairingCode(null);
+              } else {
+                setBotStatus(selectedPhone.status || "initializing");
+                setQrCodeImage(null);
+                setPairingCode(null);
+              }
             }
-          } else if (phoneNeedingPairingCode && phoneNeedingPairingCode.pairingCode) {
-            if (phoneNeedingPairingCode.pairingCode !== pairingCode) {
-              console.log("Polling: New pairing code detected, updating...");
-              setPairingCode(phoneNeedingPairingCode.pairingCode);
-              setSelectedPhoneIndex(phoneNeedingPairingCode.phoneIndex);
-              setBotStatus("pairing_code");
-              setShowPairingCode(true);
-              // Clear QR code when switching to pairing code
-              setQrCodeImage(null);
+          } else {
+            // Auto-selection behavior (existing logic)
+            const phoneNeedingQR = statusData.phones.find(
+              (phone: any) => phone.status === "qr"
+            );
+            const phoneNeedingPairingCode = statusData.phones.find(
+              (phone: any) => phone.status === "pairing_code"
+            );
+            
+            if (phoneNeedingQR && phoneNeedingQR.qrCode) {
+              if (phoneNeedingQR.qrCode !== qrCodeImage) {
+                console.log("Polling: New QR code detected, updating...");
+                setQrCodeImage(phoneNeedingQR.qrCode);
+                setSelectedPhoneIndex(phoneNeedingQR.phoneIndex);
+                setBotStatus("qr");
+                setPairingCode(null);
+                setShowPairingCode(false);
+              }
+            } else if (phoneNeedingPairingCode && phoneNeedingPairingCode.pairingCode) {
+              if (phoneNeedingPairingCode.pairingCode !== pairingCode) {
+                console.log("Polling: New pairing code detected, updating...");
+                setPairingCode(phoneNeedingPairingCode.pairingCode);
+                setSelectedPhoneIndex(phoneNeedingPairingCode.phoneIndex);
+                setBotStatus("pairing_code");
+                setShowPairingCode(true);
+                setQrCodeImage(null);
+              }
             }
-          } else if (
+          }
+
+          // Check if all phones are ready (this applies regardless of manual selection)
+          if (
             statusData.phones.every(
               (phone: any) =>
                 phone.status === "ready" || phone.status === "authenticated"
@@ -802,7 +887,10 @@ function LoadingPage() {
             setShouldFetchContacts(true);
             navigate("/chat");
             return;
-          } else {
+          }
+          
+          // Set overall status if no specific phone is selected or ready
+          if (!isManualPhoneSelection && !statusData.phones.find((phone: any) => phone.status === "qr" || phone.status === "pairing_code")) {
             setBotStatus(statusData.phones[0]?.status || "initializing");
           }
         } else {
@@ -1808,6 +1896,43 @@ function LoadingPage() {
                     </p>
                   </div>
 
+                  {/* Phone Selection - Prominent placement above main content */}
+                  {phones && phones.length > 1 && (
+                    <div className="w-full max-w-xl mb-4">
+                      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 p-4">
+                        <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3 text-center">
+                          📱 Select Phone Number to Connect
+                        </label>
+                        <select
+                          value={selectedPhoneIndex}
+                          onChange={(e) =>
+                            handlePhoneSelection(Number(e.target.value))
+                          }
+                          className="w-full px-3 py-2.5 border-2 border-gray-300 dark:border-gray-600 rounded-lg text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-700 focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 text-sm font-medium shadow-sm transition-colors"
+                        >
+                          {phones.map((phone, index) => (
+                            <option
+                              key={phone.phoneIndex}
+                              value={phone.phoneIndex}
+                            >
+                              📞 {phone.phoneInfo} - {
+                                phone.status === "ready" ? "✅ Ready" :
+                                phone.status === "authenticated" ? "✅ Connected" :
+                                phone.status === "qr" ? "🔄 Needs QR Scan" :
+                                phone.status === "pairing_code" ? "🔢 Pairing Code Ready" :
+                                phone.status === "initializing" ? "⏳ Starting up" :
+                                phone.status
+                              }
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 text-center">
+                          Choose which phone number you want to connect to WhatsApp
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Main Content Card */}
                   <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 w-full max-w-2xl">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
@@ -2038,35 +2163,12 @@ function LoadingPage() {
                           </span>
                         </div>
 
-                        {/* Phone Selection for Multiple Phones */}
-                        {phones && phones.length > 1 && (
-                          <div className="w-full max-w-sm mb-2">
-                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1 text-center">
-                              Select Phone Number:
-                            </label>
-                            <select
-                              value={selectedPhoneIndex}
-                              onChange={(e) =>
-                                handlePhoneSelection(Number(e.target.value))
-                              }
-                              className="w-full px-2 py-1.5 border rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-600 focus:outline-none focus:border-blue-500 text-xs"
-                            >
-                              {phones.map((phone, index) => (
-                                <option
-                                  key={phone.phoneIndex}
-                                  value={phone.phoneIndex}
-                                >
-                                  {phone.phoneInfo} - {phone.status}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        )}
+
 
                         {/* QR Code or Pairing Code Display */}
                         {botStatus === "pairing_code" ? (
                           // Pairing Code Display
-                          pairingCode ? (
+                          (getSelectedPhone()?.pairingCode || pairingCode) ? (
                             <div className="bg-white dark:bg-gray-700 p-6 rounded-lg shadow-md border-2 border-green-200 dark:border-green-600">
                               <div className="text-center">
                                 <div className="mb-3">
@@ -2077,16 +2179,18 @@ function LoadingPage() {
                                 </h3>
                                 <div className="bg-gray-100 dark:bg-gray-600 rounded-lg p-4 mb-3">
                                   <p className="text-3xl font-mono font-bold text-gray-800 dark:text-gray-200 tracking-wider">
-                                    {pairingCode}
+                                    {getSelectedPhone()?.pairingCode || pairingCode}
                                   </p>
                                 </div>
                                 <p className="text-sm text-gray-600 dark:text-gray-400">
                                   Enter this code in your WhatsApp app
                                 </p>
-                                {phones && phones.length > 1 && (
-                                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-500">
-                                    For: {phones.find((p) => p.phoneIndex === selectedPhoneIndex)?.phoneInfo || ""}
-                                  </p>
+                                {phones && (
+                                  <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+                                    <p className="text-xs text-blue-700 dark:text-blue-300 font-medium text-center">
+                                      📱 For: {phones.find((p) => p.phoneIndex === selectedPhoneIndex)?.phoneInfo || `Phone ${selectedPhoneIndex + 1}`}
+                                    </p>
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -2119,20 +2223,21 @@ function LoadingPage() {
                                 Loading QR Code...
                               </p>
                             </div>
-                          ) : qrCodeImage ? (
+                          ) : (getSelectedPhone()?.qrCode || qrCodeImage) ? (
                             <div className="bg-white dark:bg-gray-700 p-3 rounded-lg shadow-md border-2 border-gray-100 dark:border-gray-600">
                               <img
-                                src={qrCodeImage}
+                                src={getSelectedPhone()?.qrCode || qrCodeImage || ""}
                                 alt="QR Code"
                                 className="w-32 h-32 mx-auto"
                               />
-                              {phones && phones.length > 1 && (
-                                <p className="mt-1.5 text-xs text-gray-600 dark:text-gray-400 text-center">
-                                  For:{" "}
-                                  {phones.find(
-                                    (p) => p.phoneIndex === selectedPhoneIndex
-                                  )?.phoneInfo || ""}
-                                </p>
+                              {phones && (
+                                <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+                                  <p className="text-xs text-blue-700 dark:text-blue-300 font-medium text-center">
+                                    📱 For: {phones.find(
+                                      (p) => p.phoneIndex === selectedPhoneIndex
+                                    )?.phoneInfo || `Phone ${selectedPhoneIndex + 1}`}
+                                  </p>
+                                </div>
                               )}
                             </div>
                           ) : (
@@ -2148,7 +2253,7 @@ function LoadingPage() {
                         )}
 
                         {/* Success Message */}
-                        {(qrCodeImage || (botStatus === "pairing_code" && pairingCode)) && (
+                        {((getSelectedPhone()?.qrCode || qrCodeImage) || (botStatus === "pairing_code" && (getSelectedPhone()?.pairingCode || pairingCode))) && (
                           <div className="mt-2 space-y-1">
                             <div className="p-1.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-md w-full">
                               <p className="text-green-700 dark:text-green-300 font-medium text-xs text-center">
@@ -2179,7 +2284,7 @@ function LoadingPage() {
                   </div>
 
                   {/* Error Display */}
-                  {error && !qrCodeImage && !(botStatus === "pairing_code" && pairingCode) && (
+                  {error && !(getSelectedPhone()?.qrCode || qrCodeImage) && !(botStatus === "pairing_code" && (getSelectedPhone()?.pairingCode || pairingCode)) && (
                     <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-md w-full max-w-xl mx-auto">
                       <div className="text-red-700 font-medium mb-1.5 text-sm">
                         Connection Error: {error}
