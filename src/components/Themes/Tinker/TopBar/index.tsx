@@ -110,7 +110,7 @@ function Main() {
   
     try {
       // Fetch user data from SQL database
-      const response = await fetch(`https://raucous-joaquin-unexamining.ngrok-free.dev/api/user/config?email=${encodeURIComponent(userEmail)}`, {
+      const response = await fetch(`https://bisnesgpt.jutateknologi.com/api/user/config?email=${encodeURIComponent(userEmail)}`, {
         method: 'GET',
         headers: { 
           'Content-Type': 'application/json'
@@ -139,7 +139,7 @@ function Main() {
       }
   
       // Fetch company data
-      const companyResponse = await fetch(`https://raucous-joaquin-unexamining.ngrok-free.dev/api/companies/${companyId}`, {
+      const companyResponse = await fetch(`https://bisnesgpt.jutateknologi.com/api/companies/${companyId}`, {
         method: 'GET',
         headers: { 
           'Content-Type': 'application/json'

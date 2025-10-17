@@ -640,7 +640,7 @@ function Main() {
     };
   });
 
-  const baseUrl = "https://raucous-joaquin-unexamining.ngrok-free.dev";
+  const baseUrl = "https://bisnesgpt.jutateknologi.com";
 
   // Add this useEffect to save visible columns when they change
   useEffect(() => {
@@ -2546,7 +2546,7 @@ function Main() {
         return;
       }
       const companyData = docSnapshot.data();
-      const baseUrl = companyData.apiUrl || "https://raucous-joaquin-unexamining.ngrok-free.dev";
+      const baseUrl = companyData.apiUrl || "https://bisnesgpt.jutateknologi.com";
       let message = `Hello ${
         assignedEmployee.name
       }, a new contact has been assigned to you:\n\nName: ${
@@ -4078,7 +4078,7 @@ function Main() {
         multiple: multiple,
       };
 
-      // Make API call to raucous-joaquin-unexamining.ngrok-free.dev
+      // Make API call to bisnesgpt.jutateknologi.com
       const response = await axios.post(
         `${baseUrl}/api/schedule-message/${companyId}`,
         scheduledMessageData
@@ -4201,7 +4201,7 @@ function Main() {
       }
 
       const companyData = docSnapshot.data();
-      const baseUrl = companyData.apiUrl || "https://raucous-joaquin-unexamining.ngrok-free.dev";
+      const baseUrl = companyData.apiUrl || "https://bisnesgpt.jutateknologi.com";
       const accessToken = companyData.ghl_accessToken;
       const whapiToken = companyData.whapiToken;
       const phoneNumber = id.split("+")[1];

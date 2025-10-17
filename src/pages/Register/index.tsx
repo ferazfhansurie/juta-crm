@@ -115,7 +115,7 @@ function Main() {
         return;
       }
       const data2 = docSnapshot.data();
-      const baseUrl = data2.apiUrl || 'https://raucous-joaquin-unexamining.ngrok-free.dev';
+      const baseUrl = data2.apiUrl || 'https://bisnesgpt.jutateknologi.com';
       const response = await fetch(`${baseUrl}/api/v2/messages/text/001/${formattedPhone}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -166,7 +166,7 @@ function Main() {
       const notificationPhone = '601121677522@s.whatsapp.net';
       const message = `🎉 New user registered!\n\nName: ${userName}\nEmail: ${userEmail}\nCompany: ${companyName}\nTime: ${new Date().toLocaleString()}`;
       
-      await fetch(`https://raucous-joaquin-unexamining.ngrok-free.dev/api/v2/messages/text/0210/${notificationPhone}`, {
+      await fetch(`https://bisnesgpt.jutateknologi.com/api/v2/messages/text/0210/${notificationPhone}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -192,11 +192,11 @@ function Main() {
       const newCompanyId = `${randomPart}${timestamp.slice(-3)}`;
 
       // Call the localhost API endpoint to create user with companyId
-      const userResponse = await axios.post(`https://raucous-joaquin-unexamining.ngrok-free.dev/api/create-user/${encodeURIComponent(email)}/${encodeURIComponent(formatPhoneNumber(phoneNumber))}/${encodeURIComponent(password)}/1/${newCompanyId}`);
+      const userResponse = await axios.post(`https://bisnesgpt.jutateknologi.com/api/create-user/${encodeURIComponent(email)}/${encodeURIComponent(formatPhoneNumber(phoneNumber))}/${encodeURIComponent(password)}/1/${newCompanyId}`);
   
             if (userResponse.data) {
         // Call the channel create endpoint with additional data
-        const channelResponse = await axios.post(`https://raucous-joaquin-unexamining.ngrok-free.dev/api/channel/create/${newCompanyId}`, {
+        const channelResponse = await axios.post(`https://bisnesgpt.jutateknologi.com/api/channel/create/${newCompanyId}`, {
           name: name,
           companyName: companyName,
           phoneNumber: formatPhoneNumber(phoneNumber),
@@ -207,7 +207,7 @@ function Main() {
         });
   
         if (channelResponse.data) {
-            const response = await fetch('https://raucous-joaquin-unexamining.ngrok-free.dev/api/login', {
+            const response = await fetch('https://bisnesgpt.jutateknologi.com/api/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),

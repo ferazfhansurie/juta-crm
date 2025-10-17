@@ -8,7 +8,7 @@ import LoadingIcon from "@/components/Base/LoadingIcon";
 import { Tab } from '@headlessui/react'
 import { useNavigate } from 'react-router-dom';
 
-const baseUrl = "https://raucous-joaquin-unexamining.ngrok-free.dev";
+const baseUrl = "https://bisnesgpt.jutateknologi.com";
 
 let companyId = "001"; // Adjust the companyId as needed
 
@@ -507,7 +507,7 @@ const Main: React.FC = () => {
 
       const threadName = customName || 'Prompt Builder Chat';
 
-      const response = await axios.post('https://raucous-joaquin-unexamining.ngrok-free.dev/api/ai-followup-builder-save-thread/save', {
+      const response = await axios.post('https://bisnesgpt.jutateknologi.com/api/ai-followup-builder-save-thread/save', {
         threadId,
         email: userEmail,
         messages: messages,
@@ -534,7 +534,7 @@ const Main: React.FC = () => {
       }
 
       console.log('Loading chat history for thread:', threadId, 'email:', userEmail);
-      const response = await axios.get(`https://raucous-joaquin-unexamining.ngrok-free.dev/api/ai-followup-builder-save-thread/${threadId}?email=${encodeURIComponent(userEmail)}`);
+      const response = await axios.get(`https://bisnesgpt.jutateknologi.com/api/ai-followup-builder-save-thread/${threadId}?email=${encodeURIComponent(userEmail)}`);
       
       console.log('Chat history response:', response.data);
       console.log('Response data structure:', {
@@ -569,7 +569,7 @@ const Main: React.FC = () => {
         return [];
       }
 
-      const response = await axios.get(`https://raucous-joaquin-unexamining.ngrok-free.dev/api/ai-followup-builder-save-thread?email=${encodeURIComponent(userEmail)}`);
+      const response = await axios.get(`https://bisnesgpt.jutateknologi.com/api/ai-followup-builder-save-thread?email=${encodeURIComponent(userEmail)}`);
       
       console.log('Backend response:', response.data);
       
@@ -622,7 +622,7 @@ const Main: React.FC = () => {
         const userEmail = localStorage.getItem("userEmail");
         if (userEmail) {
           // Delete the thread from the backend
-          await axios.delete(`https://raucous-joaquin-unexamining.ngrok-free.dev/api/ai-followup-builder-save-thread/${threadId}?email=${encodeURIComponent(userEmail)}`);
+          await axios.delete(`https://bisnesgpt.jutateknologi.com/api/ai-followup-builder-save-thread/${threadId}?email=${encodeURIComponent(userEmail)}`);
           
           // Remove the thread from local state immediately
           setAvailableThreads(prevThreads => 
@@ -824,7 +824,7 @@ const Main: React.FC = () => {
         return;
       }
 
-      const response = await axios.get(`https://raucous-joaquin-unexamining.ngrok-free.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
+      const response = await axios.get(`https://bisnesgpt.jutateknologi.com/api/user-company-data?email=${encodeURIComponent(userEmail)}`);
 
       if (response.status === 200) {
         const { companyData } = response.data;
@@ -875,7 +875,7 @@ const Main: React.FC = () => {
         }
 
         // Fetch API key from company config
-        const response2 = await axios.get(`https://raucous-joaquin-unexamining.ngrok-free.dev/api/company-config/${companyId}`);
+        const response2 = await axios.get(`https://bisnesgpt.jutateknologi.com/api/company-config/${companyId}`);
         const { openaiApiKey } = response2.data;
         setApiKey(openaiApiKey);
         console.log('API key fetched successfully');
@@ -995,7 +995,7 @@ const Main: React.FC = () => {
       }
   
       // Use the brainstorming endpoint for suggestions
-      const apiUrl = 'https://raucous-joaquin-unexamining.ngrok-free.dev';
+      const apiUrl = 'https://bisnesgpt.jutateknologi.com';
   
       // Send the full conversation history so AI remembers the context
       const conversationHistory = messages.map(msg => ({
@@ -1123,7 +1123,7 @@ const Main: React.FC = () => {
       setApplyProgress(1);
       
       // Call the apply changes API
-      const apiUrl = 'https://raucous-joaquin-unexamining.ngrok-free.dev';
+      const apiUrl = 'https://bisnesgpt.jutateknologi.com';
       
       // Smooth progress animation that increments by 1% at a time
       const progressInterval = setInterval(() => {

@@ -62,7 +62,7 @@ interface BotStatusResponse {
 }
 
 function LoadingPage() {
-  const baseUrl = "https://raucous-joaquin-unexamining.ngrok-free.dev";
+  const baseUrl = "https://bisnesgpt.jutateknologi.com";
   const [progress, setProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -184,7 +184,7 @@ function LoadingPage() {
       // Get user config to get companyId
       console.log("=== Calling /api/user/config ===");
       const userResponse = await fetch(
-        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/user/config?email=${encodeURIComponent(
+        `https://bisnesgpt.jutateknologi.com/api/user/config?email=${encodeURIComponent(
           userEmail
         )}`,
         {
@@ -228,11 +228,11 @@ function LoadingPage() {
       console.log("=== Calling /api/bot-status/${companyId} ===");
       console.log(
         "API URL:",
-        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/bot-status/${companyId}`
+        `https://bisnesgpt.jutateknologi.com/api/bot-status/${companyId}`
       );
 
       const statusResponse = await fetch(
-        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/bot-status/${companyId}`,
+        `https://bisnesgpt.jutateknologi.com/api/bot-status/${companyId}`,
         {
           method: "GET",
           headers: {
@@ -526,7 +526,7 @@ function LoadingPage() {
 
       // Get user config to get companyId
       const userResponse = await fetch(
-        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/user/config?email=${encodeURIComponent(
+        `https://bisnesgpt.jutateknologi.com/api/user/config?email=${encodeURIComponent(
           userEmail
         )}`,
         {
@@ -547,7 +547,7 @@ function LoadingPage() {
       const companyId = userData.company_id;
 
       const response = await fetch(
-        "https://raucous-joaquin-unexamining.ngrok-free.dev/api/bots/reinitialize",
+        "https://bisnesgpt.jutateknologi.com/api/bots/reinitialize",
         {
           method: "POST",
           headers: {
@@ -792,7 +792,7 @@ function LoadingPage() {
         setIsPolling(true);
 
         const statusResponse = await fetch(
-          `https://raucous-joaquin-unexamining.ngrok-free.dev/api/bot-status/${companyId}`,
+          `https://bisnesgpt.jutateknologi.com/api/bot-status/${companyId}`,
           {
             method: "GET",
             headers: {
@@ -986,7 +986,7 @@ function LoadingPage() {
           // Get company ID from SQL database
           console.log("=== WebSocket: Calling /api/user/config ===");
           const response = await fetch(
-            `https://raucous-joaquin-unexamining.ngrok-free.dev/api/user/config?email=${encodeURIComponent(
+            `https://bisnesgpt.jutateknologi.com/api/user/config?email=${encodeURIComponent(
               userEmail
             )}`
           );
@@ -1030,7 +1030,7 @@ function LoadingPage() {
           console.log("=== WebSocket: Testing endpoint accessibility ===");
           try {
             const testResponse = await fetch(
-              `https://raucous-joaquin-unexamining.ngrok-free.dev/api/health`,
+              `https://bisnesgpt.jutateknologi.com/api/health`,
               {
                 method: "GET",
                 mode: "cors",
@@ -1068,8 +1068,8 @@ function LoadingPage() {
           console.log("=== WebSocket: Constructing connection URL ===");
           let wsUrl =
             window.location.protocol === "https:"
-              ? `wss://raucous-joaquin-unexamining.ngrok-free.dev/ws/${userEmail}/${companyId}`
-              : `ws://raucous-joaquin-unexamining.ngrok-free.dev/ws/${userEmail}/${companyId}`;
+              ? `wss://bisnesgpt.jutateknologi.com/ws/${userEmail}/${companyId}`
+              : `ws://bisnesgpt.jutateknologi.com/ws/${userEmail}/${companyId}`;
 
           console.log("=== WebSocket: Connection details ===");
           console.log("Attempting WebSocket connection to:", wsUrl);
@@ -1100,8 +1100,8 @@ function LoadingPage() {
 
             // Try alternative WebSocket URL if first fails
             const alternativeUrl = wsUrl.includes("wss://")
-              ? `ws://raucous-joaquin-unexamining.ngrok-free.dev/ws/${userEmail}/${companyId}`
-              : `wss://raucous-joaquin-unexamining.ngrok-free.dev/ws/${userEmail}/${companyId}`;
+              ? `ws://bisnesgpt.jutateknologi.com/ws/${userEmail}/${companyId}`
+              : `wss://bisnesgpt.jutateknologi.com/ws/${userEmail}/${companyId}`;
 
             console.log("Trying alternative WebSocket URL:", alternativeUrl);
             try {

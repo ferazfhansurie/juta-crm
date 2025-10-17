@@ -43,7 +43,7 @@ function FeedbackFormBuilder() {
   });
   const [companyId, setCompanyId] = useState<string>('');
   const [userEmail, setUserEmail] = useState<string>('');
-  const [baseUrl] = useState<string>('https://raucous-joaquin-unexamining.ngrok-free.dev');
+  const [baseUrl] = useState<string>('https://bisnesgpt.jutateknologi.com');
 
   useEffect(() => {
     fetchUserData();

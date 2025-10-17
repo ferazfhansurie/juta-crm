@@ -40,7 +40,7 @@ function PublicAttendanceForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState(phone || '');
   const [isConfirmed, setIsConfirmed] = useState(false);
-  const [baseUrl] = useState<string>('https://raucous-joaquin-unexamining.ngrok-free.dev');
+  const [baseUrl] = useState<string>('https://bisnesgpt.jutateknologi.com');
 
   useEffect(() => {
     if (eventTitle) {

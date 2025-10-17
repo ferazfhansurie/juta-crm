@@ -17,7 +17,7 @@ const FEEDBACK_CSV_URL = "/feedback.csv";
 const AI_HORIZON_CSV_URL = "/horizon.csv";
 
 // Neon database base URL
-const baseUrl = "https://raucous-joaquin-unexamining.ngrok-free.dev";
+const baseUrl = "https://bisnesgpt.jutateknologi.com";
 
 // Helper function to get company ID
 const getCompanyId = async () => {
@@ -2311,7 +2311,7 @@ function normalizePhone(phone: string) {
       
       const data = await response.json();
       console.log("✅ Company Data Response:", data);
-      const apiUrl = "https://raucous-joaquin-unexamining.ngrok-free.dev";
+      const apiUrl = "https://bisnesgpt.jutateknologi.com";
       const companyId = data.userData.companyId;
       console.log("🔑 Company ID:", companyId);
       

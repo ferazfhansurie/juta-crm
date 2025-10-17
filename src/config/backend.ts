@@ -2,13 +2,13 @@
 export const BACKEND_CONFIG = {
   // Development
   development: {
-    baseUrl: 'https://raucous-joaquin-unexamining.ngrok-free.dev',
-    apiUrl: 'https://raucous-joaquin-unexamining.ngrok-free.dev/api'
+    baseUrl: 'https://bisnesgpt.jutateknologi.com',
+    apiUrl: 'https://bisnesgpt.jutateknologi.com/api'
   },
   // Production - replace with your actual Neon backend URL
   production: {
-    baseUrl: 'https://raucous-joaquin-unexamining.ngrok-free.dev',
-    apiUrl: 'https://raucous-joaquin-unexamining.ngrok-free.dev/api'
+    baseUrl: 'https://bisnesgpt.jutateknologi.com',
+    apiUrl: 'https://bisnesgpt.jutateknologi.com/api'
   }
 };
 
