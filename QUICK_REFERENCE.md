@@ -11,7 +11,7 @@
 
 ## API Base URL
 ```
-https://bisnesgpt.serveo.net
+https://raucous-joaquin-unexamining.ngrok-free.dev
 ```
 
 ## Authentication Flow
@@ -43,7 +43,7 @@ const companyId = config.company_id || config.id;
 ```typescript
 import axios from 'axios';
 const response = await axios.get(
-  `https://bisnesgpt.serveo.net/api/user-page-context?email=${userEmail}`
+  `https://raucous-joaquin-unexamining.ngrok-free.dev/api/user-page-context?email=${userEmail}`
 );
 ```
 
@@ -155,7 +155,7 @@ dispatch(setConfig({ companyId: '123' }));
 
 ## Environment Variables (Recommended)
 ```
-VITE_API_BASE_URL=https://bisnesgpt.serveo.net
+VITE_API_BASE_URL=https://raucous-joaquin-unexamining.ngrok-free.dev
 VITE_FIREBASE_API_KEY=...
 ```
 

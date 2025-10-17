@@ -12,9 +12,9 @@ This React application uses a combination of Firebase for authentication and rea
 
 ```typescript
 // Current Pattern - Duplicated in multiple files
-const baseUrl = "https://bisnesgpt.serveo.net"; // Main backend server
+const baseUrl = "https://raucous-joaquin-unexamining.ngrok-free.dev"; // Main backend server
 // OR
-import.meta.env.VITE_API_BASE_URL || 'https://bisnesgpt.serveo.net'
+import.meta.env.VITE_API_BASE_URL || 'https://raucous-joaquin-unexamining.ngrok-free.dev'
 ```
 
 **HTTP Clients Used**:
@@ -433,7 +433,7 @@ const handleDelete = async (employeeEmail: string) => {
 const fetchUserConfig = async (userEmail: string) => {
   try {
     const response = await fetch(
-      `https://bisnesgpt.serveo.net/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
+      `https://raucous-joaquin-unexamining.ngrok-free.dev/api/user-company-data?email=${encodeURIComponent(userEmail)}`,
       {
         method: "GET",
         headers: {
@@ -479,7 +479,7 @@ export const sendWhatsAppMessage = async ({
 
     // Send request
     const response = await fetch(
-      `https://bisnesgpt.serveo.net/api/v2/messages/text/${companyId}/${formattedContactId}`,
+      `https://raucous-joaquin-unexamining.ngrok-free.dev/api/v2/messages/text/${companyId}/${formattedContactId}`,
       {
         method: 'POST',
         headers: {
@@ -633,7 +633,7 @@ Create a single API client to avoid duplication:
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-                     'https://bisnesgpt.serveo.net';
+                     'https://raucous-joaquin-unexamining.ngrok-free.dev';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -694,7 +694,7 @@ export const userService = {
 ### 9.3 Environment Variables
 ```
 # .env.local
-VITE_API_BASE_URL=https://bisnesgpt.serveo.net
+VITE_API_BASE_URL=https://raucous-joaquin-unexamining.ngrok-free.dev
 VITE_FIREBASE_API_KEY=AIzaSyCc0oSHlqlX7fLeqqonODsOIC3XA8NI7hc
 VITE_FIREBASE_PROJECT_ID=onboarding-a5fcb
 ```

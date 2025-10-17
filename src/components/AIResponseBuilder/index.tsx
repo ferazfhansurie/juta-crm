@@ -39,7 +39,7 @@ const AIResponseBuilder: React.FC<AIResponseBuilderProps> = ({ onClose }) => {
   const [uploadedFileUrls, setUploadedFileUrls] = useState<string[]>([]);
 
   // Base URL for API calls
-  const baseUrl = 'https://bisnesgpt.serveo.net';
+  const baseUrl = 'https://raucous-joaquin-unexamining.ngrok-free.dev';
 
   // File upload functions
   const uploadFile = async (file: File): Promise<string> => {

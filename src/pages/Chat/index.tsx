@@ -729,7 +729,7 @@ function Main() {
   const [companyId, setCompanyId] = useState<string>("");
   const [currentUserRole, setCurrentUserRole] = useState<string>("");
   const [phoneOptions, setPhoneOptions] = useState<number[]>([]);
-  const [baseUrl] = useState<string>("https://bisnesgpt.serveo.net");
+  const [baseUrl] = useState<string>("https://raucous-joaquin-unexamining.ngrok-free.dev");
   const [fetching, setFetching] = useState<boolean>(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
 
@@ -3874,7 +3874,7 @@ function Main() {
             // Fetch API key from the correct endpoint
             try {
               const response2 = await axios.get(
-                `https://bisnesgpt.serveo.net/api/company-config/${data.userData.companyId}`
+                `https://raucous-joaquin-unexamining.ngrok-free.dev/api/company-config/${data.userData.companyId}`
               );
               const { openaiApiKey } = response2.data;
               console.log("API Key fetched:", openaiApiKey ? "Present" : "Missing");
@@ -5672,7 +5672,7 @@ function Main() {
         console.log("🔗 [WEBSOCKET] User email:", userEmail);
 
         // Create WebSocket connection with proper protocol handling
-        const wsUrl = `wss://bisnesgpt.serveo.net/ws/${userEmail}/${companyId}`;
+        const wsUrl = `wss://raucous-joaquin-unexamining.ngrok-free.dev/ws/${userEmail}/${companyId}`;
         console.log("🔗 [WEBSOCKET] WebSocket URL:", wsUrl);
         ws = new WebSocket(wsUrl);
         setWsConnection(ws);
@@ -8306,7 +8306,7 @@ function Main() {
 
       if (!companyResponse.ok) throw new Error("Failed to fetch company data");
       const companyData = await companyResponse.json();
-      const apiUrl = companyData.api_url || "https://bisnesgpt.serveo.net";
+      const apiUrl = companyData.api_url || "https://raucous-joaquin-unexamining.ngrok-free.dev";
 
       if (messageMode === "privateNote") {
         handleAddPrivateNote(messageText);
@@ -11776,7 +11776,7 @@ function Main() {
         sleepDuration: activateSleep ? sleepDuration : null,
       };
 
-      // Make API call to bisnesgpt.serveo.net
+      // Make API call to raucous-joaquin-unexamining.ngrok-free.dev
       const response = await axios.post(
         `${apiUrl}/api/schedule-message/${companyId}`,
         scheduledMessageData

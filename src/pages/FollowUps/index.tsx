@@ -242,7 +242,7 @@ const FollowUpsPage: React.FC = () => {
 
       // Fetch user/company info from your backend
       const userResponse = await fetch(
-        `https://bisnesgpt.serveo.net/api/user-company-data?email=${encodeURIComponent(
+        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/user-company-data?email=${encodeURIComponent(
           userEmail
         )}`,
         {
@@ -258,7 +258,7 @@ const FollowUpsPage: React.FC = () => {
 
       // Fetch tags from your SQL backend
       const tagsResponse = await fetch(
-        `https://bisnesgpt.serveo.net/api/companies/${companyId}/tags`,
+        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/companies/${companyId}/tags`,
         {
           method: "GET",
           headers: { "Content-Type": "application/json" },
@@ -353,7 +353,7 @@ const FollowUpsPage: React.FC = () => {
 
     try {
       const response = await axios.post(
-        "https://bisnesgpt.serveo.net/api/upload-media",
+        "https://raucous-joaquin-unexamining.ngrok-free.dev/api/upload-media",
         formData,
         {
           headers: {
@@ -374,7 +374,7 @@ const FollowUpsPage: React.FC = () => {
 
     try {
       const response = await axios.post(
-        "https://bisnesgpt.serveo.net/api/upload-media",
+        "https://raucous-joaquin-unexamining.ngrok-free.dev/api/upload-media",
         formData,
         {
           headers: {
@@ -395,7 +395,7 @@ const FollowUpsPage: React.FC = () => {
 
     try {
       const response = await axios.post(
-        "https://bisnesgpt.serveo.net/api/upload-media",
+        "https://raucous-joaquin-unexamining.ngrok-free.dev/api/upload-media",
         formData,
         {
           headers: {
@@ -421,7 +421,7 @@ const FollowUpsPage: React.FC = () => {
 
       // Get companyId from backend
       const userResponse = await axios.get(
-        `https://bisnesgpt.serveo.net/api/user-company-data?email=${encodeURIComponent(
+        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/user-company-data?email=${encodeURIComponent(
           userEmail
         )}`
       );
@@ -456,7 +456,7 @@ const FollowUpsPage: React.FC = () => {
       };
 
       const response = await axios.post(
-        "https://bisnesgpt.serveo.net/api/followup-templates",
+        "https://raucous-joaquin-unexamining.ngrok-free.dev/api/followup-templates",
         templateData
       );
 
@@ -565,7 +565,7 @@ const FollowUpsPage: React.FC = () => {
       console.log("Message ID:", messageId);
       
       const response = await axios.put(
-        `https://bisnesgpt.serveo.net/api/followup-templates/${template.templateId}/messages/${messageId}`,
+        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/followup-templates/${template.templateId}/messages/${messageId}`,
         updateData
       );
 
@@ -604,7 +604,7 @@ const FollowUpsPage: React.FC = () => {
       }
 
       const response = await axios.delete(
-        `https://bisnesgpt.serveo.net/api/followup-templates/${template.templateId}/messages/${messageId}`
+        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/followup-templates/${template.templateId}/messages/${messageId}`
       );
 
       if (response.data.success) {
@@ -629,7 +629,7 @@ const FollowUpsPage: React.FC = () => {
       }
 
       const response = await axios.delete(
-        `https://bisnesgpt.serveo.net/api/followup-templates/${template.templateId}`
+        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/followup-templates/${template.templateId}`
       );
 
       if (response.data.success) {
@@ -663,7 +663,7 @@ const FollowUpsPage: React.FC = () => {
 
       console.log("Fetching user company data for:", userEmail);
       const userResponse = await axios.get(
-        `https://bisnesgpt.serveo.net/api/user-company-data?email=${encodeURIComponent(
+        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/user-company-data?email=${encodeURIComponent(
           userEmail
         )}`
       );
@@ -678,7 +678,7 @@ const FollowUpsPage: React.FC = () => {
       console.log("Fetching templates for companyId:", companyId);
 
       const response = await axios.get(
-        `https://bisnesgpt.serveo.net/api/followup-templates?companyId=${encodeURIComponent(
+        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/followup-templates?companyId=${encodeURIComponent(
           companyId
         )}`
       );
@@ -728,7 +728,7 @@ const FollowUpsPage: React.FC = () => {
       }
 
       const response = await axios.get(
-        `https://bisnesgpt.serveo.net/api/followup-templates/${template.templateId}/messages`
+        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/followup-templates/${template.templateId}/messages`
       );
               console.log("Messages response:", response.data);
         if (response.data.success && Array.isArray(response.data.messages)) {
@@ -865,7 +865,7 @@ const FollowUpsPage: React.FC = () => {
 
       // Send to backend
       const response = await axios.post(
-        `https://bisnesgpt.serveo.net/api/followup-templates/${template.templateId}/messages`,
+        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/followup-templates/${template.templateId}/messages`,
         messageData
       );
 
@@ -935,7 +935,7 @@ const FollowUpsPage: React.FC = () => {
       };
 
       const response = await axios.put(
-        `https://bisnesgpt.serveo.net/api/followup-templates/${editingTemplate.templateId}`,
+        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/followup-templates/${editingTemplate.templateId}`,
         updateData
       );
 
@@ -990,7 +990,7 @@ const FollowUpsPage: React.FC = () => {
 
       // Get companyId from backend
       const userResponse = await axios.get(
-        `https://bisnesgpt.serveo.net/api/user-company-data?email=${encodeURIComponent(
+        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/user-company-data?email=${encodeURIComponent(
           userEmail
         )}`
       );
@@ -1010,7 +1010,7 @@ const FollowUpsPage: React.FC = () => {
       };
 
       const response = await axios.post(
-        "https://bisnesgpt.serveo.net/api/followup-templates",
+        "https://raucous-joaquin-unexamining.ngrok-free.dev/api/followup-templates",
         templateData
       );
 

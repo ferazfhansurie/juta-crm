@@ -37,7 +37,7 @@ function Main() {
     setError("");
     try {
       console.log('Sending login request with:', { email });
-      const response = await fetch('https://bisnesgpt.serveo.net/api/login', {
+      const response = await fetch('https://raucous-joaquin-unexamining.ngrok-free.dev/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),

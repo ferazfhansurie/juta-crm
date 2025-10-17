@@ -1100,7 +1100,7 @@ const Main: React.FC = () => {
     try {
       // Get user config to get companyId
       const userResponse = await fetch(
-        `https://bisnesgpt.serveo.net/api/user/config?email=${encodeURIComponent(
+        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/user/config?email=${encodeURIComponent(
           userEmail
         )}`,
         {
@@ -1140,7 +1140,7 @@ const Main: React.FC = () => {
       }
 
       const response = await axios.get(
-        `https://bisnesgpt.serveo.net/api/user-company-data?email=${encodeURIComponent(
+        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/user-company-data?email=${encodeURIComponent(
           userEmail
         )}`
       );
@@ -1172,7 +1172,7 @@ const Main: React.FC = () => {
         setAssistants(assistantConfigs);
 
         const response2 = await axios.get(
-          `https://bisnesgpt.serveo.net/api/company-config/${companyId}`
+          `https://raucous-joaquin-unexamining.ngrok-free.dev/api/company-config/${companyId}`
         );
 
         const { openaiApiKey } = response2.data;
@@ -1299,7 +1299,7 @@ const Main: React.FC = () => {
         try {
           const timestamp = new Date().toLocaleString();
           const templateResponse = await axios.post(
-            "https://bisnesgpt.serveo.net/api/instruction-templates",
+            "https://raucous-joaquin-unexamining.ngrok-free.dev/api/instruction-templates",
             {
               companyId,
               name: timestamp,
@@ -1351,7 +1351,7 @@ const Main: React.FC = () => {
       if (!userEmail || !companyId) return [];
 
       // Get company API URL
-      const baseUrl = "https://bisnesgpt.serveo.net";
+      const baseUrl = "https://raucous-joaquin-unexamining.ngrok-free.dev";
       const companyResponse = await fetch(
         `${baseUrl}/api/user-company-data?email=${encodeURIComponent(
           userEmail
@@ -1592,7 +1592,7 @@ const Main: React.FC = () => {
       console.log("Using threadId:", currentThreadId);
 
       const res = await axios.get(
-        `https://bisnesgpt.serveo.net/api/assistant-test/`,
+        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/assistant-test/`,
         {
           params: {
             message: messageText,
@@ -1830,7 +1830,7 @@ const Main: React.FC = () => {
   const fetchFiles = async () => {
     if (!companyId) return;
 
-    const baseUrl = "https://bisnesgpt.serveo.net";
+    const baseUrl = "https://raucous-joaquin-unexamining.ngrok-free.dev";
 
     try {
       // Get user email for API calls
@@ -1903,7 +1903,7 @@ const Main: React.FC = () => {
     if (!file || !companyId) return;
 
     setUploading(true);
-    const baseUrl = "https://bisnesgpt.serveo.net";
+    const baseUrl = "https://raucous-joaquin-unexamining.ngrok-free.dev";
 
     try {
       // Get user email for API calls
@@ -2114,7 +2114,7 @@ const Main: React.FC = () => {
   const deleteFile = async (fileId: string) => {
     if (!companyId) return;
 
-    const baseUrl = "https://bisnesgpt.serveo.net";
+    const baseUrl = "https://raucous-joaquin-unexamining.ngrok-free.dev";
 
     try {
       // Get user email for API calls
@@ -2268,7 +2268,7 @@ const Main: React.FC = () => {
     try {
       // Fetch templates from your SQL backend
       const response = await axios.get(
-        `https://bisnesgpt.serveo.net/api/instruction-templates?companyId=${encodeURIComponent(
+        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/instruction-templates?companyId=${encodeURIComponent(
           companyId
         )}`
       );
@@ -2294,7 +2294,7 @@ const Main: React.FC = () => {
 
       // Send to your SQL backend
       const response = await axios.post(
-        "https://bisnesgpt.serveo.net/api/instruction-templates",
+        "https://raucous-joaquin-unexamining.ngrok-free.dev/api/instruction-templates",
         {
           companyId,
           name: timestamp,
@@ -2328,7 +2328,7 @@ const Main: React.FC = () => {
     try {
       // Delete template from backend
       const response = await axios.delete(
-        `https://bisnesgpt.serveo.net/api/instruction-templates/${templateId}`
+        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/instruction-templates/${templateId}`
       );
 
       if (response.data.success) {
@@ -2374,7 +2374,7 @@ const Main: React.FC = () => {
 
     try {
       const response = await axios.get(
-        `https://bisnesgpt.serveo.net/api/ai-settings?companyId=${encodeURIComponent(
+        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/ai-settings?companyId=${encodeURIComponent(
           companyId
         )}`
       );
@@ -2395,7 +2395,7 @@ const Main: React.FC = () => {
 
     try {
       const response = await axios.put(
-        "https://bisnesgpt.serveo.net/api/ai-settings",
+        "https://raucous-joaquin-unexamining.ngrok-free.dev/api/ai-settings",
         {
           companyId,
           settings: {

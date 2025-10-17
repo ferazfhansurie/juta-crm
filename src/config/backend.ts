@@ -2,13 +2,13 @@
 export const BACKEND_CONFIG = {
   // Development
   development: {
-    baseUrl: 'https://bisnesgpt.serveo.net',
-    apiUrl: 'https://bisnesgpt.serveo.net/api'
+    baseUrl: 'https://raucous-joaquin-unexamining.ngrok-free.dev',
+    apiUrl: 'https://raucous-joaquin-unexamining.ngrok-free.dev/api'
   },
   // Production - replace with your actual Neon backend URL
   production: {
-    baseUrl: 'https://bisnesgpt.serveo.net',
-    apiUrl: 'https://bisnesgpt.serveo.net/api'
+    baseUrl: 'https://raucous-joaquin-unexamining.ngrok-free.dev',
+    apiUrl: 'https://raucous-joaquin-unexamining.ngrok-free.dev/api'
   }
 };
 

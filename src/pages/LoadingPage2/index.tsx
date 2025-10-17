@@ -56,7 +56,7 @@ interface BotStatusResponse {
 }
 
 function LoadingPage2() {
-  const baseUrl = "https://bisnesgpt.serveo.net";
+  const baseUrl = "https://raucous-joaquin-unexamining.ngrok-free.dev";
   const [progress, setProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -139,7 +139,7 @@ function LoadingPage2() {
 
       // Get user config to get companyId
       const userResponse = await fetch(
-        `https://bisnesgpt.serveo.net/api/user/config?email=${encodeURIComponent(
+        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/user/config?email=${encodeURIComponent(
           userEmail
         )}`,
         {
@@ -161,7 +161,7 @@ function LoadingPage2() {
 
       // Get all bot status and company data in one call
       const statusResponse = await fetch(
-        `https://bisnesgpt.serveo.net/api/bot-status/${companyId}`,
+        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/bot-status/${companyId}`,
         {
           method: "GET",
           headers: {
@@ -392,7 +392,7 @@ function LoadingPage2() {
 
       // Get user config to get companyId
       const userResponse = await fetch(
-        `https://bisnesgpt.serveo.net/api/user/config?email=${encodeURIComponent(userEmail)}`,
+        `https://raucous-joaquin-unexamining.ngrok-free.dev/api/user/config?email=${encodeURIComponent(userEmail)}`,
         {
           method: "GET",
           headers: {
@@ -410,7 +410,7 @@ function LoadingPage2() {
       const userData = await userResponse.json();
       const companyId = userData.company_id;
 
-      const response = await fetch('https://bisnesgpt.serveo.net/api/bots/reinitialize', {
+      const response = await fetch('https://raucous-joaquin-unexamining.ngrok-free.dev/api/bots/reinitialize', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -556,7 +556,7 @@ function LoadingPage2() {
 
           // Get company ID from SQL database
           const response = await fetch(
-            `https://bisnesgpt.serveo.net/api/user/config?email=${encodeURIComponent(
+            `https://raucous-joaquin-unexamining.ngrok-free.dev/api/user/config?email=${encodeURIComponent(
               userEmail
             )}`
           );
@@ -570,7 +570,7 @@ function LoadingPage2() {
           // Test if WebSocket endpoint is accessible
           console.log("Testing WebSocket endpoint accessibility...");
           try {
-            const testResponse = await fetch(`https://bisnesgpt.serveo.net/api/health`, { 
+            const testResponse = await fetch(`https://raucous-joaquin-unexamining.ngrok-free.dev/api/health`, { 
               method: 'GET',
               mode: 'cors'
             });
@@ -598,8 +598,8 @@ function LoadingPage2() {
 
           // Connect to WebSocket with proper protocol handling
           let wsUrl = window.location.protocol === 'https:' 
-            ? `wss://bisnesgpt.serveo.net/ws/${userEmail}/${companyId}`
-            : `ws://bisnesgpt.serveo.net/ws/${userEmail}/${companyId}`;
+            ? `wss://raucous-joaquin-unexamining.ngrok-free.dev/ws/${userEmail}/${companyId}`
+            : `ws://raucous-joaquin-unexamining.ngrok-free.dev/ws/${userEmail}/${companyId}`;
           
           console.log("Attempting WebSocket connection to:", wsUrl);
           console.log("User email:", userEmail);
@@ -616,8 +616,8 @@ function LoadingPage2() {
             
             // Try alternative WebSocket URL if first fails
             const alternativeUrl = wsUrl.includes('wss://') 
-              ? `ws://bisnesgpt.serveo.net/ws/${userEmail}/${companyId}`
-              : `wss://bisnesgpt.serveo.net/ws/${userEmail}/${companyId}`;
+              ? `ws://raucous-joaquin-unexamining.ngrok-free.dev/ws/${userEmail}/${companyId}`
+              : `wss://raucous-joaquin-unexamining.ngrok-free.dev/ws/${userEmail}/${companyId}`;
             
             console.log("Trying alternative WebSocket URL:", alternativeUrl);
             try {

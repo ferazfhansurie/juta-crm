@@ -32,7 +32,7 @@ import { Switch } from "@headlessui/react";
 import Modal from "@/components/Base/Modal";
 
 // Configuration
-const baseUrl = "https://bisnesgpt.serveo.net"; // Your PostgreSQL server URL
+const baseUrl = "https://raucous-joaquin-unexamining.ngrok-free.dev"; // Your PostgreSQL server URL
 
 interface Appointment {
   id: string;

@@ -9,7 +9,7 @@ import { useAppSelector } from "@/stores/hooks";
 import { selectDarkMode } from "@/stores/darkModeSlice";
 import Button from "@/components/Base/Button";
 
-const baseUrl = "https://bisnesgpt.serveo.net";
+const baseUrl = "https://raucous-joaquin-unexamining.ngrok-free.dev";
 
 interface ChatMessage {
   id: string;
@@ -193,7 +193,7 @@ const Main: React.FC = () => {
 
     try {
       // Always use WSS for ngrok HTTPS tunnel
-      const wsUrl = `wss://bisnesgpt.serveo.net/ws/chatgpt/${userEmail}/${companyId}`;
+      const wsUrl = `wss://raucous-joaquin-unexamining.ngrok-free.dev/ws/chatgpt/${userEmail}/${companyId}`;
 
       ws.current = new WebSocket(wsUrl);
 

@@ -255,7 +255,7 @@ const sendWhatsAppMessage = async ({
 
     // Make API call to send WhatsApp message
     const response = await fetch(
-      `https://bisnesgpt.serveo.net/api/v2/messages/text/${companyId}/${formattedContactId}`,
+      `https://raucous-joaquin-unexamining.ngrok-free.dev/api/v2/messages/text/${companyId}/${formattedContactId}`,
       {
         method: 'POST',
         headers: {

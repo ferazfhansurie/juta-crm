@@ -51,7 +51,7 @@ function PublicFeedbackForm() {
   const [certificateStatus, setCertificateStatus] = useState<'pending' | 'success' | 'error' | null>(null);
   const [responses, setResponses] = useState<{ [fieldId: string]: string | number }>({});
   const [phoneNumber, setPhoneNumber] = useState( '+60');
-  const [baseUrl] = useState<string>('https://bisnesgpt.serveo.net');
+  const [baseUrl] = useState<string>('https://raucous-joaquin-unexamining.ngrok-free.dev');
   const [showAlreadySubmittedAlert, setShowAlreadySubmittedAlert] = useState(false);
 
   useEffect(() => {
