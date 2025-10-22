@@ -1,5 +1,6 @@
 import ScrollToTop from "@/components/Base/ScrollToTop";
-import ReactDOM from "react-dom/client";
+// `react-dom/client` doesn't have a default export — import the named createRoot function.
+import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route } from "react-router-dom";
 import { Provider, useSelector } from "react-redux";
 import { store, RootState } from "./stores/store";
@@ -30,7 +31,7 @@ const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+createRoot(document.getElementById("root") as HTMLElement).render(
   <BrowserRouter>
     <Provider store={store}>
       <ConfigProvider>

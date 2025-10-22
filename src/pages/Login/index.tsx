@@ -24,10 +24,11 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 function Main() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState(() => localStorage.getItem("savedEmail") || "");
+  const [password, setPassword] = useState(() => localStorage.getItem("savedPassword") || "");
   const [error, setError] = useState("");
   const [signedIn, setSignedIn] = useState(false);
+  const [rememberMe, setRememberMe] = useState(() => localStorage.getItem("rememberMe") === "true");
   const navigate = useNavigate();
   const [resetEmail, setResetEmail] = useState("");
   const [resetMessage, setResetMessage] = useState("");
@@ -47,6 +48,19 @@ function Main() {
       if (response.ok) {
         localStorage.setItem('userEmail', email);
         localStorage.setItem('userData', JSON.stringify(data.user));
+        
+        // Save credentials if "Remember Me" is checked
+        if (rememberMe) {
+          localStorage.setItem('savedEmail', email);
+          localStorage.setItem('savedPassword', password);
+          localStorage.setItem('rememberMe', 'true');
+        } else {
+          // Clear saved credentials if "Remember Me" is unchecked
+          localStorage.removeItem('savedEmail');
+          localStorage.removeItem('savedPassword');
+          localStorage.removeItem('rememberMe');
+        }
+        
         navigate('/chat');
       } else {
         setError(data.error || "An error occurred during sign-in. Please try again later.");
@@ -167,7 +181,19 @@ function Main() {
               </div>
 
               {/* Forgot Password Link */}
-              <div className="text-right">
+              {/* Remember Me Checkbox */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="text-blue-600 focus:ring-blue-500 h-4 w-4 rounded border-gray-300"
+                  />
+                  <label className="ml-2 text-xs text-gray-700 dark:text-gray-300">
+                    Remember me
+                  </label>
+                </div>
                 <button 
                   onClick={() => setShowResetModal(true)} 
                   className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline transition-colors duration-200"
