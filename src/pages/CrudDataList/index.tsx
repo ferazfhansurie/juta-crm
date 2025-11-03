@@ -4133,7 +4133,33 @@ function Main() {
   const handleCsvFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Validate file type immediately
+      const fileName = file.name.toLowerCase();
+      const fileType = file.type;
+      
+      // Check for Excel files
+      if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileType.includes('excel') || fileType.includes('spreadsheet')) {
+        toast.error("Excel files are not supported. Please save your file as CSV format first.");
+        e.target.value = ''; // Clear the input
+        return;
+      }
+      
+      // Check for other non-CSV files
+      if (!fileName.endsWith('.csv') && !fileType.includes('csv') && !fileType.includes('text') && fileType !== '') {
+        toast.warning(`Selected file type: ${fileType || 'unknown'}. Please ensure this is a CSV file.`);
+      }
+      
+      // Check file size (optional - warn for very large files)
+      if (file.size > 10 * 1024 * 1024) { // 10MB
+        toast.warning("Large file detected. Import may take some time.");
+      }
+      
       setSelectedCsvFile(file);
+      
+      // Provide helpful info
+      if (fileName.endsWith('.csv')) {
+        toast.success(`CSV file selected: ${file.name} (${(file.size / 1024).toFixed(1)}KB)`);
+      }
     }
   };
 
@@ -5221,6 +5247,27 @@ function Main() {
 
   const parseCSV = async (): Promise<Array<any>> => {
     return new Promise((resolve, reject) => {
+      // First, validate the file type
+      if (!selectedCsvFile) {
+        reject(new Error("No file selected"));
+        return;
+      }
+
+      // Check file extension and type
+      const fileName = selectedCsvFile.name.toLowerCase();
+      const fileType = selectedCsvFile.type;
+      
+      if (!fileName.endsWith('.csv') && !fileType.includes('csv') && !fileType.includes('text')) {
+        reject(new Error(`Invalid file type. Please select a CSV file. Selected file: ${fileName} (${fileType || 'unknown type'})`));
+        return;
+      }
+
+      // Check if this might be an Excel file disguised as CSV
+      if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileType.includes('excel') || fileType.includes('spreadsheet')) {
+        reject(new Error("Excel files (.xlsx, .xls) are not supported. Please export your data as a CSV file from Excel first."));
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = (event) => {
         try {
@@ -5229,36 +5276,168 @@ function Main() {
             throw new Error("Failed to read CSV file content");
           }
 
-          // Use Papa Parse for better CSV handling
-          Papa.parse(text, {
+          // Check for binary data indicators (Excel/ZIP files start with PK)
+          if (text.startsWith('PK') || text.includes('\x00') || text.includes('\x03\x04')) {
+            throw new Error("This appears to be a binary file (possibly Excel format). Please save your data as a CSV file instead.");
+          }
+
+          // Check if the file looks like actual CSV content
+          const firstLine = text.split('\n')[0];
+          if (firstLine && (firstLine.includes('\x00') || /[\x00-\x08\x0E-\x1F\x7F-\xFF]/.test(firstLine))) {
+            throw new Error("File contains binary data. Please ensure you're uploading a text-based CSV file.");
+          }
+
+          // Pre-process the CSV text to fix common issues
+          let processedText = text
+            // Fix unterminated quotes by ensuring each line ends properly
+            .split('\n')
+            .map(line => {
+              // Remove trailing commas and fix unterminated quotes
+              line = line.trim();
+              
+              // Count quotes in the line
+              const quoteCount = (line.match(/"/g) || []).length;
+              
+              // If odd number of quotes, add closing quote
+              if (quoteCount % 2 !== 0) {
+                line += '"';
+              }
+              
+              return line;
+            })
+            .join('\n');
+
+          // Use Papa Parse with very flexible error handling
+          Papa.parse(processedText, {
             header: true,
             skipEmptyLines: true,
+            // Allow variable number of fields
+            dynamicTyping: false,
+            // More flexible field handling
+            transform: (value: string) => {
+              if (value === null || value === undefined) return '';
+              // Clean up malformed quotes and extra whitespace
+              return String(value).trim().replace(/^"|"$/g, '').replace(/""/g, '"');
+            },
+            transformHeader: (header: string) => {
+              if (header === null || header === undefined) return '';
+              // Clean up header names and handle duplicates
+              return String(header).trim().replace(/^"|"$/g, '').replace(/""/g, '"');
+            },
+            // Handle malformed quotes more gracefully
+            quoteChar: '"',
+            escapeChar: '"',
+            delimiter: ',', // Explicitly set delimiter
             complete: (results) => {
-              if (results.errors.length > 0) {
-                console.error("CSV parsing errors:", results.errors);
-                throw new Error("Error parsing CSV file");
+              console.log("Papa Parse Results:", {
+                data: results.data?.length || 0,
+                errors: results.errors?.length || 0,
+                meta: results.meta
+              });
+
+              // Categorize errors by severity
+              const structuralErrors = results.errors?.filter(error =>
+                error.type === 'FieldMismatch' ||
+                (error.type === 'Quotes' && error.code === 'InvalidQuotes')
+              ) || [];
+
+              const quoteErrors = results.errors?.filter(error =>
+                error.type === 'Quotes' && error.code === 'InvalidQuotes'
+              ) || [];
+
+              const otherErrors = results.errors?.filter(error => 
+                error.type !== 'Quotes' && error.type !== 'FieldMismatch'
+              ) || [];
+
+              // Log all errors for debugging
+              console.log("CSV Parsing Error Analysis:", {
+                structural: structuralErrors.length,
+                quotes: quoteErrors.length,
+                other: otherErrors.length
+              });
+
+              // Only fail on truly critical errors that prevent data extraction
+              if (otherErrors.length > 0) {
+                console.error("Critical CSV parsing errors:", otherErrors);
+                const errorMessages = otherErrors.map(e => e.message).join('; ');
+                throw new Error(`Critical CSV parsing errors: ${errorMessages}`);
               }
 
-              if (results.data.length === 0) {
+              // Warn about structural issues but continue
+              if (structuralErrors.length > 0) {
+                console.warn("CSV structural warnings (continuing with import):", structuralErrors);
+                toast.warning(`CSV file has ${structuralErrors.length} structural formatting issues. Some rows may have missing or extra fields.`);
+              }
+
+              // Warn about quote issues but continue
+              if (quoteErrors.length > 0) {
+                console.warn("CSV quote warnings (continuing with import):", quoteErrors);
+                toast.warning(`CSV file has ${quoteErrors.length} quote formatting issues. Data may need manual review.`);
+              }
+
+              if (!results.data || results.data.length === 0) {
                 throw new Error("No valid data rows found in CSV file");
               }
 
-              // Log for debugging
-              console.log("Parsed CSV data:", {
-                headers: results.meta.fields,
-                rowCount: results.data.length,
-                firstRow: results.data[0],
+              // More robust data filtering and normalization
+              const normalizedData = results.data
+                .map((row: any, index: number) => {
+                  if (!row || typeof row !== 'object') return null;
+                  
+                  // Clean up the row object
+                  const cleanedRow: any = {};
+                  Object.entries(row).forEach(([key, value]) => {
+                    // Skip empty or null keys
+                    if (!key || key.trim() === '' || key.includes('__parsed_extra')) return;
+                    
+                    // Normalize the key
+                    const cleanKey = String(key).trim();
+                    
+                    // Normalize the value
+                    let cleanValue = '';
+                    if (value !== null && value !== undefined) {
+                      cleanValue = String(value).trim();
+                    }
+                    
+                    cleanedRow[cleanKey] = cleanValue;
+                  });
+                  
+                  // Only keep rows that have at least one non-empty value
+                  const hasData = Object.values(cleanedRow).some(val => 
+                    val && String(val).trim() !== ''
+                  );
+                  
+                  return hasData ? cleanedRow : null;
+                })
+                .filter(Boolean); // Remove null entries
+
+              if (normalizedData.length === 0) {
+                throw new Error("No valid data rows found after cleaning and validation");
+              }
+
+              // Log successful parsing statistics
+              const totalWarnings = structuralErrors.length + quoteErrors.length;
+              console.log("CSV Import Statistics:", {
+                originalRows: results.data.length,
+                validRows: normalizedData.length,
+                totalWarnings: totalWarnings,
+                headers: Object.keys(normalizedData[0] || {}),
+                sampleRow: normalizedData[0]
               });
 
-              resolve(results.data);
+              if (totalWarnings > 0) {
+                toast.info(`Successfully processed CSV with ${totalWarnings} formatting warnings. ${normalizedData.length} valid rows found.`);
+              }
+
+              resolve(normalizedData);
             },
             error: (error: any) => {
-              console.error("Papa Parse error:", error);
-              reject(new Error("Failed to parse CSV file"));
+              console.error("Papa Parse fatal error:", error);
+              reject(new Error(`Unable to parse CSV file: ${error.message}. Please check file format and try again.`));
             },
           });
         } catch (error) {
-          console.error("CSV parsing error details:", error);
+          console.error("CSV processing error:", error);
           reject(error);
         }
       };
@@ -5269,11 +5448,80 @@ function Main() {
       };
 
       if (selectedCsvFile) {
-        reader.readAsText(selectedCsvFile);
+        reader.readAsText(selectedCsvFile, 'utf-8');
       } else {
         reject(new Error("No file selected"));
       }
     });
+  };
+
+  // Function to add new tags to company's master tag list
+  const addNewTagsToCompany = async (newTags: string[], companyId: string) => {
+    try {
+      // Get existing tags to avoid duplicates
+      const existingTagNames = new Set(tagList.map(tag => tag.name.toLowerCase()));
+      
+      // Filter out tags that already exist (case-insensitive)
+      const tagsToAdd = newTags.filter(tag => 
+        !existingTagNames.has(tag.toLowerCase())
+      );
+      
+      if (tagsToAdd.length === 0) {
+        console.log("All tags already exist in the company");
+        return;
+      }
+
+      console.log(`Adding ${tagsToAdd.length} new tags to company:`, tagsToAdd);
+
+      // Add each new tag to the company's tag system
+      const addTagPromises = tagsToAdd.map(async (tagName) => {
+        try {
+          const response = await fetch(
+            `${baseUrl}/api/companies/${companyId}/tags`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ name: tagName }),
+            }
+          );
+
+          if (!response.ok) {
+            console.error(`Failed to add tag "${tagName}":`, response.statusText);
+            return null;
+          }
+
+          const data = await response.json();
+          return { id: data.id, name: data.name };
+        } catch (error) {
+          console.error(`Error adding tag "${tagName}":`, error);
+          return null;
+        }
+      });
+
+      // Wait for all tag additions to complete
+      const addedTags = await Promise.all(addTagPromises);
+      
+      // Filter out failed additions and update the local tag list
+      const successfullyAddedTags = addedTags.filter(Boolean);
+      
+      if (successfullyAddedTags.length > 0) {
+        setTagList(prevTags => [
+          ...prevTags,
+          ...successfullyAddedTags.filter((tag): tag is Tag => tag !== null)
+        ]);
+        toast.success(`Successfully added ${successfullyAddedTags.length} new tags to company!`);
+      }
+      
+      if (successfullyAddedTags.length < tagsToAdd.length) {
+        const failedCount = tagsToAdd.length - successfullyAddedTags.length;
+        toast.warning(`${failedCount} tags failed to add. They may already exist or there was an error.`);
+      }
+
+    } catch (error) {
+      console.error("Error adding new tags to company:", error);
+      toast.error("Failed to add some tags to company. Import will continue.");
+    }
   };
 
   const handleCsvImport = async () => {
@@ -5318,6 +5566,7 @@ function Main() {
           "telephone",
           "contact number",
           "phone number",
+          "Mobile No.",
         ],
         contactName: [
           "contactname",
@@ -5325,6 +5574,8 @@ function Main() {
           "name",
           "full name",
           "customer name",
+          "insured name",
+          "Participant Name",
         ],
         email: ["email", "e-mail", "mail"],
         lastName: ["lastname", "last name", "surname", "family name"],
@@ -5348,6 +5599,7 @@ function Main() {
           "expire date",
           "expiry",
           "expiryDate",
+          "Exp-Date",
         ],
         vehicleNumber: [
           "vehiclenumber",
@@ -5356,6 +5608,7 @@ function Main() {
           "car number",
           "vehiclenumber",
           "vehicle_number",
+          "veh. no"
         ],
         ic: ["ic", "identification", "id number", "IC"],
         notes: ["notes", "note", "comments", "remarks"],
@@ -5363,11 +5616,25 @@ function Main() {
         phoneIndex: ["phone_index", "phoneindex", "phone index"],
       };
 
+      // Filter out empty tags from new import tags
+      const newTagsToAdd = importTags.filter(tag => tag && tag.trim() !== '');
+      
+      // Add new tags to company's master tag list if they don't exist
+      if (newTagsToAdd.length > 0) {
+        await addNewTagsToCompany(newTagsToAdd, companyId);
+      }
+
+      // Combine both selected existing tags and new custom tags
+      const allImportTags = [
+        ...selectedImportTags,
+        ...newTagsToAdd
+      ];
+
       // Validate and prepare contacts for import
       const validContacts = csvContacts.map((contact) => {
         const baseContact: any = {
           customFields: {},
-          tags: [...selectedImportTags],
+          tags: [...allImportTags],
           ic: null,
           expiryDate: null,
           vehicleNumber: null,
@@ -5500,9 +5767,66 @@ function Main() {
       }
     } catch (error) {
       console.error("CSV Import Error:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to import contacts"
-      );
+      
+      let errorMessage = "Failed to import contacts";
+      let suggestions: string[] = [];
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        
+        // Provide specific guidance for common CSV issues
+        if (errorMessage.includes("Invalid file type") || errorMessage.includes("Excel files") || errorMessage.includes("binary file") || errorMessage.includes("binary data")) {
+          suggestions = [
+            "Open your Excel file (.xlsx or .xls)",
+            "Go to File → Save As → Choose 'CSV (Comma delimited)' format",
+            "Save the file with a .csv extension",
+            "Upload the newly created CSV file"
+          ];
+        } else if (errorMessage.includes("Quoted field unterminated") || errorMessage.includes("UnterminatedQuote")) {
+          errorMessage = "CSV file has unterminated quotes that couldn't be automatically fixed.";
+          suggestions = [
+            "Open the CSV file in a text editor and check for missing closing quotes",
+            "Save the file from Excel/Google Sheets to ensure proper formatting",
+            "Remove or escape any quotes within text fields"
+          ];
+        } else if (errorMessage.includes("Too few fields") || errorMessage.includes("Too many fields") || errorMessage.includes("FieldMismatch")) {
+          errorMessage = "CSV file has inconsistent number of columns across rows.";
+          suggestions = [
+            "Check that all rows have the same number of columns",
+            "Remove any extra commas at the end of rows",
+            "Ensure headers match the data columns",
+            "Open in Excel/Google Sheets and check for merged cells or formatting issues"
+          ];
+        } else if (errorMessage.includes("InvalidQuotes") || errorMessage.includes("malformed")) {
+          errorMessage = "CSV file has quote formatting issues.";
+          suggestions = [
+            "Open the file in Excel/Google Sheets and re-save as CSV",
+            "Ensure all quoted fields are properly formatted",
+            "Remove special characters that might interfere with parsing"
+          ];
+        } else if (errorMessage.includes("No valid contacts found")) {
+          errorMessage = "No valid contacts found in CSV. Please ensure the file contains phone numbers and contact names.";
+        } else if (errorMessage.includes("Unable to parse CSV") || errorMessage.includes("Failed to parse CSV")) {
+          errorMessage = "Unable to read CSV file format.";
+          suggestions = [
+            "Ensure the file is saved as a proper CSV format",
+            "Check that the file isn't corrupted",
+            "Try opening and re-saving the file in Excel or Google Sheets"
+          ];
+        }
+      }
+      
+      // Display main error
+      toast.error(errorMessage);
+      
+      // Display suggestions if any
+      if (suggestions.length > 0) {
+        setTimeout(() => {
+          toast.info(`Suggestions to fix this issue:\n• ${suggestions.join('\n• ')}`, {
+            autoClose: 8000
+          });
+        }, 1000);
+      }
     } finally {
       setLoading(false);
     }

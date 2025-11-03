@@ -49,6 +49,7 @@ import { Transition } from "@headlessui/react";
 import VirtualContactList from "../../components/VirtualContactList";
 import SearchModal from "@/components/SearchModal";
 import QuickRepliesModal from "@/components/QuickRepliesModal";
+import MessageSkeleton from "@/components/MessageSkeleton";
 import { time } from "console";
 import { toInteger } from "lodash";
 declare global {
@@ -740,6 +741,7 @@ function Main() {
   const [newMessage, setNewMessage] = useState<string>("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isLoading2, setLoading] = useState<boolean>(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState<boolean>(false);
   const [selectedIcon, setSelectedIcon] = useState<string | null>(null);
   const [isImageModalOpen, setImageModalOpen] = useState(false);
   const [modalImageUrl, setModalImageUrl] = useState("");
@@ -1516,6 +1518,19 @@ function Main() {
     null
   );
   const [qrCodes, setQrCodes] = useState<QRCodeData[]>([]);
+  
+  // Debug: Track qrCodes changes
+  useEffect(() => {
+    console.log("📱 QR CODES STATE CHANGED:", qrCodes);
+    console.log("📱 Number of phones:", qrCodes.length);
+    qrCodes.forEach((qr, index) => {
+      console.log(`📱 Phone ${index}:`, {
+        phoneIndex: qr.phoneIndex,
+        status: qr.status,
+        phoneInfo: qr.phoneInfo
+      });
+    });
+  }, [qrCodes]);
   const [phoneStatusLoading, setPhoneStatusLoading] = useState<boolean>(true);
   const [categories, setCategories] = useState<string[]>([]);
   const [quickReplyCategory, setQuickReplyCategory] = useState<string>("all");
@@ -2578,7 +2593,9 @@ function Main() {
 
   // ... existing code ...
 
-  // Additional useEffect to fetch phone status when phone names become available
+  // Commented out this useEffect as it conflicts with the force fetch on mount
+  // The force fetch on mount (later useEffect) should be sufficient for initial phone data
+  /*
   useEffect(() => {
     if (
       companyId &&
@@ -2586,84 +2603,10 @@ function Main() {
       qrCodes.length === 0
     ) {
       console.log("Phone names available, fetching phone status...");
-      const fetchPhoneStatuses = async () => {
-        try {
-          setPhoneStatusLoading(true);
-          const botStatusResponse = await axios.get(
-            `${baseUrl}/api/bot-status/${companyId}`
-          );
-          console.log(
-            "Additional phone status fetch response:",
-            botStatusResponse
-          );
-
-          if (botStatusResponse.status === 200) {
-            const data: BotStatusResponse = botStatusResponse.data;
-            console.log("Additional bot status response data:", data);
-            console.log("data.phones:", data.phones, "Array.isArray:", Array.isArray(data.phones));
-            console.log("data.phoneCount:", data.phoneCount, "data.phoneInfo:", data.phoneInfo);
-
-            if (data.phones && Array.isArray(data.phones)) {
-              const qrCodesData: QRCodeData[] = data.phones.map(
-                (phone: any) => ({
-                  phoneIndex: phone.phoneIndex,
-                  status: phone.status,
-                  qrCode: phone.qrCode,
-                  phoneInfo: phone.phoneInfo || null,
-                })
-              );
-              console.log(
-                "Setting qrCodes from additional fetch (phones array):",
-                qrCodesData
-              );
-              setQrCodes(qrCodesData);
-              // Mark phone data as loaded
-              setIsPhoneDataLoaded(true);
-            } else if (data.phoneCount === 1 && data.phoneInfo) {
-              const singlePhoneData = [
-                {
-                  phoneIndex: 0,
-                  status: data.status,
-                  qrCode: data.qrCode,
-                },
-              ];
-              console.log(
-                "Setting qrCodes for single phone from additional fetch:",
-                singlePhoneData
-              );
-              setQrCodes(singlePhoneData);
-              // Mark phone data as loaded
-              setIsPhoneDataLoaded(true);
-            } else {
-              // Fallback: if we have status and phoneInfo but don't match the conditions above
-              console.log("Using fallback single phone data setup");
-              const fallbackPhoneData = [
-                {
-                  phoneIndex: 0,
-                  status: data.status || "unknown",
-                  qrCode: data.qrCode || null,
-                  phoneInfo: typeof data.phoneInfo === 'string' ? data.phoneInfo : null,
-                },
-              ];
-              console.log(
-                "Setting qrCodes fallback:",
-                fallbackPhoneData
-              );
-              setQrCodes(fallbackPhoneData);
-              // Mark phone data as loaded
-              setIsPhoneDataLoaded(true);
-            }
-          }
-        } catch (error) {
-          console.error("Error in additional phone status fetch:", error);
-        } finally {
-          setPhoneStatusLoading(false);
-        }
-      };
-
-      fetchPhoneStatuses();
+      // This useEffect is disabled to prevent race conditions with the mount fetch
     }
-  }, [companyId, phoneNames, qrCodes.length]);
+  }, [companyId, phoneNames]);
+  */
 
   // Force refresh phone status when component becomes visible (with debouncing)
   useEffect(() => {
@@ -2674,7 +2617,7 @@ function Main() {
         // Debounce the API call to prevent excessive requests
         clearTimeout(timeoutId);
         timeoutId = setTimeout(() => {
-          console.log("Page became visible, refreshing phone status...");
+          console.log("👁️ VISIBILITY CHANGE - Page became visible, refreshing phone status...");
           const fetchPhoneStatuses = async () => {
             try {
               setPhoneStatusLoading(true);
@@ -2683,6 +2626,7 @@ function Main() {
               );
               if (botStatusResponse.status === 200) {
                 const data: BotStatusResponse = botStatusResponse.data;
+                console.log("👁️ VISIBILITY CHANGE - API Response:", data);
                 if (data.phones && Array.isArray(data.phones)) {
                   const qrCodesData: QRCodeData[] = data.phones.map(
                     (phone: any) => ({
@@ -2692,21 +2636,24 @@ function Main() {
                       phoneInfo: phone.phoneInfo || null,
                     })
                   );
+                  console.log("👁️ VISIBILITY CHANGE - Setting qrCodes (FULL LIST):", qrCodesData);
                   setQrCodes(qrCodesData);
                 } else if (data.phoneCount === 1 && data.phoneInfo) {
-                  setQrCodes([
+                  const singlePhoneData = [
                     {
                       phoneIndex: 0,
                       status: data.status,
                       qrCode: data.qrCode,
                       phoneInfo: typeof data.phoneInfo === 'string' ? data.phoneInfo : null,
                     },
-                  ]);
+                  ];
+                  console.log("👁️ VISIBILITY CHANGE - Setting qrCodes (SINGLE PHONE):", singlePhoneData);
+                  setQrCodes(singlePhoneData);
                 }
               }
             } catch (error) {
               console.error(
-                "Error refreshing phone status on visibility change:",
+                "👁️ VISIBILITY CHANGE - Error refreshing phone status:",
                 error
               );
             } finally {
@@ -2749,7 +2696,7 @@ function Main() {
                   phoneInfo: phone.phoneInfo || null,
                 })
               );
-              console.log("🔄 Setting qrCodes from force fetch:", qrCodesData);
+              console.log("🔄 FORCE FETCH - Setting qrCodes (FULL LIST):", qrCodesData);
               setQrCodes(qrCodesData);
             } else if (data.phoneCount === 1 && data.phoneInfo) {
               const singlePhoneData = [
@@ -2761,7 +2708,7 @@ function Main() {
                 },
               ];
               console.log(
-                "🔄 Setting qrCodes for single phone from force fetch:",
+                "🔄 FORCE FETCH - Setting qrCodes (SINGLE PHONE):",
                 singlePhoneData
               );
               setQrCodes(singlePhoneData);
@@ -2897,76 +2844,20 @@ function Main() {
       }
       setLoadedPages(initialLoadedPages);
 
-      // Step 4: Start message caching (70% -> 90%)
-      setRealLoadingProgress(75);
-      setLoadingSteps((prev) => ({ ...prev, messageCaching: true }));
+      // Step 4: Complete loading immediately without message caching
+      setRealLoadingProgress(90);
+      setLoadingSteps((prev) => ({ ...prev, messageCaching: true, complete: true }));
 
-      // Fetch first page messages for only the first page of contacts (first 10 visible contacts)
       console.log(
-        "Starting background message caching for first page contacts..."
+        "✅ Contacts loaded successfully - messages will be loaded on demand"
       );
       
-      // Proactive cleanup before caching
+      // Proactive cleanup of old caches only (don't pre-load new messages)
       cleanupOldMessageCaches();
-      
-      const contactsToCache = sortedContacts.slice(0, 10); // Only cache first 10 contacts to prevent quota issues
-      console.log(
-        `Caching messages for ${contactsToCache.length} contacts (first page only)`
-      );
 
-      const messagePromises = contactsToCache.map(async (contact, index) => {
-        try {
-          console.log(
-            `Caching messages for contact ${index + 1}/${
-              contactsToCache.length
-            }: ${contact.contactName} (chat_id: ${
-              contact.chat_id
-            }, contact_id: ${contact.id})`
-          );
-          // Use contact.id for cache key and contact.chat_id for API call
-          await fetchFirstPageMessages(contact.contact_id, contact.chat_id);
-          console.log(
-            `✅ Successfully cached messages for ${contact.contactName}`
-          );
-          
-          // Update progress as each contact is cached (75% -> 90%)
-          const progressIncrement = 15 / contactsToCache.length; // 15% total for message caching
-          setRealLoadingProgress(prev => Math.min(90, prev + progressIncrement));
-        } catch (error) {
-          console.error(
-            `❌ Failed to cache messages for ${contact.contactName}:`,
-            error
-          );
-        }
-      });
-
-      // Execute all message fetching in parallel but don't wait for completion
-      Promise.allSettled(messagePromises).then((results) => {
-        const successful = results.filter(
-          (r) => r.status === "fulfilled"
-        ).length;
-        const failed = results.filter((r) => r.status === "rejected").length;
-        console.log(
-          `🎉 Message caching completed: ${successful} successful, ${failed} failed`
-        );
-
-        // Log which contacts have cached messages
-        const cachedContacts = contactsToCache.filter((contact) => {
-          const cached = getCachedMessages(contact.id);
-          return cached && cached.length > 0;
-        });
-        console.log(
-          `📦 ${cachedContacts.length} contacts now have cached messages`
-        );
-        
-        // Complete loading after message caching
-        setRealLoadingProgress(100);
-        setLoadingSteps((prev) => ({ ...prev, complete: true }));
-      });
-
-      // Set initial completion state for UI (contacts are ready even if messages are still caching)
-      setRealLoadingProgress(85);
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      // Complete loading immediately - messages will be loaded when user selects a chat
+      setRealLoadingProgress(100);
+      await new Promise((resolve) => setTimeout(resolve, 100));
     } catch (error) {
       console.error("Error fetching contacts:", error);
       toast.error("Error fetching contacts");
@@ -5211,18 +5102,23 @@ function Main() {
     console.log("userRole changed:", userRole);
   }, [userRole]);
 
-  // Scroll to bottom only when selecting a new chat, not when messages update
+  // Fetch messages when a chat is selected and scroll to bottom
   useEffect(() => {
-    if (messageListRef.current) {
-      // Add a small delay to ensure messages are rendered before scrolling
+    console.log("🔍 SELECTED CHAT ID CHANGED:", selectedChatId, "whapiToken:", !!whapiToken, "userData:", !!userData);
+    if (selectedChatId && whapiToken && userData) {
+      console.log("🔍 FETCHING MESSAGES FOR CHAT:", selectedChatId);
+      fetchMessages(selectedChatId, whapiToken);
+    }
+    
+    // Scroll to bottom for new chat selection
+    if (messageListRef.current && selectedChatId) {
       setTimeout(() => {
         if (messageListRef.current) {
-          messageListRef.current.scrollTop =
-            messageListRef.current.scrollHeight;
+          messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
         }
-      }, 100);
+      }, 200); // Increased timeout to allow for message loading
     }
-  }, [selectedChatId]);
+  }, [selectedChatId, whapiToken, userData]);
 
   useEffect(() => {
     console.log("🔍 DEBUGGING: useEffect for fetchConfigFromDatabase running");
@@ -5726,22 +5622,41 @@ function Main() {
               console.log("📱 [WEBSOCKET] Received auth_status:", data);
               console.log("📱 [WEBSOCKET] data.phones:", data.phones, "Array.isArray:", Array.isArray(data.phones));
               console.log("📱 [WEBSOCKET] data.phoneCount:", data.phoneCount, "data.phoneInfo:", data.phoneInfo);
+              console.log("📱 [WEBSOCKET] Current qrCodes before update:", qrCodes);
               
-              // Handle phone status updates
+              // Handle phone status updates - SMART UPDATE LOGIC
               if (data.phones && Array.isArray(data.phones)) {
+                // Complete phone array - replace entirely
                 const qrCodesData = data.phones.map((phone: any) => ({
                   phoneIndex: phone.phoneIndex,
                   status: phone.status,
                   qrCode: phone.qrCode,
                   phoneInfo: typeof phone.phoneInfo === 'string' ? phone.phoneInfo : null,
                 }));
-                console.log("📱 [WEBSOCKET] Updating qrCodes from WebSocket (phones array):", qrCodesData);
+                console.log("📱 [WEBSOCKET] Updating qrCodes from WebSocket (COMPLETE phones array):", qrCodesData);
                 setQrCodes(qrCodesData);
                 setPhoneStatusLoading(false);
-                // Mark phone data as loaded
                 setIsPhoneDataLoaded(true);
-              } else if (data.phoneCount === 1 && data.phoneInfo) {
-                // Single phone format
+              } else if (data.phoneIndex !== undefined && qrCodes.length > 1) {
+                // Single phone update with phoneIndex - UPDATE SPECIFIC PHONE
+                const phoneIndex = data.phoneIndex;
+                console.log("📱 [WEBSOCKET] Updating SPECIFIC phone", phoneIndex, "status:", data.status);
+                setQrCodes(prevQrCodes => {
+                  const updatedQrCodes = [...prevQrCodes];
+                  const phoneToUpdate = updatedQrCodes.find(qr => qr.phoneIndex === phoneIndex);
+                  if (phoneToUpdate) {
+                    phoneToUpdate.status = data.status;
+                    phoneToUpdate.qrCode = data.qrCode || phoneToUpdate.qrCode;
+                    if (data.phoneInfo) {
+                      phoneToUpdate.phoneInfo = typeof data.phoneInfo === 'string' ? data.phoneInfo : phoneToUpdate.phoneInfo;
+                    }
+                  }
+                  console.log("📱 [WEBSOCKET] Updated qrCodes (specific phone):", updatedQrCodes);
+                  return updatedQrCodes;
+                });
+                setPhoneStatusLoading(false);
+              } else if (data.phoneCount === 1 && data.phoneInfo && qrCodes.length === 0) {
+                // Only create single phone data if we don't have existing data
                 const singlePhoneData = [
                   {
                     phoneIndex: 0,
@@ -5750,27 +5665,15 @@ function Main() {
                     phoneInfo: typeof data.phoneInfo === 'string' ? data.phoneInfo : null,
                   },
                 ];
-                console.log("📱 [WEBSOCKET] Updating qrCodes for single phone from WebSocket:", singlePhoneData);
+                console.log("📱 [WEBSOCKET] Creating initial single phone data:", singlePhoneData);
                 setQrCodes(singlePhoneData);
                 setPhoneStatusLoading(false);
-                // Mark phone data as loaded
                 setIsPhoneDataLoaded(true);
               } else {
-                // Fallback: if we have status and phoneInfo but don't match the conditions above
-                console.log("📱 [WEBSOCKET] Using fallback single phone data setup");
-                const fallbackPhoneData = [
-                  {
-                    phoneIndex: 0,
-                    status: data.status || "unknown",
-                    qrCode: data.qrCode || null,
-                    phoneInfo: typeof data.phoneInfo === 'string' ? data.phoneInfo : null,
-                  },
-                ];
-                console.log("📱 [WEBSOCKET] Setting qrCodes fallback:", fallbackPhoneData);
-                setQrCodes(fallbackPhoneData);
-                setPhoneStatusLoading(false);
-                // Mark phone data as loaded
-                setIsPhoneDataLoaded(true);
+                // Ignore partial updates when we already have complete data
+                console.log("📱 [WEBSOCKET] Ignoring partial update - preserving existing phone data");
+                console.log("📱 [WEBSOCKET] Existing qrCodes:", qrCodes);
+                console.log("📱 [WEBSOCKET] Received data:", { status: data.status, phoneCount: data.phoneCount, phoneInfo: data.phoneInfo });
               }
             } else if (data.type === "error") {
               console.error("WebSocket error message:", data.message);
@@ -6212,10 +6115,18 @@ function Main() {
 
   const selectChat = useCallback(
     async (chatId: string, contactId?: string, contactSelect?: Contact) => {
+      // Clear messages and show skeleton immediately
       setMessages([]);
-      setAllMessages([]); // Clear all messages as well
+      setAllMessages([]);
+      setIsLoadingMessages(true); // Show skeleton UI immediately
       setIsFetchingMessages(true);
-      console.log("selecting chat");
+      console.log("🔍 SELECTING CHAT DEBUG:", {
+        chatId,
+        contactId,
+        contactSelect_contact_id: contactSelect?.contact_id,
+        contactSelect_chat_id: contactSelect?.chat_id,
+        contactSelect_id: contactSelect?.id
+      });
 
       try {
         // Stop current polling before switching chats
@@ -6250,6 +6161,7 @@ function Main() {
           )
         ) {
           toast.error("You don't have permission to view this chat.");
+          setIsLoadingMessages(false);
           return;
         }
 
@@ -6257,14 +6169,23 @@ function Main() {
         let contact = contactSelect || contacts.find((c) => c.id === contactId);
         if (!contact) {
           console.error("Contact not found");
+          setIsLoadingMessages(false);
           return;
         }
         console.log(contact);
-        // Update UI state immediately
+        
+        // Update UI state immediately for instant responsiveness
         setSelectedContact(contact);
         setSelectedContactId(contact.chat_id ?? null);
         setSelectedChatId(chatId);
         setIsChatActive(true);
+        
+        console.log("🔍 SELECTED CHAT STATE UPDATE:", {
+          contact,
+          chatId,
+          contactId,
+          selectedChatId: chatId
+        });
 
         // Immediately reset unread count in local state
         const resetUnreadCount = (contactItem: Contact) => {
@@ -6354,7 +6275,10 @@ function Main() {
         toast.error(
           "An error occurred while loading the chat. Please try again."
         );
+        setIsLoadingMessages(false);
       } finally {
+        // Note: setIsLoadingMessages(false) will be called by fetchMessages when complete
+        setIsFetchingMessages(false);
       }
     },
     [contacts, userRole, userData?.name, whapiToken, companyId, baseUrl]
@@ -6993,7 +6917,7 @@ function Main() {
         formattedMessages.sort((a, b) => {
           const aTime = new Date(a.timestamp || a.createdAt || 0).getTime();
           const bTime = new Date(b.timestamp || b.createdAt || 0).getTime();
-          return aTime - bTime;
+          return aTime - bTime; // Oldest first (for proper chat display)
         });
 
         // Cache the formatted messages using contactId
@@ -7029,7 +6953,11 @@ function Main() {
       console.log(selectedChatId);
       setMessages([]);
       setAllMessages([]); // Clear all messages as well
-      fetchMessages(selectedChatId, whapiToken!);
+      
+      // Load messages asynchronously without blocking UI
+      setTimeout(() => {
+        fetchMessages(selectedChatId, whapiToken!);
+      }, 0);
 
       // Immediately check for new messages to ensure real-time updates
       setTimeout(() => {
@@ -7090,6 +7018,7 @@ function Main() {
         setMessagePage(0);
         setHasMoreMessages(cachedMessages.length === MESSAGES_PER_PAGE);
         setLoading(false);
+        setIsLoadingMessages(false);
         return;
       } else {
         console.log(
@@ -7139,6 +7068,7 @@ function Main() {
       const offset = page * MESSAGES_PER_PAGE;
       const apiUrl = `${baseUrl}/api/message-pages?chatId=${selectedChatId}&companyId=${companyId}&limit=${MESSAGES_PER_PAGE}&offset=${offset}`;
       console.log(`📡 Working fetchMessages API URL: ${apiUrl}`);
+      console.log(`🔍 FETCH MESSAGES DEBUG - selectedChatId: ${selectedChatId}`);
 
       const messagesResponse = await fetch(apiUrl, {
         credentials: "include",
@@ -7388,23 +7318,45 @@ function Main() {
         }
       });
 
-      // Add reactions to the respective messages
+      // Add reactions to the respective messages using chunked processing for better performance
       console.log("Reactions map before applying:", reactionsMap); // Debug log
-      formattedMessages.forEach((message) => {
-        if (reactionsMap[message.id]) {
-          message.reactions = reactionsMap[message.id];
-          console.log(
-            `Added reactions to message ${message.id}:`,
-            message.reactions
-          ); // Debug log
-        }
+      
+      // Process reactions in chunks to avoid blocking UI
+      const CHUNK_SIZE = 50;
+      await new Promise((resolve) => {
+        let index = 0;
+        const processChunk = () => {
+          const endIndex = Math.min(index + CHUNK_SIZE, formattedMessages.length);
+          
+          for (let i = index; i < endIndex; i++) {
+            const message = formattedMessages[i];
+            if (reactionsMap[message.id]) {
+              message.reactions = reactionsMap[message.id];
+              console.log(
+                `Added reactions to message ${message.id}:`,
+                message.reactions
+              ); // Debug log
+            }
+          }
+          
+          index = endIndex;
+          
+          if (index < formattedMessages.length) {
+            // Process next chunk after allowing UI update
+            setTimeout(processChunk, 0);
+          } else {
+            resolve(null);
+          }
+        };
+        
+        processChunk();
       });
 
       // Sort messages by timestamp to ensure proper chronological order
       formattedMessages.sort((a, b) => {
         const aTime = new Date(a.timestamp || a.createdAt || 0).getTime();
         const bTime = new Date(b.timestamp || b.createdAt || 0).getTime();
-        return aTime - bTime; // Oldest first
+        return aTime - bTime; // Oldest first (for proper chat display)
       });
 
       // Preserve temporary messages when merging with fetched messages
@@ -7436,7 +7388,7 @@ function Main() {
       mergedMessages.sort((a, b) => {
         const aTime = new Date(a.timestamp || a.createdAt || 0).getTime();
         const bTime = new Date(b.timestamp || b.createdAt || 0).getTime();
-        return aTime - bTime; // Oldest first
+        return aTime - bTime; // Oldest first (for proper chat display)
       });
 
       console.log("formattedMessages:", mergedMessages);
@@ -7450,6 +7402,13 @@ function Main() {
 
         // Cache the first page messages
         setCachedMessages(selectedChatId, mergedMessages);
+        
+        // Scroll to bottom to show latest messages after initial load
+        setTimeout(() => {
+          if (messageListRef.current) {
+            messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+          }
+        }, 100);
       } else {
         // Load more - append to existing messages
         setAllMessages((prev) => [...prev, ...mergedMessages]);
@@ -7472,6 +7431,7 @@ function Main() {
       console.error("Failed to fetch messages:", error);
     } finally {
       setLoading(false);
+      setIsLoadingMessages(false);
     }
   }
 
@@ -7676,9 +7636,7 @@ function Main() {
                 break;
 
               case "location":
-                formattedMessage.location = message.content
-                  ? JSON.parse(message.content)
-                  : null;
+                formattedMessage.location = "User shared a location";
                 break;
 
               case "order":
@@ -7750,7 +7708,7 @@ function Main() {
         formattedNewMessages.sort((a, b) => {
           const aTime = new Date(a.timestamp || a.createdAt || 0).getTime();
           const bTime = new Date(b.timestamp || b.createdAt || 0).getTime();
-          return aTime - bTime; // Oldest first
+          return aTime - bTime; // Oldest first (for proper chat display)
         });
 
         // Add new messages to existing all messages
@@ -7800,7 +7758,7 @@ function Main() {
             mergedMessages.sort((a, b) => {
               const aTime = new Date(a.timestamp || a.createdAt || 0).getTime();
               const bTime = new Date(b.timestamp || b.createdAt || 0).getTime();
-              return aTime - bTime; // Oldest first
+              return aTime - bTime; // Oldest first (for proper chat display)
             });
 
             // Store updated messages in localStorage
@@ -8121,7 +8079,7 @@ function Main() {
       formattedMessages.sort((a, b) => {
         const aTime = new Date(a.timestamp || a.createdAt || 0).getTime();
         const bTime = new Date(b.timestamp || b.createdAt || 0).getTime();
-        return aTime - bTime; // Oldest first
+        return aTime - bTime; // Oldest first (for proper chat display)
       });
 
       // Preserve temporary messages when merging with fetched messages
@@ -8153,7 +8111,7 @@ function Main() {
       mergedMessages.sort((a, b) => {
         const aTime = new Date(a.timestamp || a.createdAt || 0).getTime();
         const bTime = new Date(b.timestamp || b.createdAt || 0).getTime();
-        return aTime - bTime; // Oldest first
+        return aTime - bTime; // Oldest first (for proper chat display)
       });
 
 
@@ -13166,7 +13124,15 @@ function Main() {
                       ? "bg-gradient-to-r from-blue-50/80 to-purple-50/80 dark:from-blue-900/30 dark:to-purple-900/30 backdrop-blur-md border-2 border-blue-400/60 dark:border-blue-500/60 shadow-xl shadow-blue-500/30 dark:shadow-blue-400/30 ring-4 ring-blue-500/20 dark:ring-blue-400/20 scale-[1.02] animate-pulse selected-contact"
                       : "backdrop-blur-sm border-0 hover:bg-white/20 dark:hover:bg-gray-700/30 hover:border hover:border-blue-300/30 dark:hover:border-blue-500/30"
                   }`}
-                  onClick={() => selectChat(contact.contact_id!, contact.id!)}
+                  onClick={() => {
+                    console.log("🔍 CLICK DEBUG:", {
+                      contact_id: contact.contact_id,
+                      chat_id: contact.chat_id,
+                      id: contact.id,
+                      phone: contact.phone
+                    });
+                    selectChat(contact.contact_id!, contact.id!, contact);
+                  }}
                   onContextMenu={(e) => handleContextMenu(e, contact)}
                   title="Right-click for more options"
                 >
@@ -13863,8 +13829,12 @@ function Main() {
             >
               {selectedChatId && (
                 <>
+                  {/* Show skeleton when loading messages */}
+                  {isLoadingMessages && (
+                    <MessageSkeleton count={8} />
+                  )}
                   {/* Lazy loading indicator */}
-                  {isFetchingMessages && (
+                  {isFetchingMessages && !isLoadingMessages && (
                     <div className="flex justify-center py-4">
                       <div className="flex items-center space-x-2 px-6 py-3 rounded-xl bg-blue-500/20 dark:bg-blue-600/20 border border-blue-400/30 dark:border-blue-500/30 text-blue-700 dark:text-blue-300 font-medium text-sm">
                         <LoadingIcon
@@ -13913,7 +13883,7 @@ function Main() {
                       ) : null}
                     </div>
                   )}
-                  {displayedMessages
+                  {!isLoadingMessages && displayedMessages
                     .filter(
                       (message) =>
                         message.type !== "action" &&
@@ -15889,6 +15859,14 @@ function Main() {
                       const isCurrentPhone =
                         userData?.phone === phoneIndexOption;
 
+                      // DEBUG: Log each phone's status for troubleshooting
+                      console.log(`📱 MODAL - Phone ${phoneIndexOption} (${phoneName}):`, {
+                        status: phoneStatus,
+                        isConnected,
+                        isCurrentPhone,
+                        phoneInfo: qrCode.phoneInfo
+                      });
+
                       // Get status display info
                       const getStatusInfo = (status: string | undefined) => {
                         switch (status?.toLowerCase()) {
@@ -15950,7 +15928,9 @@ function Main() {
                                   className={`p-3 rounded-xl shadow-md transition-all duration-300 ${
                                     isCurrentPhone
                                       ? "bg-gradient-to-br from-blue-500 to-indigo-600 shadow-blue-200 dark:shadow-blue-900/50"
-                                      : "bg-gradient-to-br from-gray-400 to-gray-500 group-hover:from-blue-400 group-hover:to-indigo-500"
+                                      : isConnected
+                                      ? "bg-gradient-to-br from-gray-400 to-gray-500 group-hover:from-blue-400 group-hover:to-indigo-500"
+                                      : "bg-gradient-to-br from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700"
                                   }`}
                                 >
                                   <Lucide
@@ -15967,7 +15947,9 @@ function Main() {
                                   className={`text-lg font-semibold ${
                                     isCurrentPhone
                                       ? "text-blue-900 dark:text-blue-100"
-                                      : "text-gray-900 dark:text-white group-hover:text-blue-900 dark:group-hover:text-blue-100"
+                                      : isConnected
+                                      ? "text-gray-900 dark:text-white group-hover:text-blue-900 dark:group-hover:text-blue-100"
+                                      : "text-gray-500 dark:text-gray-400"
                                   }`}
                                 >
                                   {phoneName} {statusInfo.icon}
@@ -15978,7 +15960,11 @@ function Main() {
                                       Active
                                     </span>
                                   )}
-                                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                                  <span className={`text-xs ${
+                                    isConnected || isCurrentPhone
+                                      ? "text-gray-500 dark:text-gray-400"
+                                      : "text-gray-400 dark:text-gray-500"
+                                  }`}>
                                     {qrCode.phoneInfo || `Phone ${phoneIndexOption + 1}`}
                                   </span>
                                 </div>
@@ -16010,12 +15996,12 @@ function Main() {
                   )}
                 </div>
 
-                {/* Connect Phones Button - Show when no phones are connected */}
+                {/* Connect Phones Button - Show when there are phones that need connection */}
                 {qrCodes && qrCodes.length > 0 &&
-                  !qrCodes.some((qrCode) => {
+                  qrCodes.some((qrCode) => {
                     const phoneStatus = qrCode?.status || "unknown";
-                    const isConnected = phoneStatus === "ready" || phoneStatus === "authenticated";
-                    return isConnected;
+                    const needsConnection = phoneStatus !== "ready" && phoneStatus !== "authenticated";
+                    return needsConnection;
                   }) && (
                   <div className="mb-6">
                     <button
@@ -16035,9 +16021,9 @@ function Main() {
                           <Lucide icon="Wifi" className="w-5 h-5" />
                         </div>
                         <div className="flex flex-col items-start">
-                          <span className="text-base font-bold">Connect Phones</span>
+                          <span className="text-base font-bold">Connect Additional Phones</span>
                           <span className="text-xs text-blue-100 group-hover:text-white transition-colors duration-300">
-                            Set up WhatsApp connection
+                            Set up remaining WhatsApp connections
                           </span>
                         </div>
                       </div>
