@@ -3729,13 +3729,17 @@ function Main() {
       const name = (contact.contactName || "").toLowerCase();
       const phone = (contact.phone || "").toLowerCase();
       const tags = (contact.tags || []).map((tag) => tag.toLowerCase());
+      const lastName = (contact.lastName || "").toLowerCase();
+      const notes = (contact.notes || "").toLowerCase();
       const searchTerm = searchQuery.toLowerCase();
 
       // Check basic fields
       const basicFieldMatch =
         name.includes(searchTerm) ||
         phone.includes(searchTerm) ||
-        tags.some((tag) => tag.includes(searchTerm));
+        tags.some((tag) => tag.includes(searchTerm)) ||
+        lastName.includes(searchTerm) ||
+        notes.includes(searchTerm);
 
       // Check custom fields
       const customFieldMatch = contact.customFields
